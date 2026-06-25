@@ -13,13 +13,13 @@ import com.mediavault.R
 import com.mediavault.data.MediaItem
 import java.io.File
 
-class VideoCardAdapter(
+class MediaRowAdapter(
     private val onCoverClick: (MediaItem) -> Unit,
     private val onInfoClick: (MediaItem) -> Unit,
-) : ListAdapter<MediaItem, VideoCardAdapter.VH>(Diff) {
+) : ListAdapter<MediaItem, MediaRowAdapter.VH>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-        val v = LayoutInflater.from(parent.context).inflate(R.layout.item_video_card, parent, false)
+        val v = LayoutInflater.from(parent.context).inflate(R.layout.item_media_row, parent, false)
         return VH(v, onCoverClick, onInfoClick)
     }
 
@@ -30,20 +30,18 @@ class VideoCardAdapter(
         private val onCoverClick: (MediaItem) -> Unit,
         private val onInfoClick: (MediaItem) -> Unit,
     ) : RecyclerView.ViewHolder(itemView) {
-        private val title: TextView = itemView.findViewById(R.id.titleText)
-        private val meta: TextView = itemView.findViewById(R.id.metaText)
-        private val cover: ImageView = itemView.findViewById(R.id.coverImage)
-        private val placeholder: TextView = itemView.findViewById(R.id.coverPlaceholder)
-        private val coverArea: View = itemView.findViewById(R.id.coverClickArea)
-        private val infoArea: View = itemView.findViewById(R.id.infoClickArea)
-        private val chips: com.google.android.material.chip.ChipGroup = itemView.findViewById(R.id.tagChips)
+        private val title: TextView = itemView.findViewById(R.id.rowTitle)
+        private val meta: TextView = itemView.findViewById(R.id.rowMeta)
+        private val cover: ImageView = itemView.findViewById(R.id.rowCover)
+        private val placeholder: TextView = itemView.findViewById(R.id.rowCoverPlaceholder)
+        private val coverArea: View = itemView.findViewById(R.id.rowCoverArea)
+        private val infoArea: View = itemView.findViewById(R.id.rowInfoArea)
 
         fun bind(item: MediaItem) {
             title.text = item.displayTitle()
-            val ep = item.episodeLabel()
-            meta.text = ep
-            meta.visibility = if (ep.isBlank()) View.GONE else View.VISIBLE
-
+            val sub = LibraryUi.rowSubtitle(item)
+            meta.text = sub
+            meta.visibility = if (sub.isBlank()) View.GONE else View.VISIBLE
             val local = item.coverLocalPath()
             if (local != null && File(local).isFile) {
                 cover.setImageBitmap(BitmapFactory.decodeFile(local))
@@ -54,23 +52,8 @@ class VideoCardAdapter(
                 cover.visibility = View.GONE
                 placeholder.visibility = View.VISIBLE
             }
-
-            chips.removeAllViews()
-            val tags = (item.tags + item.genres).distinct().take(4)
-            val ctx = itemView.context
-            for (t in tags) {
-                val chip = com.google.android.material.chip.Chip(ctx)
-                chip.text = t
-                chip.isClickable = false
-                chip.chipBackgroundColor = ctx.getColorStateList(R.color.mv_surface2)
-                chip.setTextColor(ctx.getColor(R.color.mv_text_secondary))
-                chip.textSize = 10f
-                chips.addView(chip)
-            }
             coverArea.setOnClickListener { onCoverClick(item) }
             infoArea.setOnClickListener { onInfoClick(item) }
-            itemView.setOnClickListener(null)
-            itemView.setOnLongClickListener(null)
         }
     }
 

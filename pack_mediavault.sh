@@ -6,7 +6,8 @@ export ANDROID_HOME="${ANDROID_HOME:-$HOME/android-sdk}"
 cd "$ROOT"
 gradle assembleDebug --no-daemon
 OUT="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
-DEST="$(dirname "$ROOT")/MediaVault_0.3.0_debug.apk"
+VN=$(grep versionName "$ROOT/app/build.gradle.kts" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+DEST="$(dirname "$ROOT")/MediaVault_${VN}_debug.apk"
 cp -f "$OUT" "$DEST"
 ls -lh "$OUT" "$DEST"
 aapt dump badging "$OUT" 2>/dev/null | head -3

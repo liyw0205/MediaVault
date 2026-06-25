@@ -11,71 +11,60 @@
         android:layout_height="wrap_content"
         android:background="@color/mv_surface"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:paddingHorizontal="10dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="6dp">
 
-        <com.google.android.material.textfield.TextInputLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/search_hint">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/searchInput"
-                android:layout_width="match_parent"
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:imeOptions="actionSearch"
-                android:inputType="text"
-                android:textColor="@color/mv_text" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_weight="1"
+                android:hint="@string/search_hint">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/clearSearchBtn"
-            style="@style/Widget.MediaVault.Button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:layout_marginTop="6dp"
-            android:text="@string/clear_search"
-            android:textSize="12sp" />
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/searchInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:minHeight="40dp"
+                    android:textColor="@color/mv_text" />
+            </com.google.android.material.textfield.TextInputLayout>
 
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:scrollbars="none">
-
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/matchedTags"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clearSearchBtn"
+                style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:singleLine="true" />
-        </HorizontalScrollView>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="12dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/search_results"
-            android:textColor="@color/mv_text"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+                android:layout_marginStart="6dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:text="@string/clear_search"
+                android:textSize="12sp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/searchCount"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/mv_surface2"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="4dp"
-            android:textColor="@color/mv_primary"
-            android:textSize="12sp" />
+            android:layout_marginTop="4dp"
+            android:textColor="@color/mv_muted"
+            android:textSize="11sp" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/matchedTags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            app:chipSpacingHorizontal="4dp"
+            app:chipSpacingVertical="4dp"
+            app:singleLine="false" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

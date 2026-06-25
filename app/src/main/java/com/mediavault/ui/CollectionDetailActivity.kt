@@ -1,10 +1,8 @@
 package com.mediavault.ui
 
-import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.mediavault.MediaVaultApp
@@ -25,18 +23,17 @@ class CollectionDetailActivity : AppCompatActivity() {
             ?: run { finish(); return }
 
         findViewById<MaterialToolbar>(R.id.collectionToolbar).apply {
-            title = group.title
+            title = "${group.title} · ${getString(R.string.collection_count, group.items.size)}"
             setNavigationOnClickListener { finish() }
         }
 
-        val grid = findViewById<RecyclerView>(R.id.collectionGrid)
-        val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
-        grid.layoutManager = GridLayoutManager(this, span)
-        val adapter = VideoCardAdapter(
-            onClick = { play(it) },
-            onLongClick = { startActivity(VideoDetailActivity.intent(this, it.path)) },
+        val list = findViewById<RecyclerView>(R.id.collectionGrid)
+        list.layoutManager = LinearLayoutManager(this)
+        val adapter = MediaRowAdapter(
+            onCoverClick = { play(it) },
+            onInfoClick = { startActivity(VideoDetailActivity.intent(this, it.path)) },
         )
-        grid.adapter = adapter
+        list.adapter = adapter
         adapter.submitList(group.items)
     }
 
@@ -46,9 +43,9 @@ class CollectionDetailActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val EXTRA_KEY = "key"
+        private const val EXTRA_KEY = "collection_key"
 
-        fun intent(ctx: Context, collectionKey: String): Intent =
-            Intent(ctx, CollectionDetailActivity::class.java).putExtra(EXTRA_KEY, collectionKey)
+        fun intent(ctx: android.content.Context, key: String) =
+            android.content.Intent(ctx, CollectionDetailActivity::class.java).putExtra(EXTRA_KEY, key)
     }
 }

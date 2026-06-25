@@ -58,17 +58,37 @@ object SidecarScanner {
 
     fun findCoverUri(dir: DocumentFile, videoName: String): Uri? {
         val base = videoName.substringBeforeLast('.')
-        val names = mutableListOf<String>()
+        val ordered = mutableListOf<String>()
         for (ext in IMG_EXT) {
-            names += "$base.$ext"
-            names += "$base-poster.$ext"
-            names += "$base-cover.$ext"
-            names += "$base-thumb.$ext"
-            names += "$base-thumbnail.$ext"
-            names += "$base-fanart.$ext"
-            names += "$videoName.$ext"
+            ordered += "$videoName.$ext"
+            ordered += "$base.$ext"
         }
-        for (name in names) {
+        for (ext in IMG_EXT) {
+            ordered += "fanart.$ext"
+            ordered += "$base-fanart.$ext"
+            ordered += "$base.fanart.$ext"
+        }
+        for (ext in IMG_EXT) {
+            ordered += "poster.$ext"
+            ordered += "$base-poster.$ext"
+            ordered += "$base.poster.$ext"
+        }
+        for (ext in IMG_EXT) {
+            ordered += "folder.$ext"
+            ordered += "cover.$ext"
+            ordered += "$base-cover.$ext"
+            ordered += "$base-thumb.$ext"
+            ordered += "$base-thumbnail.$ext"
+            ordered += "thumb.$ext"
+        }
+        for (child in dir.listFiles()) {
+            if (!child.isFile) continue
+            val name = child.name ?: continue
+            val ext = name.substringAfterLast('.', "").lowercase()
+            if (ext !in IMG_EXT) continue
+            if (name !in ordered) ordered += name
+        }
+        for (name in ordered) {
             val f = dir.findFile(name) ?: continue
             if (f.isFile) return f.uri
         }

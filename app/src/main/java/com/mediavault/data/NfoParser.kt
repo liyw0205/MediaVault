@@ -33,10 +33,12 @@ object NfoParser {
             val v = first(tag)
             if (v.isNotBlank()) o.put(tag, v)
         }
-        val setName = first("set").ifBlank {
-            Regex("<set[^>]*>\\s*<name>([^<]*)</name>", RegexOption.IGNORE_CASE)
-                .find(xml)?.groupValues?.get(1)?.trim().orEmpty()
-        }
+        val setName = Regex("<set[^>]*>\\s*<name>([^<]*)</name>", RegexOption.IGNORE_CASE)
+            .find(xml)?.groupValues?.get(1)?.trim().orEmpty()
+            .ifBlank {
+                val inner = first("set")
+                inner.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim()
+            }
         if (setName.isNotBlank()) o.put("set_name", setName)
 
         val genres = JSONArray()

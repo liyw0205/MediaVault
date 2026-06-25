@@ -10,7 +10,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mediavault.R
-import com.mediavault.data.MediaItem
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -21,13 +20,13 @@ class CollectionsFragment : Fragment() {
         inflater.inflate(R.layout.fragment_collections, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        val list = view.findViewById<RecyclerView>(R.id.collectionsRecycler)
+        list.layoutManager = LinearLayoutManager(requireContext())
         adapter = CollectionAdapter { g ->
             startActivity(CollectionDetailActivity.intent(requireContext(), g.key))
         }
-        view.findViewById<RecyclerView>(R.id.collectionsRecycler).apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@CollectionsFragment.adapter
-        }
+        list.adapter = adapter
+
         val act = activity as? MainActivity ?: return
         viewLifecycleOwner.lifecycleScope.launch {
             act.repository.library.collectLatest { lib ->
@@ -37,12 +36,5 @@ class CollectionsFragment : Fragment() {
                     if (groups.isEmpty()) View.VISIBLE else View.GONE
             }
         }
-    }
-
-    fun refreshFromParent() {
-        view ?: return
-        val act = activity as? MainActivity ?: return
-        val groups = LibraryUi.collectionGroups(act.repository.library.value.items)
-        adapter.submitList(groups)
     }
 }

@@ -32,14 +32,13 @@
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/addRootBtn"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:backgroundTint="@color/mv_primary"
-                    android:text="@string/add_local_root"
-                    android:textColor="@color/mv_on_primary" />
+                    android:layout_marginTop="6dp"
+                    android:text="@string/scrape_roots_readonly_hint"
+                    android:textColor="@color/mv_text_secondary"
+                    android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/rootsList"
@@ -79,6 +78,30 @@
                     android:layout_marginTop="6dp"
                     android:text="@string/scrape_sidecar_hint"
                     android:textColor="@color/mv_text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/scrape_threads_label"
+                    android:textColor="@color/mv_text_secondary"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/scrapeThreadSlider"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:stepSize="1"
+                    android:valueFrom="1"
+                    android:valueTo="32"
+                    app:labelBehavior="gone" />
+
+                <TextView
+                    android:id="@+id/scrapeThreadValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/mv_muted"
                     android:textSize="12sp" />
 
                 <LinearLayout

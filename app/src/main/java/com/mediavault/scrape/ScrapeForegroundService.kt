@@ -13,6 +13,7 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.LocalScanner
 import com.mediavault.data.MediaItem
+import com.mediavault.data.ScrapeConfig
 import com.mediavault.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,19 +21,22 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class ScrapeForegroundService : Service() {
     companion object {
         const val EXTRA_REBUILD = "rebuild"
         private const val CHANNEL_ID = "mediavault_scrape"
         private const val NOTIF_ID = 4102
-        const val BATCH_SIZE = 25
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var workJob: Job? = null
     @Volatile
     private var cancelRequested = false
+    private val persistMutex = Mutex()
 
     private val app get() = application as MediaVaultApp
     private val manager get() = app.scrapeManager
@@ -67,34 +71,34 @@ class ScrapeForegroundService : Service() {
             repository.stripContentItems()
         }
 
+        val threads = ScrapeConfig.readThreadCount(this)
         var scannedThisRun = 0
-        var batchBuffer = mutableListOf<MediaItem>()
 
-        fun flushBatch(reason: String) {
-            if (batchBuffer.isEmpty()) return
-            val n = batchBuffer.size
-            repository.appendContentBatch(batchBuffer).onSuccess { total ->
-                scannedThisRun += n
-                val msg = "$reason · 已入库 $scannedThisRun 条（库 $total）"
-                manager.onProgress(msg, scannedThisRun, total)
-                updateNotification(msg, scannedThisRun)
-                batchBuffer = mutableListOf()
-            }.onFailure { e ->
-                manager.onError(e.message ?: "写入失败")
-                throw e
+        suspend fun persistOne(item: MediaItem) {
+            persistMutex.withLock {
+                repository.appendSingleContentItem(item).onSuccess { total ->
+                    scannedThisRun++
+                    val msg = "已入库 $scannedThisRun 条（库 $total）· ${item.displayTitle()}"
+                    manager.onProgress(msg, scannedThisRun, total)
+                    updateNotification(msg, scannedThisRun)
+                }.onFailure { e ->
+                    manager.onError(e.message ?: "写入失败")
+                    throw e
+                }
             }
         }
 
         try {
-            LocalScanner.scanTreeUrisBatched(
+            LocalScanner.scanTreeUrisParallel(
                 this,
                 store,
                 rebuild,
-                batchSize = BATCH_SIZE,
+                threadCount = threads,
                 shouldCancel = { cancelRequested },
                 onFile = { item ->
-                    batchBuffer.add(item)
-                    if (batchBuffer.size >= BATCH_SIZE) flushBatch("批次")
+                    runBlocking {
+                        persistOne(item)
+                    }
                 },
                 onStatus = { msg ->
                     val total = repository.library.value.items.size
@@ -102,18 +106,15 @@ class ScrapeForegroundService : Service() {
                     updateNotification(msg, scannedThisRun)
                 },
             )
-            flushBatch("收尾")
             if (cancelRequested) {
                 manager.onCancelled(scannedThisRun, repository.library.value.items.size)
             } else {
                 manager.onFinished(repository.library.value.items.size, scannedThisRun)
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
-            flushBatch("中断前")
             manager.onCancelled(scannedThisRun, repository.library.value.items.size)
         } catch (e: Exception) {
             if (manager.state.value.phase != ScrapePhase.ERROR) {
-                flushBatch("出错前")
                 manager.onError(e.message ?: e.toString())
             }
         }

@@ -7,7 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.chip.Chip
@@ -26,6 +26,10 @@ class VideoDetailActivity : AppCompatActivity() {
         setContentView(R.layout.activity_video_detail)
 
         val path = intent.getStringExtra(EXTRA_PATH) ?: run { finish(); return }
+        bind(path)
+    }
+
+    private fun bind(path: String) {
         val repo = (application as MediaVaultApp).repository
         val item = repo.library.value.items.find { it.path == path } ?: run {
             finish()
@@ -45,7 +49,9 @@ class VideoDetailActivity : AppCompatActivity() {
         }
 
         val collectionChip = findViewById<Chip>(R.id.chipCollection)
-        val collTitle = group?.title ?: item.collection.ifBlank { item.collectionKey() }
+        val collTitle = group?.title ?: LibraryUi.sanitizeCollectionName(
+            item.collection.ifBlank { item.collectionKey() },
+        )
         collectionChip.text = collTitle
         collectionChip.setOnClickListener {
             if (group != null) {
@@ -73,33 +79,73 @@ class VideoDetailActivity : AppCompatActivity() {
             tagGroup.addView(chip)
         }
 
+        bindNfoFields(item)
+
         val coverPath = item.coverLocalPath()
         val coverView = findViewById<android.widget.ImageView>(R.id.detailCover)
         if (coverPath != null && File(coverPath).isFile) {
             coverView.setImageBitmap(BitmapFactory.decodeFile(coverPath))
+        } else {
+            coverView.setImageDrawable(null)
         }
 
         findViewById<View>(R.id.btnPlay).setOnClickListener { play(item) }
-        findViewById<View>(R.id.detailCover).setOnClickListener { play(item) }
+        coverView.setOnClickListener { play(item) }
 
         val related = findViewById<RecyclerView>(R.id.relatedRecycler)
-        val span = if (resources.configuration.smallestScreenWidthDp >= 600) 3 else 2
-        related.layoutManager = GridLayoutManager(this, span)
-        val adapter = VideoCardAdapter(
-            onClick = { play(it) },
-            onLongClick = { openDetail(it.path) },
+        related.layoutManager = LinearLayoutManager(this)
+        val adapter = MediaRowAdapter(
+            onCoverClick = { play(it) },
+            onInfoClick = { switchTo(it.path) },
         )
         related.adapter = adapter
         adapter.submitList(group?.items ?: listOf(item))
     }
 
+    private fun bindNfoFields(item: MediaItem) {
+        val grid = findViewById<android.view.ViewGroup>(R.id.nfoInfoGrid) ?: return
+        grid.removeAllViews()
+        val rows = linkedMapOf<String, String>()
+        fun put(label: String, key: String) {
+            val v = item.raw.optString(key, "").trim()
+            if (v.isNotBlank()) rows[label] = v
+        }
+        put("原标题", "originaltitle")
+        put("日文名", "title_jp")
+        put("罗马音", "title_rm")
+        put("年份", "year")
+        put("首播", "premiered")
+        put("上映", "releasedate")
+        put("制片", "studio")
+        put("国家", "country")
+        put("导演", "director")
+        put("编剧", "writer")
+        put("分级", "mpaa")
+        put("评分", "rating")
+        put("时长", "runtime")
+        put("状态", "status")
+        put("标语", "tagline")
+        if (rows.isEmpty()) {
+            findViewById<View>(R.id.nfoInfoSection)?.visibility = View.GONE
+            return
+        }
+        findViewById<View>(R.id.nfoInfoSection)?.visibility = View.VISIBLE
+        for ((label, value) in rows) {
+            val row = layoutInflater.inflate(R.layout.item_nfo_row, grid, false)
+            row.findViewById<TextView>(R.id.nfoLabel).text = label
+            row.findViewById<TextView>(R.id.nfoValue).text = value
+            grid.addView(row)
+        }
+    }
+
+    private fun switchTo(path: String) {
+        intent.putExtra(EXTRA_PATH, path)
+        bind(path)
+    }
+
     private fun play(item: MediaItem) {
         historyStore.add(item.path)
         startActivity(PlayerActivity.intent(this, item.path, item.displayTitle()))
-    }
-
-    private fun openDetail(path: String) {
-        startActivity(intent(this, path))
     }
 
     companion object {

@@ -39,6 +39,16 @@ class LibraryRepository(context: Context) {
 
     /** 刮削每批次：合并 content:// 条目并写盘，返回当前库条数 */
     fun appendContentBatch(batch: List<MediaItem>): Result<Int> = runCatching {
+        if (batch.isEmpty()) return@runCatching _library.value.items.size
+        mergeAndPersist(batch)
+    }
+
+    /** 单条刮削完成即落库（多线程刮削用） */
+    fun appendSingleContentItem(item: MediaItem): Result<Int> = runCatching {
+        mergeAndPersist(listOf(item))
+    }
+
+    private fun mergeAndPersist(batch: List<MediaItem>): Int {
         val existing = _library.value.items
         val byPath = existing.associateBy { it.path }.toMutableMap()
         for (item in batch) {
@@ -47,7 +57,7 @@ class LibraryRepository(context: Context) {
         val merged = byPath.values.toList()
         store.writeLibraryJson(merged).getOrThrow()
         reload()
-        merged.size
+        return merged.size
     }
 
     /** 全部重新刮削前：去掉库中所有 SAF/content 条目 */

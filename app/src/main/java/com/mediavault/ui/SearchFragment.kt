@@ -16,18 +16,12 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.textfield.TextInputEditText
 import com.mediavault.R
-import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class SearchFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
-    private val historyStore by lazy { HistoryStore(requireContext()) }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-    }
 
     companion object {
         private const val ARG_QUERY = "q"
@@ -44,8 +38,8 @@ class SearchFragment : Fragment() {
         val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
         grid.layoutManager = GridLayoutManager(requireContext(), span)
         adapter = VideoCardAdapter(
-            onClick = { openItem(it) },
-            onLongClick = { startActivity(VideoDetailActivity.intent(requireContext(), it.path)) },
+            onCoverClick = { openDetail(it) },
+            onInfoClick = { openDetail(it) },
         )
         grid.adapter = adapter
 
@@ -73,25 +67,49 @@ class SearchFragment : Fragment() {
 
     private fun runSearch(view: View, query: String, items: List<MediaItem>? = null) {
         val all = items ?: (activity as MainActivity).repository.library.value.items
-        val hits = LibraryUi.search(all, query)
+        val q = query.trim()
+        val hits = if (q.isBlank()) emptyList() else LibraryUi.search(all, query)
         adapter.submitList(hits)
-        view.findViewById<TextView>(R.id.searchCount).text = getString(R.string.search_count, hits.size)
+
         val tagGroup = view.findViewById<ChipGroup>(R.id.matchedTags)
-        tagGroup.removeAllViews()
-        for (t in LibraryUi.matchedTags(all, query)) {
-            val chip = Chip(requireContext())
-            chip.text = t
-            chip.isClickable = true
-            chip.setOnClickListener {
-                view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
+        val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
+        val countTv = view.findViewById<TextView>(R.id.searchCount)
+
+        if (q.isBlank()) {
+            grid.visibility = View.GONE
+            tagGroup.visibility = View.VISIBLE
+            countTv.text = getString(R.string.search_tags_only_hint, LibraryUi.allTags(all).size)
+            tagGroup.removeAllViews()
+            for (t in LibraryUi.allTags(all)) {
+                val chip = Chip(requireContext())
+                chip.text = t
+                chip.isClickable = true
+                chip.textSize = 11f
+                chip.setOnClickListener {
+                    view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
+                }
+                tagGroup.addView(chip)
             }
-            tagGroup.addView(chip)
+        } else {
+            grid.visibility = View.VISIBLE
+            tagGroup.visibility = View.VISIBLE
+            countTv.text = getString(R.string.search_count, hits.size)
+            tagGroup.removeAllViews()
+            for (t in LibraryUi.matchedTags(all, query)) {
+                val chip = Chip(requireContext())
+                chip.text = t
+                chip.isClickable = true
+                chip.textSize = 11f
+                chip.setOnClickListener {
+                    view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
+                }
+                tagGroup.addView(chip)
+            }
         }
     }
 
-    private fun openItem(item: MediaItem) {
-        historyStore.add(item.path)
-        (activity as? MainActivity)?.playItem(item)
+    private fun openDetail(item: MediaItem) {
+        startActivity(VideoDetailActivity.intent(requireContext(), item.path))
     }
 
     fun refreshFromParent() {

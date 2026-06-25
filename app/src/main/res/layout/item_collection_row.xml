@@ -3,86 +3,74 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="6dp"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="4dp"
     app:cardBackgroundColor="@color/mv_surface"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="0dp"
+    app:cardCornerRadius="10dp"
     app:strokeColor="@color/mv_line"
     app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:gravity="center_vertical"
+        android:minHeight="88dp"
+        android:orientation="horizontal"
+        android:padding="8dp">
 
         <FrameLayout
-            android:id="@+id/coverClickArea"
-            android:layout_width="match_parent"
-            android:layout_height="120dp"
-            android:background="@color/mv_surface2"
-            android:clickable="true"
-            android:focusable="true">
+            android:layout_width="120dp"
+            android:layout_height="72dp"
+            android:background="@color/mv_surface2">
 
             <ImageView
-                android:id="@+id/coverImage"
+                android:id="@+id/collectionCover"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:contentDescription="@null"
                 android:scaleType="centerCrop" />
 
             <TextView
-                android:id="@+id/coverPlaceholder"
+                android:id="@+id/collectionCoverPlaceholder"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:gravity="center"
-                android:text="▶"
+                android:text="集"
                 android:textColor="@color/mv_muted"
-                android:textSize="32sp" />
+                android:textSize="18sp" />
         </FrameLayout>
 
         <LinearLayout
-            android:id="@+id/infoClickArea"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:clickable="true"
-            android:focusable="true"
-            android:orientation="vertical"
-            android:paddingBottom="4dp">
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
             <TextView
-                android:id="@+id/titleText"
+                android:id="@+id/collectionTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="2"
-                android:paddingHorizontal="10dp"
-                android:paddingTop="8dp"
                 android:textColor="@color/mv_text"
-                android:textSize="14sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/metaText"
+                android:id="@+id/collectionCount"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="10dp"
+                android:layout_marginTop="4dp"
                 android:textColor="@color/mv_text_secondary"
-                android:textSize="11sp"
-                android:visibility="gone" />
+                android:textSize="12sp" />
 
-            <HorizontalScrollView
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/collectionTagChips"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="8dp"
-                android:paddingBottom="8dp"
-                android:scrollbars="none">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/tagChips"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleLine="true" />
-            </HorizontalScrollView>
+                android:layout_marginTop="4dp"
+                app:singleLine="true" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
