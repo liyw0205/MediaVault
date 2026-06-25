@@ -12,57 +12,81 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="本地媒体根（SAF 目录 URI，一行一个）"
+            android:text="@string/local_roots_title"
             android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/localRootsEdit"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/localRootsList"
             android:layout_width="match_parent"
-            android:layout_height="120dp"
-            android:gravity="top"
-            android:inputType="textMultiLine"
-            android:fontFamily="monospace"
-            android:textSize="11sp" />
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
 
         <Button
             android:id="@+id/pickLocalRootBtn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="@string/add_local_root" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="远程配置（JSON 数组）"
+            android:layout_marginTop="20dp"
+            android:text="@string/remote_roots_title"
             android:textStyle="bold" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="字段: id, type(webdav|ftp|smb), host, port, user, password, basePath, name"
-            android:textSize="12sp" />
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
 
-        <EditText
-            android:id="@+id/remotesEdit"
+            <Button
+                android:id="@+id/addWebDavBtn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:text="@string/add_webdav"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/addFtpBtn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:text="@string/add_ftp"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/addSmbBtn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/add_smb"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/remotesList"
             android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:gravity="top"
-            android:inputType="textMultiLine"
-            android:fontFamily="monospace"
-            android:textSize="11sp" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:nestedScrollingEnabled="false" />
 
         <Button
             android:id="@+id/testWebDavBtn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="测试 WebDAV 列出根目录" />
+            android:layout_marginTop="8dp"
+            android:text="@string/test_webdav" />
 
         <Button
             android:id="@+id/saveBtn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="保存" />
+            android:layout_marginTop="16dp"
+            android:text="@string/save" />
     </LinearLayout>
 </ScrollView>

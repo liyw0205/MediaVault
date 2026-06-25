@@ -63,6 +63,59 @@ class MediaStore(private val context: Context) {
         }
     }
 
+    fun removeLocalRootUri(uri: String) {
+        writeLocalRootUris(readLocalRootUris().filter { it != uri })
+    }
+
+    fun writeRemotesList(remotes: List<com.mediavault.remote.RemoteConfig>) {
+        val arr = org.json.JSONArray()
+        for (r in remotes) {
+            arr.put(org.json.JSONObject().apply {
+                put("id", r.id)
+                put("type", r.type)
+                put("host", r.host)
+                put("port", r.port)
+                put("user", r.user)
+                put("password", r.password)
+                put("basePath", r.basePath)
+                put("name", r.name)
+            })
+        }
+        remotesFile.writeText(arr.toString(2), Charsets.UTF_8)
+    }
+
+    fun readRemotesList(): List<com.mediavault.remote.RemoteConfig> =
+        runCatching { com.mediavault.remote.RemoteConfig.listFromJson(readRemotesJsonText()) }
+            .getOrDefault(emptyList())
+
+    /** 移除某根下所有 SAF 条目及刮削记录 */
+    fun removeLibraryItemsUnderRoot(rootUri: String): Int {
+        val text = readLibraryText() ?: return 0
+        val lib = MediaLibrary.parse(text, libraryFile.absolutePath)
+        val kept = lib.items.filter { item ->
+            !item.path.startsWith("content://") || !item.path.startsWith(rootUri)
+        }
+        val removed = lib.items.size - kept.size
+        if (removed > 0) writeLibraryJson(kept).getOrThrow()
+        if (scrapeRecordFile.isFile) {
+            val lines = scrapeRecordFile.readLines().filter { line ->
+                val p = line.trim()
+                p.isEmpty() || !p.startsWith(rootUri)
+            }
+            scrapeRecordFile.writeText(lines.joinToString("\n").let { if (it.isEmpty()) "" else "$it\n" })
+        }
+        return removed
+    }
+
+    fun clearScrapeRecordsUnderRoot(rootUri: String) {
+        if (!scrapeRecordFile.isFile) return
+        val lines = scrapeRecordFile.readLines().filter { line ->
+            val p = line.trim()
+            p.isEmpty() || !p.startsWith(rootUri)
+        }
+        scrapeRecordFile.writeText(lines.joinToString("\n").let { if (it.isEmpty()) "" else "$it\n" })
+    }
+
     fun readRemotesJsonText(): String {
         if (!remotesFile.isFile) return "[]"
         return remotesFile.readText(Charsets.UTF_8)

@@ -7,6 +7,7 @@ import com.mediavault.data.LibraryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
@@ -37,22 +38,28 @@ class ScrapeManager(
 
     fun isRunning(): Boolean = _state.value.phase == ScrapePhase.RUNNING
 
-    fun start(rebuild: Boolean) {
+    fun start(rebuild: Boolean, rootUris: List<String>? = null) {
         if (isRunning()) return
         writeJob(JSONObject().apply {
             put("running", true)
             put("rebuild", rebuild)
             put("interrupted", false)
             put("startedAt", now())
+            if (!rootUris.isNullOrEmpty()) {
+                put("rootUris", JSONArray(rootUris))
+            }
         })
         _state.value = ScrapeUiState(
             phase = ScrapePhase.RUNNING,
             rebuild = rebuild,
-            message = "正在启动后台刮削…",
+            message = if (rootUris.isNullOrEmpty()) "正在启动后台刮削…" else "正在刮削所选目录…",
             totalInLibrary = repository.library.value.items.size,
         )
         val intent = Intent(app, ScrapeForegroundService::class.java).apply {
             putExtra(ScrapeForegroundService.EXTRA_REBUILD, rebuild)
+            if (!rootUris.isNullOrEmpty()) {
+                putStringArrayListExtra(ScrapeForegroundService.EXTRA_ROOT_URIS, ArrayList(rootUris))
+            }
         }
         ContextCompat.startForegroundService(app, intent)
     }

@@ -28,6 +28,7 @@ import kotlinx.coroutines.sync.withLock
 class ScrapeForegroundService : Service() {
     companion object {
         const val EXTRA_REBUILD = "rebuild"
+        const val EXTRA_ROOT_URIS = "root_uris"
         private const val CHANNEL_ID = "mediavault_scrape"
         private const val NOTIF_ID = 4102
     }
@@ -46,12 +47,13 @@ class ScrapeForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val rebuild = intent?.getBooleanExtra(EXTRA_REBUILD, false) ?: false
+        val rootUris = intent?.getStringArrayListExtra(EXTRA_ROOT_URIS)
         cancelRequested = false
         createChannel()
         startForeground(NOTIF_ID, buildNotification("准备扫描…", 0))
         workJob?.cancel()
         workJob = scope.launch {
-            runScan(rebuild)
+            runScan(rebuild, rootUris)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -64,9 +66,9 @@ class ScrapeForegroundService : Service() {
         super.onDestroy()
     }
 
-    private suspend fun runScan(rebuild: Boolean) {
+    private suspend fun runScan(rebuild: Boolean, rootUris: List<String>?) {
         val store = repository.store
-        if (rebuild) {
+        if (rebuild && rootUris.isNullOrEmpty()) {
             store.clearScrapeRecord()
             repository.stripContentItems()
         }
@@ -94,6 +96,7 @@ class ScrapeForegroundService : Service() {
                 store,
                 rebuild,
                 threadCount = threads,
+                rootUrisFilter = rootUris,
                 shouldCancel = { cancelRequested },
                 onFile = { item ->
                     runBlocking {

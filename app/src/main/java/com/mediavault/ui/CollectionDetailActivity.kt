@@ -30,7 +30,7 @@ class CollectionDetailActivity : AppCompatActivity() {
         val list = findViewById<RecyclerView>(R.id.collectionGrid)
         list.layoutManager = LinearLayoutManager(this)
         val adapter = MediaRowAdapter(
-            onCoverClick = { play(it) },
+            onCoverClick = { startActivity(VideoDetailActivity.intent(this, it.path)) },
             onInfoClick = { startActivity(VideoDetailActivity.intent(this, it.path)) },
         )
         list.adapter = adapter

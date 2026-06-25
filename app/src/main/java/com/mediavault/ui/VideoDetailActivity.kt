@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
@@ -44,8 +45,12 @@ class VideoDetailActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.detailTitle).text = item.displayTitle()
         findViewById<TextView>(R.id.detailPlot).apply {
-            text = item.plot.ifBlank { getString(R.string.no_plot) }
-            visibility = if (item.plot.isBlank()) View.GONE else View.VISIBLE
+            if (item.plot.isBlank()) {
+                visibility = View.GONE
+            } else {
+                visibility = View.VISIBLE
+                PlotText.bindPlot(this, item.plot, getString(R.string.no_plot))
+            }
         }
 
         val collectionChip = findViewById<Chip>(R.id.chipCollection)
@@ -95,7 +100,7 @@ class VideoDetailActivity : AppCompatActivity() {
         val related = findViewById<RecyclerView>(R.id.relatedRecycler)
         related.layoutManager = LinearLayoutManager(this)
         val adapter = MediaRowAdapter(
-            onCoverClick = { play(it) },
+            onCoverClick = { switchTo(it.path) },
             onInfoClick = { switchTo(it.path) },
         )
         related.adapter = adapter
@@ -141,6 +146,7 @@ class VideoDetailActivity : AppCompatActivity() {
     private fun switchTo(path: String) {
         intent.putExtra(EXTRA_PATH, path)
         bind(path)
+        findViewById<NestedScrollView>(R.id.detailScroll)?.scrollTo(0, 0)
     }
 
     private fun play(item: MediaItem) {

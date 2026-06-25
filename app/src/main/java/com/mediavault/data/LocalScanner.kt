@@ -36,11 +36,15 @@ object LocalScanner {
         store: MediaStore,
         rebuild: Boolean,
         threadCount: Int,
+        rootUrisFilter: List<String>? = null,
         shouldCancel: () -> Boolean,
         onFile: (MediaItem) -> Unit,
         onStatus: (String) -> Unit,
     ) {
-        val uris = store.readLocalRootUris()
+        var uris = store.readLocalRootUris()
+        if (!rootUrisFilter.isNullOrEmpty()) {
+            uris = uris.filter { it in rootUrisFilter }
+        }
         if (uris.isEmpty()) throw IllegalStateException("请先添加本地媒体根目录")
         val workers = threadCount.coerceIn(ScrapeConfig.MIN_THREADS, ScrapeConfig.MAX_THREADS)
         onStatus("收集待扫视频（${workers} 线程）…")

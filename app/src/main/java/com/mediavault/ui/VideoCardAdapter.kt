@@ -69,8 +69,6 @@ class VideoCardAdapter(
             }
             coverArea.setOnClickListener { onCoverClick(item) }
             infoArea.setOnClickListener { onInfoClick(item) }
-            itemView.setOnClickListener(null)
-            itemView.setOnLongClickListener(null)
         }
     }
 

@@ -23,12 +23,12 @@ import kotlinx.coroutines.launch
 
 class HomeFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
-    /** recommend | history | all | root:<key> */
     private var homeFilter = "recommend"
     private var page = 1
     private var recommendSeed = System.currentTimeMillis()
     private var recommendCache: List<MediaItem>? = null
     private var recommendCacheKey: String? = null
+    /** 仅进程内首次进入推荐时自动随机，之后换 Tab 回来不自动重算 */
     private var recommendInitialized = false
     private val historyStore by lazy { HistoryStore(requireContext()) }
 
@@ -78,33 +78,65 @@ class HomeFragment : Fragment() {
 
         rebuildFilterChips(view, items)
         val list = currentList(items)
-        val pages = (list.size + LibraryUi.PAGE_SIZE - 1) / LibraryUi.PAGE_SIZE
-        if (page > pages.coerceAtLeast(1)) page = 1
-        val slice = paginate(list, page)
+        val slice = displaySlice(list)
         adapter.submitList(slice)
         view.findViewById<TextView>(R.id.emptyText).visibility =
             if (slice.isEmpty()) View.VISIBLE else View.GONE
-        view.findViewById<TextView>(R.id.pageInfo).text =
-            getString(R.string.page_fmt, page, pages.coerceAtLeast(1))
-        view.findViewById<TextView>(R.id.statusText).text =
-            getString(R.string.items_count, list.size)
+
+        val prev = view.findViewById<MaterialButton>(R.id.prevPageBtn)
+        val next = view.findViewById<MaterialButton>(R.id.nextPageBtn)
+        val pageInfo = view.findViewById<TextView>(R.id.pageInfo)
         val actionBtn = view.findViewById<MaterialButton>(R.id.homePagerActionBtn)
+        val pager = view.findViewById<View>(R.id.homePager)
+
         when (homeFilter) {
-            "history" -> {
-                actionBtn.visibility = View.VISIBLE
-                actionBtn.text = getString(R.string.clear_history)
-            }
             "recommend" -> {
+                pager.visibility = View.VISIBLE
+                prev.visibility = View.GONE
+                next.visibility = View.GONE
+                pageInfo.isClickable = false
+                pageInfo.text = getString(R.string.recommend_count_fmt, slice.size)
                 actionBtn.visibility = View.VISIBLE
                 actionBtn.text = getString(R.string.refresh_recommend)
+                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.recommend_hint)
             }
-            else -> actionBtn.visibility = View.GONE
+            "history" -> {
+                val pages = pagesFor(list)
+                pager.visibility = View.VISIBLE
+                prev.visibility = View.VISIBLE
+                next.visibility = View.VISIBLE
+                pageInfo.isClickable = true
+                pageInfo.text = getString(R.string.page_fmt, page, pages.coerceAtLeast(1))
+                prev.isEnabled = page > 1
+                next.isEnabled = page < pages.coerceAtLeast(1)
+                actionBtn.visibility = View.VISIBLE
+                actionBtn.text = getString(R.string.clear_history)
+                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
+            }
+            else -> {
+                val pages = pagesFor(list)
+                pager.visibility = View.VISIBLE
+                prev.visibility = View.VISIBLE
+                next.visibility = View.VISIBLE
+                pageInfo.isClickable = true
+                pageInfo.text = getString(R.string.page_fmt, page, pages.coerceAtLeast(1))
+                prev.isEnabled = page > 1
+                next.isEnabled = page < pages.coerceAtLeast(1)
+                actionBtn.visibility = View.GONE
+                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
+            }
         }
-        val pager = view.findViewById<View>(R.id.homePager)
-        pager.visibility = if (list.size > LibraryUi.PAGE_SIZE || page > 1) View.VISIBLE else View.VISIBLE
-        view.findViewById<MaterialButton>(R.id.prevPageBtn).isEnabled = page > 1
-        view.findViewById<MaterialButton>(R.id.nextPageBtn).isEnabled = page < pages.coerceAtLeast(1)
     }
+
+    private fun displaySlice(list: List<MediaItem>): List<MediaItem> {
+        if (homeFilter == "recommend") {
+            return list.take(RECOMMEND_COUNT)
+        }
+        return paginate(list, page)
+    }
+
+    private fun pagesFor(list: List<MediaItem>): Int =
+        (list.size + LibraryUi.PAGE_SIZE - 1) / LibraryUi.PAGE_SIZE
 
     private fun selectedRoot(): String? = when {
         homeFilter.startsWith("root:") -> homeFilter.removePrefix("root:")
@@ -132,11 +164,6 @@ class HomeFragment : Fragment() {
                 if (homeFilter == filterId) return@setOnClickListener
                 homeFilter = filterId
                 page = 1
-                if (filterId != "recommend") {
-                    // 换到历史/全部/目录不重算推荐种子
-                } else if (recommendCacheKey != null && filterId == "recommend") {
-                    // 保持缓存
-                }
                 bindLibrary(view, items)
             }
             group.addView(chip)
@@ -178,18 +205,20 @@ class HomeFragment : Fragment() {
     private fun totalPages(): Int {
         val all = (activity as? MainActivity)?.repository?.library?.value?.items ?: return 1
         val list = currentList(all)
-        return (list.size + LibraryUi.PAGE_SIZE - 1) / LibraryUi.PAGE_SIZE
+        return pagesFor(list).coerceAtLeast(1)
     }
 
     private fun changePage(delta: Int) {
+        if (homeFilter == "recommend") return
         val v = view ?: return
-        val pages = totalPages().coerceAtLeast(1)
+        val pages = totalPages()
         page = (page + delta).coerceIn(1, pages)
         bindLibrary(v, (activity as MainActivity).repository.library.value.items)
     }
 
     private fun showPageJumpDialog() {
-        val pages = totalPages().coerceAtLeast(1)
+        if (homeFilter == "recommend") return
+        val pages = totalPages()
         if (pages <= 1) return
         val input = EditText(requireContext()).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
@@ -233,5 +262,9 @@ class HomeFragment : Fragment() {
 
     private fun openDetail(item: MediaItem) {
         startActivity(VideoDetailActivity.intent(requireContext(), item.path))
+    }
+
+    companion object {
+        private const val RECOMMEND_COUNT = 20
     }
 }

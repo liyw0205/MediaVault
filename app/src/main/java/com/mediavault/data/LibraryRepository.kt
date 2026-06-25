@@ -89,6 +89,13 @@ class LibraryRepository(context: Context) {
         return n
     }
 
+    /** 从库中移除指定根下的 SAF 条目（不删配置） */
+    fun removeItemsUnderRoot(rootUri: String): Result<Int> = runCatching {
+        val n = store.removeLibraryItemsUnderRoot(rootUri)
+        reload()
+        n
+    }
+
     fun clearScrapeRecord(): Boolean {
         val f = store.scrapeRecordFile
         return if (f.isFile) f.delete() else true

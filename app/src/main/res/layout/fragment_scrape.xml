@@ -40,14 +40,22 @@
                     android:textColor="@color/mv_text_secondary"
                     android:textSize="12sp" />
 
-                <TextView
-                    android:id="@+id/rootsList"
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rootsRecycler"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:fontFamily="monospace"
+                    android:nestedScrollingEnabled="false" />
+
+                <TextView
+                    android:id="@+id/rootsEmptyHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/scrape_roots_empty"
                     android:textColor="@color/mv_muted"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:visibility="gone" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
