@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/mv_bg">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/collectionsRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:padding="4dp" />
+
+    <TextView
+        android:id="@+id/collectionsEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:padding="24dp"
+        android:text="@string/no_collections"
+        android:textColor="@color/mv_text_secondary"
+        android:visibility="gone" />
+</FrameLayout>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MediaVault" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/mv_primary_dark</item>
+        <item name="colorPrimaryVariant">@color/mv_primary_dark</item>
+        <item name="colorOnPrimary">@color/mv_on_primary</item>
+        <item name="android:colorBackground">@color/mv_bg</item>
+        <item name="colorSurface">@color/mv_surface</item>
+        <item name="android:textColorPrimary">@color/mv_text</item>
+        <item name="android:textColorSecondary">@color/mv_text_secondary</item>
+        <item name="android:textColorHint">@color/mv_hint</item>
+        <item name="android:statusBarColor">@color/mv_bg</item>
+        <item name="android:navigationBarColor">@color/mv_surface</item>
+        <item name="materialButtonStyle">@style/Widget.MediaVault.Button</item>
+        <item name="textInputStyle">@style/Widget.MediaVault.TextInput</item>
+    </style>
+    <style name="Widget.MediaVault.Button" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/mv_line</item>
+        <item name="android:textColor">@color/mv_text</item>
+    </style>
+    <style name="Widget.MediaVault.Button.Green" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/mv_green</item>
+        <item name="android:textColor">@color/mv_green_on</item>
+    </style>
+    <style name="Widget.MediaVault.Chip" parent="Widget.MaterialComponents.Chip.Choice">
+        <item name="chipBackgroundColor">@color/mv_chip_bg</item>
+        <item name="android:textColor">@color/mv_text</item>
+        <item name="chipStrokeColor">@color/mv_line</item>
+    </style>
+    <style name="Widget.MediaVault.TextInput" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="hintTextColor">@color/mv_hint</item>
+        <item name="android:textColorHint">@color/mv_hint</item>
+        <item name="boxStrokeColor">@color/mv_line</item>
+    </style>
+</resources>

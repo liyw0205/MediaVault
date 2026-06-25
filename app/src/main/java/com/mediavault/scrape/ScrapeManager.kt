@@ -1,0 +1,135 @@
+package com.mediavault.scrape
+
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
+import com.mediavault.data.LibraryRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class ScrapeManager(
+    private val app: Context,
+    val repository: LibraryRepository,
+) {
+    private val jobFile: File
+        get() = File(app.filesDir, "mediavault/scrape-job.json")
+
+    private val _state = MutableStateFlow(ScrapeUiState())
+    val state: StateFlow<ScrapeUiState> = _state.asStateFlow()
+
+    fun restoreJobHint() {
+        val hint = readJob()
+        val canResume = hint?.optBoolean("interrupted", false) == true ||
+            (hint?.optBoolean("running", false) == true)
+        if (canResume) {
+            _state.value = _state.value.copy(
+                canResume = true,
+                message = "上次刮削可能未完成，可点「全部刮削」从记录续扫",
+            )
+        }
+    }
+
+    fun isRunning(): Boolean = _state.value.phase == ScrapePhase.RUNNING
+
+    fun start(rebuild: Boolean) {
+        if (isRunning()) return
+        writeJob(JSONObject().apply {
+            put("running", true)
+            put("rebuild", rebuild)
+            put("interrupted", false)
+            put("startedAt", now())
+        })
+        _state.value = ScrapeUiState(
+            phase = ScrapePhase.RUNNING,
+            rebuild = rebuild,
+            message = "正在启动后台刮削…",
+            totalInLibrary = repository.library.value.items.size,
+        )
+        val intent = Intent(app, ScrapeForegroundService::class.java).apply {
+            putExtra(ScrapeForegroundService.EXTRA_REBUILD, rebuild)
+        }
+        ContextCompat.startForegroundService(app, intent)
+    }
+
+    fun cancel() {
+        app.stopService(Intent(app, ScrapeForegroundService::class.java))
+    }
+
+    internal fun onProgress(message: String, batchCount: Int, totalInLibrary: Int) {
+        _state.value = _state.value.copy(
+            phase = ScrapePhase.RUNNING,
+            message = message,
+            batchCount = batchCount,
+            totalInLibrary = totalInLibrary,
+            lastBatchAt = now(),
+            canResume = false,
+        )
+        val job = readJob() ?: JSONObject()
+        job.put("running", true)
+        job.put("batchCount", batchCount)
+        job.put("lastMessage", message)
+        writeJob(job)
+    }
+
+    internal fun onFinished(totalInLibrary: Int, scannedThisRun: Int) {
+        writeJob(JSONObject().apply {
+            put("running", false)
+            put("interrupted", false)
+            put("finishedAt", now())
+            put("scannedThisRun", scannedThisRun)
+        })
+        _state.value = ScrapeUiState(
+            phase = ScrapePhase.DONE,
+            message = "完成：本轮 $scannedThisRun 条，库中共 $totalInLibrary 条",
+            totalInLibrary = totalInLibrary,
+            batchCount = scannedThisRun,
+            lastBatchAt = now(),
+        )
+    }
+
+    internal fun onError(msg: String) {
+        markInterrupted()
+        _state.value = _state.value.copy(
+            phase = ScrapePhase.ERROR,
+            message = msg,
+            canResume = true,
+        )
+    }
+
+    internal fun onCancelled(partial: Int, totalInLibrary: Int) {
+        markInterrupted()
+        _state.value = ScrapeUiState(
+            phase = ScrapePhase.CANCELLED,
+            message = "已停止（已写入 $partial 条，库中共 $totalInLibrary 条）",
+            batchCount = partial,
+            totalInLibrary = totalInLibrary,
+            canResume = true,
+        )
+    }
+
+    private fun markInterrupted() {
+        val job = readJob() ?: JSONObject()
+        job.put("running", false)
+        job.put("interrupted", true)
+        writeJob(job)
+    }
+
+    private fun readJob(): JSONObject? = runCatching {
+        if (!jobFile.isFile) return null
+        JSONObject(jobFile.readText())
+    }.getOrNull()
+
+    private fun writeJob(o: JSONObject) {
+        jobFile.parentFile?.mkdirs()
+        jobFile.writeText(o.toString(2))
+    }
+
+    private fun now(): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+}

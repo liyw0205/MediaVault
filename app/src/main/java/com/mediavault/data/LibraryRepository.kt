@@ -1,0 +1,107 @@
+package com.mediavault.data
+
+import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class LibraryRepository(context: Context) {
+    val store = MediaStore(context)
+    private val app = context.applicationContext
+
+    private val _library = MutableStateFlow(MediaLibrary(false, emptyList(), ""))
+    val library: StateFlow<MediaLibrary> = _library.asStateFlow()
+
+    private val _updatedAt = MutableStateFlow("--")
+    val updatedAt: StateFlow<String> = _updatedAt.asStateFlow()
+
+    fun reload(): Result<Int> = runCatching {
+        val text = store.readLibraryText() ?: run {
+            _library.value = MediaLibrary(false, emptyList(), store.libraryFile.absolutePath)
+            _updatedAt.value = "--"
+            return@runCatching 0
+        }
+        val lib = MediaLibrary.parse(text, store.libraryFile.absolutePath)
+        _library.value = lib
+        _updatedAt.value = readUpdatedFromJson(text) ?: formatFileTime(store.libraryFile)
+        lib.items.size
+    }
+
+    fun importFromUri(uri: android.net.Uri): Result<Int> = store.writeLibraryFromImport(uri).onSuccess { reload() }
+
+    fun writeItems(items: List<MediaItem>): Result<Unit> =
+        store.writeLibraryJson(items).onSuccess { reload() }
+
+    /** 刮削每批次：合并 content:// 条目并写盘，返回当前库条数 */
+    fun appendContentBatch(batch: List<MediaItem>): Result<Int> = runCatching {
+        val existing = _library.value.items
+        val byPath = existing.associateBy { it.path }.toMutableMap()
+        for (item in batch) {
+            byPath[item.path] = item
+        }
+        val merged = byPath.values.toList()
+        store.writeLibraryJson(merged).getOrThrow()
+        reload()
+        merged.size
+    }
+
+    /** 全部重新刮削前：去掉库中所有 SAF/content 条目 */
+    fun stripContentItems(): Result<Int> = runCatching {
+        val kept = _library.value.items.filter { !LocalScanner.isContentLibraryPath(it.path) }
+        store.writeLibraryJson(kept).getOrThrow()
+        reload()
+        kept.size
+    }
+
+    fun dataSizes(): DataSizes {
+        val lib = store.libraryFile
+        val covers = File(app.filesDir, "mediavault/covers")
+        val scrape = store.scrapeRecordFile
+        val videoCount = _library.value.items.size
+        return DataSizes(
+            libraryBytes = if (lib.isFile) lib.length() else 0L,
+            coverBytes = dirSize(covers),
+            coverCount = covers.listFiles()?.count { it.isFile } ?: 0,
+            scrapeRecordBytes = if (scrape.isFile) scrape.length() else 0L,
+            videoCount = videoCount,
+        )
+    }
+
+    fun clearCovers(): Int {
+        val dir = File(app.filesDir, "mediavault/covers")
+        var n = 0
+        dir.listFiles()?.forEach { if (it.isFile && it.delete()) n++ }
+        return n
+    }
+
+    fun clearScrapeRecord(): Boolean {
+        val f = store.scrapeRecordFile
+        return if (f.isFile) f.delete() else true
+    }
+
+    private fun readUpdatedFromJson(text: String): String? = runCatching {
+        JSONObject(text).optString("updated", "").takeIf { it.isNotBlank() }
+    }.getOrNull()
+
+    private fun formatFileTime(f: File): String =
+        if (!f.isFile) "--"
+        else SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(f.lastModified()))
+
+    private fun dirSize(dir: File): Long {
+        if (!dir.isDirectory) return 0L
+        return dir.listFiles()?.sumOf { if (it.isFile) it.length() else dirSize(it) } ?: 0L
+    }
+}
+
+data class DataSizes(
+    val libraryBytes: Long,
+    val coverBytes: Long,
+    val coverCount: Int,
+    val scrapeRecordBytes: Long,
+    val videoCount: Int,
+)
