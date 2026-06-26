@@ -13,19 +13,58 @@
         app:surface_type="texture_view"
         app:use_controller="false" />
 
-    <TextView
-        android:id="@+id/playerTitleOverlay"
+    <LinearLayout
+        android:id="@+id/playerTopChrome"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:background="#66000000"
-        android:ellipsize="end"
-        android:maxLines="2"
-        android:padding="12dp"
-        android:textColor="@color/mv_text"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:background="#CC000000"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/playerTitleOverlay"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/mv_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btnSubtitle"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/subtitle_pick"
+            android:src="@android:drawable/ic_menu_edit"
+            app:tint="@color/mv_text" />
+
+        <ImageButton
+            android:id="@+id/btnScreenshot"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/player_screenshot"
+            android:src="@android:drawable/ic_menu_camera"
+            app:tint="@color/mv_text" />
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/back"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="@color/mv_text" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/playerSeekCenterOverlay"
@@ -94,19 +133,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#CC000000"
-            android:gravity="center_vertical"
+            android:gravity="center"
             android:orientation="horizontal"
             android:paddingHorizontal="4dp"
             android:paddingVertical="6dp">
-
-            <ImageButton
-                android:id="@+id/btnBack"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/back"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
-                app:tint="@color/mv_text" />
 
             <ImageButton
                 android:id="@+id/btnPrev"
@@ -160,24 +190,6 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_playlist"
                 android:src="@android:drawable/ic_menu_sort_by_size"
-                app:tint="@color/mv_text" />
-
-            <ImageButton
-                android:id="@+id/btnSubtitle"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/subtitle_pick"
-                android:src="@android:drawable/ic_menu_edit"
-                app:tint="@color/mv_text" />
-
-            <ImageButton
-                android:id="@+id/btnScreenshot"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/player_screenshot"
-                android:src="@android:drawable/ic_menu_camera"
                 app:tint="@color/mv_text" />
         </LinearLayout>
     </LinearLayout>

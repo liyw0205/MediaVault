@@ -88,6 +88,8 @@
     <string name="local_roots_title">本地媒体根</string>
     <string name="remote_roots_title">远程目录</string>
     <string name="add_webdav">WebDAV</string>
+    <string name="add_webdav_dav">WebDAV (/dav)</string>
+    <string name="add_webdav_root">WebDAV (根路径)</string>
     <string name="add_ftp">FTP</string>
     <string name="add_smb">SMB</string>
     <string name="edit">编辑</string>
@@ -105,6 +107,14 @@
     <string name="remote_field_user">用户名</string>
     <string name="remote_field_password">密码</string>
     <string name="remote_field_base">根路径</string>
+    <string name="remote_browse_base">浏览远程目录</string>
+    <string name="remote_browse_title">选择远程目录</string>
+    <string name="remote_browse_up">上级</string>
+    <string name="remote_browse_select_here">选此目录</string>
+    <string name="remote_browse_empty">（此目录为空）</string>
+    <string name="remote_browse_play">播放</string>
+    <string name="remote_browse_need_host">请先填写主机</string>
+    <string name="remote_browse_failed">列出目录失败：%1$s</string>
     <string name="remote_dialog_add">新增 %1$s 目录</string>
     <string name="remote_dialog_edit">编辑远程目录</string>
     <string name="delete_local_root_confirm">从配置中移除该本地目录？</string>

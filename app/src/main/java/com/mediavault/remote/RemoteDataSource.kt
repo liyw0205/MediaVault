@@ -28,6 +28,11 @@ class RemoteDataSource(
         val encPath = u.path?.trimStart('/') ?: ""
         val rel = Uri.decode(encPath)
         val cfg = store.readRemotesList().find { it.id == configId }
+            ?: if (configId == RemotePlayUri.PREVIEW_CONFIG_ID) {
+                RemoteBrowsePreviewHolder.config
+            } else {
+                null
+            }
             ?: throw IOException("Remote not configured: $configId")
         val client = RemoteClients.create(cfg)
         stream = client.openRead(rel, dataSpec.position).also { opened = true }

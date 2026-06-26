@@ -6,9 +6,11 @@ import android.view.View
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updatePadding
 import androidx.media3.exoplayer.ExoPlayer
 import com.mediavault.R
 
@@ -37,6 +39,7 @@ class PlayerChromeController(
     private var userScrubbing = false
     private var autoHideRunnable: Runnable? = null
 
+    private lateinit var topChrome: View
     private lateinit var titleOverlay: TextView
     private lateinit var bottomChrome: View
     private lateinit var seekExpanded: SeekBar
@@ -53,6 +56,7 @@ class PlayerChromeController(
     }
 
     fun bind(root: View) {
+        topChrome = root.findViewById(R.id.playerTopChrome)
         titleOverlay = root.findViewById(R.id.playerTitleOverlay)
         bottomChrome = root.findViewById(R.id.playerBottomChrome)
         seekExpanded = root.findViewById(R.id.playerSeekBar)
@@ -60,6 +64,21 @@ class PlayerChromeController(
         timeCurrent = root.findViewById(R.id.playerTimeCurrent)
         timeTotal = root.findViewById(R.id.playerTimeTotal)
         seekCenter = root.findViewById(R.id.playerSeekCenterOverlay)
+
+        ViewCompat.setOnApplyWindowInsetsListener(topChrome) { v, insets ->
+            val top = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout(),
+            ).top
+            v.updatePadding(top = 6.dp(activity) + top)
+            insets
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(bottomChrome) { v, insets ->
+            val bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            v.updatePadding(bottom = bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(topChrome)
+        ViewCompat.requestApplyInsets(bottomChrome)
 
         val scrubListener = object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -99,7 +118,7 @@ class PlayerChromeController(
 
     fun showChrome() {
         chromeVisible = true
-        titleOverlay.visibility = View.VISIBLE
+        topChrome.visibility = View.VISIBLE
         bottomChrome.visibility = View.VISIBLE
         seekImmersive.visibility = View.GONE
         hideSystemBars(false)
@@ -109,7 +128,7 @@ class PlayerChromeController(
 
     fun enterImmersiveChromeHidden() {
         chromeVisible = false
-        titleOverlay.visibility = View.GONE
+        topChrome.visibility = View.GONE
         bottomChrome.visibility = View.GONE
         seekImmersive.visibility = View.VISIBLE
         hideSystemBars(true)
@@ -175,13 +194,21 @@ class PlayerChromeController(
     private fun hideSystemBars(immersive: Boolean) {
         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         val c = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+        // 展开控件时仍隐藏状态栏，避免与顶栏重叠
+        c.hide(WindowInsetsCompat.Type.statusBars())
         if (immersive) {
-            c.hide(WindowInsetsCompat.Type.systemBars())
+            c.hide(WindowInsetsCompat.Type.navigationBars())
             c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
-            c.show(WindowInsetsCompat.Type.systemBars())
+            c.show(WindowInsetsCompat.Type.navigationBars())
+            c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
         }
+        topChrome.post { ViewCompat.requestApplyInsets(topChrome) }
+        bottomChrome.post { ViewCompat.requestApplyInsets(bottomChrome) }
     }
+
+    private fun Int.dp(ctx: android.content.Context): Int =
+        (this * ctx.resources.displayMetrics.density).toInt()
 
     private fun durationMs(): Long {
         val d = playerProvider()?.duration ?: 0L

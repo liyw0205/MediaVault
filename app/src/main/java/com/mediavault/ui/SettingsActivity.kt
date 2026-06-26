@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.mediavault.R
 import com.mediavault.data.MediaStore
 import com.mediavault.remote.RemoteClients
@@ -52,7 +53,9 @@ class SettingsActivity : AppCompatActivity() {
         remotes.addAll(store.readRemotesList())
 
         findViewById<android.widget.Button>(R.id.pickLocalRootBtn).setOnClickListener { pickTree.launch(null) }
-        findViewById<android.widget.Button>(R.id.addWebDavBtn).setOnClickListener { showRemoteDialog("webdav", null) }
+        findViewById<android.widget.Button>(R.id.addWebDavBtn).setOnClickListener {
+            showRemoteDialog("webdav", null)
+        }
         findViewById<android.widget.Button>(R.id.addFtpBtn).setOnClickListener { showRemoteDialog("ftp", null) }
         findViewById<android.widget.Button>(R.id.addSmbBtn).setOnClickListener { showRemoteDialog("smb", null) }
         findViewById<android.widget.Button>(R.id.saveBtn).setOnClickListener { saveRemotes() }
@@ -131,9 +134,11 @@ class SettingsActivity : AppCompatActivity() {
         val user = view.findViewById<TextInputEditText>(R.id.remoteUser)
         val password = view.findViewById<TextInputEditText>(R.id.remotePassword)
         val base = view.findViewById<TextInputEditText>(R.id.remoteBase)
+        val baseLayout = view.findViewById<TextInputLayout>(R.id.remoteBaseLayout)
         val defaultPort = when (type) {
             "ftp" -> "21"
             "smb" -> "445"
+            "webdav" -> "5244"
             else -> "443"
         }
         if (existing != null) {
@@ -145,7 +150,23 @@ class SettingsActivity : AppCompatActivity() {
             base.setText(existing.basePath)
         } else {
             port.setText(defaultPort)
-            base.setText("/")
+            base.setText(RemoteBrowseDialogHelper.defaultBaseForType(type))
+        }
+        val browseHelper = RemoteBrowseDialogHelper(this) { chosen ->
+            base.setText(chosen)
+        }
+        baseLayout.setEndIconOnClickListener {
+            val h = host.text?.toString()?.trim().orEmpty()
+            val p = port.text?.toString()?.toIntOrNull() ?: defaultPort.toInt()
+            browseHelper.show(
+                type = type,
+                host = h,
+                port = p,
+                user = user.text?.toString().orEmpty(),
+                password = password.text?.toString().orEmpty(),
+                initialBasePath = base.text?.toString()?.trim().orEmpty(),
+                savedConfigId = existing?.id,
+            )
         }
         val title = if (existing == null) {
             getString(R.string.remote_dialog_add, type.uppercase())
@@ -170,7 +191,8 @@ class SettingsActivity : AppCompatActivity() {
                     port = port.text?.toString()?.toIntOrNull() ?: defaultPort.toInt(),
                     user = user.text?.toString().orEmpty(),
                     password = password.text?.toString().orEmpty(),
-                    basePath = base.text?.toString()?.trim().orEmpty().ifBlank { "/" },
+                    basePath = base.text?.toString()?.trim().orEmpty()
+                        .ifBlank { RemoteBrowseDialogHelper.defaultBaseForType(type) },
                     name = name.text?.toString()?.trim().orEmpty().ifBlank { h },
                 )
                 if (existing != null) {
@@ -184,6 +206,24 @@ class SettingsActivity : AppCompatActivity() {
             inputRoot = view,
         )
     }
+
+    fun buildDraftRemoteConfig(
+        type: String,
+        host: String,
+        port: Int,
+        user: String,
+        password: String,
+        basePath: String,
+    ): RemoteConfig = RemoteConfig(
+        id = "browse",
+        type = type,
+        host = host,
+        port = port,
+        user = user,
+        password = password,
+        basePath = basePath,
+        name = "browse",
+    )
 
     private fun saveRemotes() {
         try {

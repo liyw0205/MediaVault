@@ -9,6 +9,7 @@ local.properties
 # IDE
 .idea/
 *.iml
+.kotlin/
 
 # APK outputs (build in CI/local)
 *.apk

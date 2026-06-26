@@ -2,6 +2,7 @@ package com.mediavault.data
 
 import com.mediavault.remote.RemoteClients
 import com.mediavault.remote.RemoteConfig
+import com.mediavault.remote.RemoteMediaTypes
 import com.mediavault.remote.RemoteEntry
 import com.mediavault.remote.RemotePath
 import org.json.JSONArray
@@ -15,9 +16,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 object RemoteLibraryScanner {
-    private val VIDEO_EXT = setOf(
-        "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", "ts", "m2ts", "mpg", "mpeg",
-    )
+    private val VIDEO_EXT = RemoteMediaTypes.VIDEO_EXT
 
     fun scanRemotesParallel(
         store: MediaStore,

@@ -25,7 +25,13 @@ data class RemoteConfig(
             }),
             user = o.optString("user", ""),
             password = o.optString("password", ""),
-            basePath = o.optString("basePath", "/"),
+            basePath = o.optString("basePath", "").ifBlank {
+                when (o.optString("type", "webdav").lowercase()) {
+                    "ftp" -> "/"
+                    "smb" -> "/share"
+                    else -> "/dav"
+                }
+            },
             name = o.optString("name", o.optString("id", "remote")),
         )
 
