@@ -17,7 +17,6 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.MediaItem
-import com.mediavault.scrape.ScrapePhase
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -74,20 +73,6 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
                 else -> showTab(TAG_HOME, getString(R.string.tab_home))
-            }
-        }
-
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                scrapeManager.state.collect { s ->
-                    val banner = findViewById<TextView>(R.id.scrapeBanner)
-                    if (s.phase == ScrapePhase.RUNNING) {
-                        banner.visibility = View.VISIBLE
-                        banner.text = s.message.ifBlank { getString(R.string.scrape_running_banner) }
-                    } else {
-                        banner.visibility = View.GONE
-                    }
-                }
             }
         }
 

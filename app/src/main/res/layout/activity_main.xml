@@ -14,17 +14,6 @@
         android:elevation="4dp"
         app:titleTextColor="@color/mv_text" />
 
-    <TextView
-        android:id="@+id/scrapeBanner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/mv_primary_dark"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="8dp"
-        android:textColor="@color/mv_text"
-        android:textSize="12sp"
-        android:visibility="gone" />
-
     <FrameLayout
         android:id="@+id/fragmentContainer"
         android:layout_width="match_parent"

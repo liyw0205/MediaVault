@@ -186,40 +186,39 @@ class ScrapeFragment : Fragment() {
     }
 
     private fun applyState(view: View, phase: ScrapePhase, message: String, canResume: Boolean) {
+        val overlay = view.findViewById<View>(R.id.scrapeProgressOverlay)
         val status = view.findViewById<TextView>(R.id.scanStatus)
         val bar = view.findViewById<LinearProgressIndicator>(R.id.scanProgress)
-        val stop = view.findViewById<MaterialButton>(R.id.stopScrapeBtn)
+        val idleHint = view.findViewById<TextView>(R.id.scanIdleHint)
         val inc = view.findViewById<MaterialButton>(R.id.scanIncrementalBtn)
         val reb = view.findViewById<MaterialButton>(R.id.scanRebuildBtn)
         when (phase) {
             ScrapePhase.RUNNING -> {
+                overlay.visibility = View.VISIBLE
                 bar.visibility = View.VISIBLE
                 bar.isIndeterminate = true
-                stop.visibility = View.VISIBLE
                 inc.isEnabled = false
                 reb.isEnabled = false
                 status.text = message.ifBlank { getString(R.string.scrape_running_banner) }
+                idleHint.text = ""
             }
             ScrapePhase.DONE -> {
-                bar.visibility = View.GONE
-                stop.visibility = View.GONE
+                overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
-                status.text = message
+                idleHint.text = message
             }
             ScrapePhase.ERROR, ScrapePhase.CANCELLED -> {
-                bar.visibility = View.GONE
-                stop.visibility = View.GONE
+                overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
-                status.text = message
+                idleHint.text = message
             }
             ScrapePhase.IDLE -> {
-                bar.visibility = View.GONE
-                stop.visibility = View.GONE
+                overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
-                status.text = when {
+                idleHint.text = when {
                     canResume -> message.ifBlank { "可点「全部刮削」从刮削记录续扫" }
                     else -> getString(R.string.scan_idle)
                 }
