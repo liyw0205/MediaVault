@@ -75,6 +75,11 @@
     <string name="data_library">媒体库 JSON</string>
     <string name="data_covers">封面缓存</string>
     <string name="data_scrape">刮削记录</string>
+    <string name="data_remote_stream">远程点播缓存</string>
+    <string name="data_clear_covers">清空封面缓存</string>
+    <string name="data_clear_scrape">清空刮削记录</string>
+    <string name="data_clear_remote_stream">清空远程点播缓存</string>
+    <string name="data_clear_library">清空媒体库 JSON</string>
     <string name="play">播放</string>
     <string name="detail">详情</string>
     <string name="player_title">播放</string>

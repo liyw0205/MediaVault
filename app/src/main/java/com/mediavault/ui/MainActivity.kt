@@ -2,6 +2,7 @@ package com.mediavault.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
@@ -179,64 +180,72 @@ class MainActivity : AppCompatActivity() {
     private fun showDataDialog() {
         val d = repository.dataSizes()
         val msg = buildString {
-            append("媒体库 JSON：")
+            append(getString(R.string.data_library))
+            append("：")
             append(LibraryUi.formatBytes(d.libraryBytes))
             append(" · ")
             append(d.videoCount)
             append(" 条\n")
-            append("封面缓存：")
+            append(getString(R.string.data_covers))
+            append("：")
             append(LibraryUi.formatBytes(d.coverBytes))
             append(" · ")
             append(d.coverCount)
             append(" 张\n")
-            append("刮削记录：")
+            append(getString(R.string.data_scrape))
+            append("：")
             append(LibraryUi.formatBytes(d.scrapeRecordBytes))
             append("\n")
-            append("远程点播缓存：")
+            append(getString(R.string.data_remote_stream))
+            append("：")
             append(LibraryUi.formatBytes(d.remoteStreamBytes))
             append(" · ")
             append(d.remoteStreamFiles)
             append(" 个文件")
         }
-        val actions = arrayOf(
-            "清空封面缓存",
-            "清空刮削记录",
-            "清空远程点播缓存",
-            "清空媒体库 JSON",
-        )
-        MvDialog.builder(this)
+        val root = LayoutInflater.from(this).inflate(R.layout.dialog_data, null)
+        root.findViewById<TextView>(R.id.dataDialogStats).text = msg
+        val builder = MvDialog.builder(this)
             .setTitle(R.string.data_title)
-            .setMessage(msg)
-            .setItems(actions) { _, which ->
-                when (which) {
-                    0 -> confirmDataAction("清空全部封面文件？") {
-                        val n = repository.clearCovers()
-                        Toast.makeText(this, "已删 $n 个封面", Toast.LENGTH_SHORT).show()
-                    }
-                    1 -> confirmDataAction("清空全部刮削记录？") {
-                        repository.clearScrapeRecord()
-                        Toast.makeText(this, "刮削记录已清空", Toast.LENGTH_SHORT).show()
-                    }
-                    2 -> confirmDataAction("清空远程边下边播前缀缓存？") {
-                        val n = repository.clearRemoteStreamCache()
-                        Toast.makeText(this, "已删 $n 个缓存文件", Toast.LENGTH_SHORT).show()
-                    }
-                    3 -> confirmDataAction("清空媒体库 JSON（保留目录与远程配置）？") {
-                        lifecycleScope.launch {
-                            repository.clearLibraryJson()
-                                .onSuccess {
-                                    Toast.makeText(this@MainActivity, "媒体库已清空", Toast.LENGTH_SHORT).show()
-                                    refreshHome(recommendPathsOnly = false)
-                                }
-                                .onFailure { e ->
-                                    Toast.makeText(this@MainActivity, e.message ?: "失败", Toast.LENGTH_LONG).show()
-                                }
+            .setView(root)
+            .setNegativeButton(android.R.string.cancel, null)
+        val dialog = MvDialog.showStyled(builder)
+        root.findViewById<View>(R.id.dataClearCovers).setOnClickListener {
+            confirmDataAction("清空全部封面文件？") {
+                val n = repository.clearCovers()
+                Toast.makeText(this, "已删 $n 个封面", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+        }
+        root.findViewById<View>(R.id.dataClearScrape).setOnClickListener {
+            confirmDataAction("清空全部刮削记录？") {
+                repository.clearScrapeRecord()
+                Toast.makeText(this, "刮削记录已清空", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+        }
+        root.findViewById<View>(R.id.dataClearRemoteStream).setOnClickListener {
+            confirmDataAction("清空远程边下边播前缀缓存？") {
+                val n = repository.clearRemoteStreamCache()
+                Toast.makeText(this, "已删 $n 个缓存文件", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+        }
+        root.findViewById<View>(R.id.dataClearLibrary).setOnClickListener {
+            confirmDataAction("清空媒体库 JSON（保留目录与远程配置）？") {
+                lifecycleScope.launch {
+                    repository.clearLibraryJson()
+                        .onSuccess {
+                            Toast.makeText(this@MainActivity, "媒体库已清空", Toast.LENGTH_SHORT).show()
+                            refreshHome(recommendPathsOnly = false)
+                            dialog.dismiss()
                         }
-                    }
+                        .onFailure { e ->
+                            Toast.makeText(this@MainActivity, e.message ?: "失败", Toast.LENGTH_LONG).show()
+                        }
                 }
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        }
     }
 
     private fun confirmDataAction(message: String, onOk: () -> Unit) {
