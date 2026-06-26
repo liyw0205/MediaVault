@@ -16,10 +16,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.slider.Slider
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.mediavault.R
 import com.mediavault.data.MediaStore
+import com.mediavault.data.ScrapeConfig
+import com.mediavault.data.ScrapeSettings
 import com.mediavault.remote.RemoteClients
 import com.mediavault.remote.RemoteConfig
 import kotlinx.coroutines.Dispatchers
@@ -63,6 +67,8 @@ class SettingsActivity : AppCompatActivity() {
 
         refreshLocalList()
         refreshRemoteList()
+        bindScrapeSection()
+        bindCacheSection()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -260,6 +266,103 @@ class SettingsActivity : AppCompatActivity() {
                     .fold(onSuccess = { it }, onFailure = { getString(R.string.settings_test_failed, it.message ?: "") })
             }
             Toast.makeText(this@SettingsActivity, msg, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun bindScrapeSection() {
+        val coverFiles = findViewById<MaterialSwitch>(R.id.scrapeCoverFilesSwitch)
+        val coverFrame = findViewById<MaterialSwitch>(R.id.scrapeCoverFrameSwitch)
+        val nfo = findViewById<MaterialSwitch>(R.id.scrapeNfoSwitch)
+        val filename = findViewById<MaterialSwitch>(R.id.scrapeFilenameSwitch)
+        val subs = findViewById<MaterialSwitch>(R.id.scrapeSubtitlesSwitch)
+        val threadsSlider = findViewById<Slider>(R.id.scrapeThreadsSlider)
+        val threadsLabel = findViewById<TextView>(R.id.scrapeThreadsLabel)
+        val remoteSlider = findViewById<Slider>(R.id.scrapeRemoteFrameSlider)
+        val remoteLabel = findViewById<TextView>(R.id.scrapeRemoteFrameLabel)
+        val saveBtn = findViewById<MaterialButton>(R.id.saveScrapeSettingsBtn)
+
+        fun loadUi(s: ScrapeSettings) {
+            val cfg = s.normalized()
+            coverFiles.isChecked = cfg.coverFromFiles
+            coverFrame.isChecked = cfg.coverFromVideoFrame
+            nfo.isChecked = cfg.metadataFromNfo
+            filename.isChecked = cfg.metadataFromFilename
+            subs.isChecked = cfg.scanSidecarSubtitles
+            threadsSlider.value = cfg.threadCount.toFloat()
+            threadsLabel.text = getString(R.string.settings_scrape_threads_fmt, cfg.threadCount)
+            remoteSlider.value = cfg.remoteFrameConcurrency.toFloat()
+            remoteLabel.text = getString(R.string.settings_scrape_remote_frame_fmt, cfg.remoteFrameConcurrency)
+        }
+
+        loadUi(ScrapeConfig.readSettings(this))
+
+        threadsSlider.addOnChangeListener { _, value, _ ->
+            threadsLabel.text = getString(R.string.settings_scrape_threads_fmt, value.toInt())
+        }
+        remoteSlider.addOnChangeListener { _, value, _ ->
+            remoteLabel.text = getString(R.string.settings_scrape_remote_frame_fmt, value.toInt())
+        }
+
+        saveBtn.setOnClickListener {
+            val next = ScrapeSettings(
+                scrapeMode = ScrapeConfig.MODE_LOCAL,
+                threadCount = threadsSlider.value.toInt(),
+                remoteFrameConcurrency = remoteSlider.value.toInt(),
+                coverFromFiles = coverFiles.isChecked,
+                coverFromVideoFrame = coverFrame.isChecked,
+                metadataFromNfo = nfo.isChecked,
+                metadataFromFilename = filename.isChecked,
+                scanSidecarSubtitles = subs.isChecked,
+            ).normalized()
+            ScrapeConfig.writeSettings(this, next)
+            loadUi(next)
+            Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun bindCacheSection() {
+        findViewById<MaterialButton>(R.id.clearCoversBtn).setOnClickListener {
+            MvDialog.builder(this)
+                .setMessage(R.string.confirm_clear_covers)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val n = store.clearCoverCache()
+                    Toast.makeText(this, getString(R.string.data_cleared_covers_fmt, n), Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        findViewById<MaterialButton>(R.id.clearScrapeBtn).setOnClickListener {
+            MvDialog.builder(this)
+                .setMessage(R.string.confirm_clear_scrape)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    store.clearScrapeRecords()
+                    Toast.makeText(this, R.string.data_cleared_scrape, Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        findViewById<MaterialButton>(R.id.clearRemoteCacheBtn).setOnClickListener {
+            MvDialog.builder(this)
+                .setMessage(R.string.confirm_clear_remote)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val n = store.clearRemotePlayCache()
+                    Toast.makeText(this, getString(R.string.data_cleared_remote_fmt, n), Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        findViewById<MaterialButton>(R.id.clearLibraryBtn).setOnClickListener {
+            MvDialog.builder(this)
+                .setMessage(R.string.confirm_clear_library)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    store.clearLibraryItems().onSuccess {
+                        Toast.makeText(this, R.string.data_cleared_library, Toast.LENGTH_SHORT).show()
+                    }.onFailure {
+                        Toast.makeText(this, it.message ?: "", Toast.LENGTH_LONG).show()
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
     }
 

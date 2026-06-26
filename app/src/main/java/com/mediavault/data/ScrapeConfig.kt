@@ -5,6 +5,7 @@ import org.json.JSONObject
 import java.io.File
 
 object ScrapeConfig {
+    const val MODE_LOCAL = "local"
     const val DEFAULT_THREADS = 10
     const val MIN_THREADS = 1
     const val MAX_THREADS = 32
@@ -27,27 +28,64 @@ object ScrapeConfig {
         f.writeText(obj.toString(2))
     }
 
-    fun readThreadCount(context: Context): Int {
-        return readJson(context).optInt("threadCount", DEFAULT_THREADS)
-            .coerceIn(MIN_THREADS, MAX_THREADS)
+    fun readSettings(context: Context): ScrapeSettings {
+        val j = readJson(context)
+        return ScrapeSettings(
+            scrapeMode = j.optString("scrapeMode", MODE_LOCAL).ifBlank { MODE_LOCAL },
+            threadCount = j.optInt("threadCount", DEFAULT_THREADS),
+            remoteFrameConcurrency = j.optInt("remoteFrameConcurrency", DEFAULT_REMOTE_FRAME),
+            coverFromFiles = j.optBoolean("coverFromFiles", true),
+            coverFromVideoFrame = j.optBoolean("coverFromVideoFrame", true),
+            metadataFromNfo = j.optBoolean("metadataFromNfo", true),
+            metadataFromFilename = j.optBoolean("metadataFromFilename", true),
+            scanSidecarSubtitles = j.optBoolean("scanSidecarSubtitles", true),
+        ).normalized()
     }
+
+    fun writeSettings(context: Context, settings: ScrapeSettings) {
+        val s = settings.normalized()
+        val obj = readJson(context)
+        obj.put("scrapeMode", s.scrapeMode)
+        obj.put("threadCount", s.threadCount)
+        obj.put("remoteFrameConcurrency", s.remoteFrameConcurrency)
+        obj.put("coverFromFiles", s.coverFromFiles)
+        obj.put("coverFromVideoFrame", s.coverFromVideoFrame)
+        obj.put("metadataFromNfo", s.metadataFromNfo)
+        obj.put("metadataFromFilename", s.metadataFromFilename)
+        obj.put("scanSidecarSubtitles", s.scanSidecarSubtitles)
+        writeJson(context, obj)
+    }
+
+    fun readThreadCount(context: Context): Int = readSettings(context).threadCount
 
     fun writeThreadCount(context: Context, count: Int) {
-        val n = count.coerceIn(MIN_THREADS, MAX_THREADS)
-        val obj = readJson(context)
-        obj.put("threadCount", n)
-        writeJson(context, obj)
+        writeSettings(context, readSettings(context).copy(threadCount = count))
     }
 
-    fun readRemoteFrameConcurrency(context: Context): Int {
-        return readJson(context).optInt("remoteFrameConcurrency", DEFAULT_REMOTE_FRAME)
-            .coerceIn(MIN_REMOTE_FRAME, MAX_REMOTE_FRAME)
-    }
+    fun readRemoteFrameConcurrency(context: Context): Int =
+        readSettings(context).remoteFrameConcurrency
 
     fun writeRemoteFrameConcurrency(context: Context, count: Int) {
-        val n = count.coerceIn(MIN_REMOTE_FRAME, MAX_REMOTE_FRAME)
-        val obj = readJson(context)
-        obj.put("remoteFrameConcurrency", n)
-        writeJson(context, obj)
+        writeSettings(context, readSettings(context).copy(remoteFrameConcurrency = count))
     }
+}
+
+data class ScrapeSettings(
+    val scrapeMode: String = ScrapeConfig.MODE_LOCAL,
+    val threadCount: Int = ScrapeConfig.DEFAULT_THREADS,
+    val remoteFrameConcurrency: Int = ScrapeConfig.DEFAULT_REMOTE_FRAME,
+    val coverFromFiles: Boolean = true,
+    val coverFromVideoFrame: Boolean = true,
+    val metadataFromNfo: Boolean = true,
+    val metadataFromFilename: Boolean = true,
+    val scanSidecarSubtitles: Boolean = true,
+) {
+    fun normalized(): ScrapeSettings = copy(
+        scrapeMode = if (scrapeMode == ScrapeConfig.MODE_LOCAL) ScrapeConfig.MODE_LOCAL else ScrapeConfig.MODE_LOCAL,
+        threadCount = threadCount.coerceIn(ScrapeConfig.MIN_THREADS, ScrapeConfig.MAX_THREADS),
+        remoteFrameConcurrency = remoteFrameConcurrency.coerceIn(
+            ScrapeConfig.MIN_REMOTE_FRAME,
+            ScrapeConfig.MAX_REMOTE_FRAME,
+        ),
+    )
 }

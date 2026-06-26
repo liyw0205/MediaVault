@@ -22,6 +22,7 @@ object RemoteLibraryScanner {
         context: Context,
         store: MediaStore,
         scrapeSession: ScrapeSession,
+        settings: ScrapeSettings,
         rebuild: Boolean,
         remoteIdsFilter: List<String>?,
         threadCount: Int,
@@ -30,6 +31,7 @@ object RemoteLibraryScanner {
         onFile: (MediaItem) -> Unit,
         onStatus: (String) -> Unit,
     ) {
+        val cfg = settings.normalized()
         var configs = store.readRemotesList()
         if (!remoteIdsFilter.isNullOrEmpty()) {
             configs = configs.filter { it.id in remoteIdsFilter }
@@ -61,7 +63,7 @@ object RemoteLibraryScanner {
                         val libPath = RemotePath.encode(w.config.id, w.relPath)
                         if (!rebuild && scrapeSession.has(libPath)) continue
                         val client = RemoteClients.create(w.config)
-                        val item = buildItem(context, store, client, w, frameGate)
+                        val item = buildItem(context, store, client, w, frameGate, cfg)
                         scrapeSession.record(store, libPath)
                         onFile(item)
                         val n = done.incrementAndGet()
@@ -128,17 +130,32 @@ object RemoteLibraryScanner {
         client: com.mediavault.remote.RemoteClient,
         w: Work,
         frameGate: RemoteFrameGate,
+        cfg: ScrapeSettings,
     ): MediaItem {
         val clean = w.name.substringBeforeLast('.')
         val path = RemotePath.encode(w.config.id, w.relPath)
-        val (season, episode) = SidecarScanner.seasonEpisodeFromName(w.name)
-        val year = SidecarScanner.yearFromName(w.name)
+        val (season, episode) = if (cfg.metadataFromFilename) {
+            SidecarScanner.seasonEpisodeFromName(w.name)
+        } else {
+            "" to ""
+        }
+        val year = if (cfg.metadataFromFilename) SidecarScanner.yearFromName(w.name) else ""
         val folder = w.folder.ifBlank { w.config.name }
-        val harvested = TagHarvest.harvest(w.name, folder, JSONObject())
-        val tags = TagPresetLibrary.mergeWithHarvested(w.name, harvested)
+        val harvested = if (cfg.metadataFromFilename) {
+            TagHarvest.harvest(w.name, folder, JSONObject())
+        } else {
+            emptyList()
+        }
+        val tags = if (harvested.isNotEmpty()) {
+            TagPresetLibrary.mergeWithHarvested(w.name, harvested)
+        } else {
+            emptyList()
+        }
         val collection = CollectionNames.sanitize(folder.ifBlank { clean })
         val (coverLocal, coverSource) = RemoteCoverHelper.coverForVideo(
             context, store, w.config, client, w.relPath, path, frameGate,
+            coverFromFiles = cfg.coverFromFiles,
+            coverFromVideoFrame = cfg.coverFromVideoFrame,
         )
         val o = JSONObject()
         o.put("path", path)

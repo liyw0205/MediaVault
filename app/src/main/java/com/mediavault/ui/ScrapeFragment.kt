@@ -139,13 +139,14 @@ class ScrapeFragment : Fragment() {
         val slider = view.findViewById<Slider>(R.id.scrapeThreadSlider)
         val label = view.findViewById<TextView>(R.id.scrapeThreadValue)
         val ctx = requireContext()
-        val cur = ScrapeConfig.readThreadCount(ctx).toFloat()
+        val cur = ScrapeConfig.readSettings(ctx).threadCount.toFloat()
         slider.value = cur
         label.text = getString(R.string.scrape_threads_fmt, cur.toInt())
         slider.addOnChangeListener { _, value, fromUser ->
             if (!fromUser) return@addOnChangeListener
             val n = value.toInt().coerceIn(ScrapeConfig.MIN_THREADS, ScrapeConfig.MAX_THREADS)
-            ScrapeConfig.writeThreadCount(ctx, n)
+            val s = ScrapeConfig.readSettings(ctx).copy(threadCount = n).normalized()
+            ScrapeConfig.writeSettings(ctx, s)
             label.text = getString(R.string.scrape_threads_fmt, n)
         }
     }
@@ -154,13 +155,14 @@ class ScrapeFragment : Fragment() {
         val slider = view.findViewById<Slider>(R.id.scrapeRemoteFrameSlider)
         val label = view.findViewById<TextView>(R.id.scrapeRemoteFrameValue)
         val ctx = requireContext()
-        val cur = ScrapeConfig.readRemoteFrameConcurrency(ctx).toFloat()
+        val cur = ScrapeConfig.readSettings(ctx).remoteFrameConcurrency.toFloat()
         slider.value = cur
         label.text = getString(R.string.scrape_remote_frame_fmt, cur.toInt())
         slider.addOnChangeListener { _, value, fromUser ->
             if (!fromUser) return@addOnChangeListener
             val n = value.toInt().coerceIn(ScrapeConfig.MIN_REMOTE_FRAME, ScrapeConfig.MAX_REMOTE_FRAME)
-            ScrapeConfig.writeRemoteFrameConcurrency(ctx, n)
+            val s = ScrapeConfig.readSettings(ctx).copy(remoteFrameConcurrency = n).normalized()
+            ScrapeConfig.writeSettings(ctx, s)
             label.text = getString(R.string.scrape_remote_frame_fmt, n)
         }
     }

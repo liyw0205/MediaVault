@@ -81,8 +81,9 @@ class ScrapeForegroundService : Service() {
             repository.stripRemoteItems()
         }
 
-        val threads = ScrapeConfig.readThreadCount(this)
-        val remoteFrame = ScrapeConfig.readRemoteFrameConcurrency(this)
+        val scrapeSettings = ScrapeConfig.readSettings(this)
+        val threads = scrapeSettings.threadCount
+        val remoteFrame = scrapeSettings.remoteFrameConcurrency
         val scrapeSession = ScrapeSession(store)
         val frameGate = RemoteFrameGate(remoteFrame)
         val batchAcc = ScrapeBatchAccumulator(repository)
@@ -117,9 +118,10 @@ class ScrapeForegroundService : Service() {
         try {
             if (scanLocal) {
                 LocalScanner.scanTreeUrisParallel(
-                    this,
+                    this@ScrapeForegroundService,
                     store,
                     scrapeSession,
+                    scrapeSettings,
                     rebuild,
                     threadCount = threads,
                     rootUrisFilter = rootUris,
@@ -134,9 +136,10 @@ class ScrapeForegroundService : Service() {
             }
             if (!cancelRequested && scanRemote) {
                 RemoteLibraryScanner.scanRemotesParallel(
-                    this,
+                    this@ScrapeForegroundService,
                     store,
                     scrapeSession,
+                    scrapeSettings,
                     rebuild,
                     remoteIds,
                     threads,

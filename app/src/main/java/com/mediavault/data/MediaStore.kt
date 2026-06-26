@@ -185,6 +185,22 @@ class MediaStore(private val context: Context) {
         if (scrapeRecordFile.isFile) scrapeRecordFile.delete()
     }
 
+    fun clearScrapeRecords() = clearAllScrapeRecords()
+
+    fun clearCoverCache(): Int {
+        val files = coversDir.listFiles() ?: return 0
+        var n = 0
+        for (f in files) {
+            if (f.isFile && f.delete()) n++
+        }
+        return n
+    }
+
+    fun clearLibraryItems(): Result<Unit> = writeLibraryJson(emptyList())
+
+    fun clearRemotePlayCache(): Int =
+        com.mediavault.remote.RemoteStreamCache.clearAll(context)
+
     private fun nowText(): String =
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 }

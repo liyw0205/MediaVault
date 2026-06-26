@@ -98,7 +98,139 @@
             style="@style/Widget.MediaVault.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="8dp"
             android:text="@string/save" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/settings_scrape_section"
+            android:textColor="@color/mv_text"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/settings_scrape_mode_local"
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="@string/settings_scrape_mode_online_hint"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/scrapeCoverFilesSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_scrape_cover_files" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/scrapeCoverFrameSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_scrape_cover_frame" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/scrapeNfoSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_scrape_nfo" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/scrapeFilenameSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_scrape_filename" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/scrapeSubtitlesSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_scrape_subtitles" />
+
+        <TextView
+            android:id="@+id/scrapeThreadsLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/scrapeThreadsSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="32" />
+
+        <TextView
+            android:id="@+id/scrapeRemoteFrameLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/scrapeRemoteFrameSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="5" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/saveScrapeSettingsBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_save_scrape" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/data_cleanup_title"
+            android:textColor="@color/mv_text"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearCoversBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/data_clear_covers" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearScrapeBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/data_clear_scrape" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearRemoteCacheBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/data_clear_remote_stream" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearLibraryBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/data_clear_library" />
     </LinearLayout>
 </ScrollView>

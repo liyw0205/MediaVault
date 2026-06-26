@@ -31,13 +31,16 @@ object SidecarScanner {
         videoName: String,
         videoPath: String,
         coversDir: File,
+        includeCover: Boolean = true,
+        includeNfo: Boolean = true,
+        includeSubtitles: Boolean = true,
     ): SidecarBundle {
         val children = dir.listFiles()
         val byName = indexByName(children)
-        val xml = pickNfoXml(context, byName, parent, dir.name ?: "", videoName)
-        val coverUri = pickCoverUri(byName, videoName)
+        val xml = if (includeNfo) pickNfoXml(context, byName, parent, dir.name ?: "", videoName) else null
+        val coverUri = if (includeCover) pickCoverUri(byName, videoName) else null
         val coverLocal = coverUri?.let { cacheCoverFromUri(context, it, videoPath, coversDir) }
-        val subs = pickSubtitles(byName, videoName)
+        val subs = if (includeSubtitles) pickSubtitles(byName, videoName) else emptyList()
         val siblings = children.mapNotNull { it.name }.filter { name ->
             val ext = name.substringAfterLast('.', "").lowercase()
             ext !in VIDEO_EXT

@@ -148,4 +148,20 @@
     <string name="settings_no_webdav">列表里没有 WebDAV</string>
     <string name="settings_test_failed">连接失败：%1$s</string>
     <string name="settings_test_sample">示例文件：%1$s</string>
+
+    <string name="settings_scrape_section">刮削</string>
+    <string name="settings_scrape_mode_local">刮削模式：本地（扫描目录与旁挂文件）</string>
+    <string name="settings_scrape_mode_online_hint">在线刮削（API）尚未开放，当前固定为本地模式。</string>
+    <string name="settings_scrape_cover_files">从旁挂图片识别封面</string>
+    <string name="settings_scrape_cover_frame">远程视频抽帧作封面（需网络，较慢）</string>
+    <string name="settings_scrape_nfo">从 NFO 读取元数据</string>
+    <string name="settings_scrape_filename">从文件名解析标题/季集/年份/标签</string>
+    <string name="settings_scrape_subtitles">扫描同目录字幕文件</string>
+    <string name="settings_scrape_threads_label">刮削线程数（1–32）</string>
+    <string name="settings_scrape_threads_fmt">当前 %1$d 线程</string>
+    <string name="settings_scrape_remote_frame_label">远程抽帧并发（1–5，与刮削线程分开）</string>
+    <string name="settings_scrape_remote_frame_fmt">远程抽帧 %1$d 路</string>
+    <string name="settings_scrape_save">保存刮削设置</string>
+    <string name="settings_save_scrape">保存刮削设置</string>
+    <string name="data_cleanup_title">数据清理</string>
 </resources>

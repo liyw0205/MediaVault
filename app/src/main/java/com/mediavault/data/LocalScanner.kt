@@ -35,6 +35,7 @@ object LocalScanner {
         context: Context,
         store: MediaStore,
         scrapeSession: ScrapeSession,
+        settings: ScrapeSettings,
         rebuild: Boolean,
         threadCount: Int,
         rootUrisFilter: List<String>? = null,
@@ -42,6 +43,7 @@ object LocalScanner {
         onFile: (MediaItem) -> Unit,
         onStatus: (String) -> Unit,
     ) {
+        val cfg = settings.normalized()
         var uris = store.readLocalRootUris()
         if (!rootUrisFilter.isNullOrEmpty()) {
             uris = uris.filter { it in rootUrisFilter }
@@ -71,7 +73,7 @@ object LocalScanner {
                         val work = queue.poll() ?: break
                         if (!rebuild && scrapeSession.has(work.path)) continue
                         val item = runCatching {
-                            buildItem(context, store, work)
+                            buildItem(context, store, work, cfg)
                         }.getOrNull() ?: continue
                         scrapeSession.record(store, work.path)
                         onFile(item)
@@ -115,7 +117,7 @@ object LocalScanner {
         }
     }
 
-    private fun buildItem(context: Context, store: MediaStore, work: VideoWork): MediaItem {
+    private fun buildItem(context: Context, store: MediaStore, work: VideoWork, cfg: ScrapeSettings): MediaItem {
         val name = work.name
         val path = work.path
         val dir = work.dir
@@ -125,27 +127,44 @@ object LocalScanner {
 
         val sidecar = SidecarScanner.scanAroundVideo(
             context, dir, parent, name, path, store.coversDir,
+            includeCover = cfg.coverFromFiles,
+            includeNfo = cfg.metadataFromNfo,
+            includeSubtitles = cfg.scanSidecarSubtitles,
         )
-        val nfoObj = if (!sidecar.nfoXml.isNullOrBlank()) NfoParser.parseXml(sidecar.nfoXml) else JSONObject()
+        val nfoObj = if (cfg.metadataFromNfo && !sidecar.nfoXml.isNullOrBlank()) {
+            NfoParser.parseXml(sidecar.nfoXml)
+        } else {
+            JSONObject()
+        }
 
         val clean = name.substringBeforeLast('.')
         var title = clean
-        val titleCn = nfoObj.optString("title_cn", "").trim()
-        val nfoTitle = nfoObj.optString("title", "").trim()
-        title = when {
-            titleCn.isNotBlank() -> titleCn
-            nfoTitle.isNotBlank() -> nfoTitle
-            else -> clean
+        if (cfg.metadataFromNfo) {
+            val titleCn = nfoObj.optString("title_cn", "").trim()
+            val nfoTitle = nfoObj.optString("title", "").trim()
+            title = when {
+                titleCn.isNotBlank() -> titleCn
+                nfoTitle.isNotBlank() -> nfoTitle
+                else -> clean
+            }
+        } else if (cfg.metadataFromFilename) {
+            title = clean
         }
 
-        var year = SidecarScanner.yearFromName(name)
-        val nfoYear = nfoObj.optString("year", "").trim()
-        if (nfoYear.isNotBlank()) year = nfoYear
+        var year = if (cfg.metadataFromFilename) SidecarScanner.yearFromName(name) else ""
+        if (cfg.metadataFromNfo) {
+            val nfoYear = nfoObj.optString("year", "").trim()
+            if (nfoYear.isNotBlank()) year = nfoYear
+        }
 
-        val (season, episode) = SidecarScanner.seasonEpisodeFromName(name)
+        val (season, episode) = if (cfg.metadataFromFilename) {
+            SidecarScanner.seasonEpisodeFromName(name)
+        } else {
+            "" to ""
+        }
         var collection = folder.trim()
-        val setName = nfoObj.optString("set_name", "").trim()
-        val nfoColl = nfoObj.optString("collection", "").trim()
+        val setName = if (cfg.metadataFromNfo) nfoObj.optString("set_name", "").trim() else ""
+        val nfoColl = if (cfg.metadataFromNfo) nfoObj.optString("collection", "").trim() else ""
         var collectionKey = ""
         when {
             setName.isNotBlank() -> {
@@ -159,13 +178,23 @@ object LocalScanner {
             else -> collection = cleanFolderName(dir.uri.toString())
         }
 
-        val harvested = TagHarvest.harvest(name, folder, nfoObj)
-        val tags = TagPresetLibrary.mergeWithHarvested(name, harvested)
+        val harvested = if (cfg.metadataFromFilename || cfg.metadataFromNfo) {
+            TagHarvest.harvest(name, folder, nfoObj)
+        } else {
+            emptyList()
+        }
+        val tags = if (harvested.isNotEmpty()) {
+            TagPresetLibrary.mergeWithHarvested(name, harvested)
+        } else {
+            emptyList()
+        }
         val genres = mutableListOf<String>()
-        val ga = nfoObj.optJSONArray("genres_xml")
-        if (ga != null) for (i in 0 until ga.length()) genres.add(ga.optString(i))
+        if (cfg.metadataFromNfo) {
+            val ga = nfoObj.optJSONArray("genres_xml")
+            if (ga != null) for (i in 0 until ga.length()) genres.add(ga.optString(i))
+        }
 
-        val plot = nfoObj.optString("plot", "").trim()
+        val plot = if (cfg.metadataFromNfo) nfoObj.optString("plot", "").trim() else ""
 
         val o = JSONObject()
         o.put("path", path)
@@ -177,12 +206,12 @@ object LocalScanner {
         o.put("collection", collection)
         o.put("collection_key_name", collectionKey)
         o.put("year", year)
-        o.put("season", season.ifBlank { nfoObj.optString("season", "") })
-        o.put("episode", episode.ifBlank { nfoObj.optString("episode", "") })
+        o.put("season", season.ifBlank { if (cfg.metadataFromNfo) nfoObj.optString("season", "") else "" })
+        o.put("episode", episode.ifBlank { if (cfg.metadataFromNfo) nfoObj.optString("episode", "") else "" })
         o.put("plot", plot)
         o.put("tags", TagHarvest.toJsonArray(tags))
         o.put("genres", JSONArray().also { arr -> genres.forEach { arr.put(it) } })
-        if (nfoObj.length() > 0) o.put("nfo", nfoObj)
+        if (cfg.metadataFromNfo && nfoObj.length() > 0) o.put("nfo", nfoObj)
         if (sidecar.coverUri != null) o.put("cover_uri", sidecar.coverUri)
         if (sidecar.coverLocal != null) {
             o.put("cover_local", sidecar.coverLocal)
@@ -201,6 +230,7 @@ object LocalScanner {
             "premiered", "releasedate", "studio", "country", "director", "writer",
             "mpaa", "rating", "runtime", "status",
         )) {
+            if (!cfg.metadataFromNfo) continue
             val v = nfoObj.optString(key, "").trim()
             if (v.isNotBlank()) o.put(key, v)
         }
