@@ -30,6 +30,7 @@ object PlayerTimeFormat {
 class PlayerChromeController(
     private val activity: AppCompatActivity,
     private val playerProvider: () -> ExoPlayer?,
+    private val onSeekCommitted: ((Long) -> Unit)? = null,
 ) {
     private val handler = Handler(Looper.getMainLooper())
     private var chromeVisible = false
@@ -80,6 +81,7 @@ class PlayerChromeController(
                 val pos = (progress / 1000.0 * dur).toLong().coerceIn(0L, dur)
                 hideSeekOverlay()
                 playerProvider()?.seekTo(pos)
+                onSeekCommitted?.invoke(pos)
                 syncProgressFromPlayer()
                 scheduleAutoHide()
             }
@@ -129,6 +131,7 @@ class PlayerChromeController(
         val dur = durationMs()
         val pos = positionMs.coerceIn(0L, dur.coerceAtLeast(0L))
         playerProvider()?.seekTo(pos)
+        onSeekCommitted?.invoke(pos)
         syncProgressFromPlayer()
     }
 

@@ -8,26 +8,28 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * 左/右半屏长按：倍速（松手恢复）；长按后横向拖动：取消倍速，松手再 seek。
- * 左/中/右双击：快退 / 暂停·播放 / 快进。
+ * 左/右半屏长按：倍速（松手恢复）；仅明显横向拖动：松手 seek。
+ * 上下滑不抢手势，留给系统返回/系统小窗。
  */
 class PlayerGestureController(
     private val root: View,
     private val playerProvider: () -> ExoPlayer?,
     private val chrome: PlayerChromeController,
-    private val toast: (String) -> Unit,
+    private val onSeekCommitted: ((Long) -> Unit)? = null,
 ) {
     private var speedActive = false
     private var dragSeeking = false
+    private var horizontalDragLocked = false
     private var dragStartX = 0f
+    private var dragStartY = 0f
     private var dragStartPos = 0L
     private var dragPreviewPos = 0L
     private val longPressMs = 280L
     private var pendingSpeed: Runnable? = null
     private var zone = -1
-    private var speedHintShown = false
 
     private val speedRate = 2f
+    private val axisSlopPx = 24f
 
     private val detector = GestureDetector(
         root.context,
@@ -44,22 +46,21 @@ class PlayerGestureController(
                     x < w / 3f -> {
                         val target = (p.currentPosition - 10_000).coerceIn(0L, dur)
                         p.seekTo(target)
+                        onSeekCommitted?.invoke(target)
                         val t = PlayerTimeFormat.formatMs(target)
                         chrome.showCenterHint(t)
                         root.postDelayed({ chrome.hideSeekOverlay() }, 600)
-                        toast(t)
                     }
                     x > w * 2f / 3f -> {
                         val target = (p.currentPosition + 10_000).coerceIn(0L, dur)
                         p.seekTo(target)
+                        onSeekCommitted?.invoke(target)
                         val t = PlayerTimeFormat.formatMs(target)
                         chrome.showCenterHint(t)
                         root.postDelayed({ chrome.hideSeekOverlay() }, 600)
-                        toast(t)
                     }
                     else -> {
                         p.playWhenReady = !p.playWhenReady
-                        // 暂停/播放不堆文字，仅切换状态
                     }
                 }
                 return true
@@ -79,7 +80,7 @@ class PlayerGestureController(
                 MotionEvent.ACTION_DOWN -> {
                     cancelPending()
                     dragSeeking = false
-                    speedHintShown = false
+                    horizontalDragLocked = false
                     zone = when {
                         event.x < w / 3f -> 0
                         event.x > w * 2f / 3f -> 2
@@ -95,11 +96,31 @@ class PlayerGestureController(
                         root.postDelayed(r, longPressMs)
                     }
                     dragStartX = event.x
+                    dragStartY = event.y
                     dragStartPos = playerProvider()?.currentPosition ?: 0L
                     dragPreviewPos = dragStartPos
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val moved = abs(event.x - dragStartX) > 20
+                    val dx = event.x - dragStartX
+                    val dy = event.y - dragStartY
+                    val absDx = abs(dx)
+                    val absDy = abs(dy)
+                    if (!horizontalDragLocked && (absDx > axisSlopPx || absDy > axisSlopPx)) {
+                        if (absDy > absDx * 1.2f) {
+                            // 纵向为主：取消长按/拖动，把事件交给系统
+                            cancelPending()
+                            if (speedActive) restoreSpeed()
+                            dragSeeking = false
+                            zone = -1
+                            return@setOnTouchListener false
+                        }
+                        if (absDx > axisSlopPx) horizontalDragLocked = true
+                    }
+                    if (!horizontalDragLocked) {
+                        detector.onTouchEvent(event)
+                        return@setOnTouchListener true
+                    }
+                    val moved = absDx > 20
                     if (zone == 0 || zone == 2) {
                         if (speedActive && moved && !dragSeeking) {
                             restoreSpeed()
@@ -124,8 +145,10 @@ class PlayerGestureController(
                     if (speedActive) restoreSpeed()
                     if (dragSeeking) {
                         chrome.commitGestureSeek(dragPreviewPos)
+                        onSeekCommitted?.invoke(dragPreviewPos)
                     }
                     dragSeeking = false
+                    horizontalDragLocked = false
                     zone = -1
                 }
             }
@@ -156,10 +179,6 @@ class PlayerGestureController(
         p.playbackParameters = p.playbackParameters.withSpeed(speedRate)
         val label = formatSpeedLabel(speedRate)
         chrome.showCenterHint(label)
-        if (!speedHintShown) {
-            speedHintShown = true
-            toast(label)
-        }
         chrome.onUserGesture()
     }
 

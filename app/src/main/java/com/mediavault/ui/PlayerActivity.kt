@@ -29,6 +29,7 @@ import androidx.media3.ui.PlayerView
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
+import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.playback.PlaylistBuilder
 import java.io.File
 import java.io.FileOutputStream
@@ -41,9 +42,18 @@ class PlayerActivity : AppCompatActivity() {
     private var selectedSubIndex = -1 // -1 off, 0+ external, Int.MAX embedded handled separately
 
     private lateinit var chromeController: PlayerChromeController
-    private var lastToastAt = 0L
 
     private val historyStore by lazy { HistoryStore(this) }
+    private val progressStore by lazy { PlaybackProgressStore(this) }
+    private val progressHandler = Handler(Looper.getMainLooper())
+    private var currentMediaPath: String = ""
+    private var pendingResumeMs: Long = 0L
+    private val progressTick = object : Runnable {
+        override fun run() {
+            persistPlaybackProgress()
+            progressHandler.postDelayed(this, 10_000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +64,10 @@ class PlayerActivity : AppCompatActivity() {
         if (startPath.isNullOrBlank()) {
             finish()
             return
+        }
+        currentMediaPath = startPath
+        pendingResumeMs = intent.getLongExtra(EXTRA_RESUME_MS, -1L).let { extra ->
+            if (extra >= 0) extra else progressStore.getPositionMs(startPath)
         }
 
         val repo = (application as MediaVaultApp).repository
@@ -75,14 +89,21 @@ class PlayerActivity : AppCompatActivity() {
         val playerView = findViewById<PlayerView>(R.id.playerView)
         playerView.useController = false
 
-        chromeController = PlayerChromeController(this) { player }
+        chromeController = PlayerChromeController(this, { player }) { pos ->
+            persistPlaybackProgress(pos)
+        }
         chromeController.bind(playerView.rootView)
 
         player = ExoPlayer.Builder(this).build().also { exo ->
             playerView.player = exo
-            loadEpisode(exo, uri, title.ifBlank { episode?.title ?: "" })
+            loadEpisode(exo, uri, title.ifBlank { episode?.title ?: "" }, episode?.path ?: startPath)
             exo.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
+                    if (state == Player.STATE_READY && pendingResumeMs > 0) {
+                        val seek = pendingResumeMs
+                        pendingResumeMs = 0L
+                        exo.seekTo(seek)
+                    }
                     if (state == Player.STATE_ENDED && playlistIndex < playlist.size - 1) {
                         playIndex(playlistIndex + 1)
                     }
@@ -99,20 +120,23 @@ class PlayerActivity : AppCompatActivity() {
             playerView,
             { player },
             chromeController,
-        ) { msg -> showPlayerToast(msg) }.attach()
+        ) { pos -> persistPlaybackProgress(pos) }.attach()
 
         bindControls(title.ifBlank { episode?.title ?: "" })
         updateNavButtons()
+        progressHandler.postDelayed(progressTick, 10_000)
     }
 
-    private fun showPlayerToast(msg: String) {
-        val now = System.currentTimeMillis()
-        if (now - lastToastAt < 400) return
-        lastToastAt = now
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    private fun persistPlaybackProgress(positionMs: Long? = null) {
+        val p = player ?: return
+        val path = currentMediaPath
+        if (path.isBlank()) return
+        val pos = positionMs ?: p.currentPosition
+        progressStore.save(path, pos, p.duration)
     }
 
-    private fun loadEpisode(exo: ExoPlayer, uri: Uri, title: String) {
+    private fun loadEpisode(exo: ExoPlayer, uri: Uri, title: String, mediaPath: String) {
+        currentMediaPath = mediaPath
         val builder = ExoMediaItem.Builder().setUri(uri)
         if (externalSubtitles.isNotEmpty() && selectedSubIndex in externalSubtitles.indices) {
             val subUri = Uri.parse(externalSubtitles[selectedSubIndex])
@@ -171,7 +195,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun seekRel(ms: Long) {
         val p = player ?: return
         val dur = p.duration.coerceAtLeast(0L)
-        p.seekTo((p.currentPosition + ms).coerceIn(0L, dur))
+        val pos = (p.currentPosition + ms).coerceIn(0L, dur)
+        p.seekTo(pos)
+        persistPlaybackProgress(pos)
     }
 
     private fun playIndex(index: Int) {
@@ -180,7 +206,8 @@ class PlayerActivity : AppCompatActivity() {
         val ep = playlist[index]
         externalSubtitles = ep.subtitles
         historyStore.add(ep.path)
-        player?.let { loadEpisode(it, ep.uri, ep.title) }
+        pendingResumeMs = progressStore.getPositionMs(ep.path)
+        player?.let { loadEpisode(it, ep.uri, ep.title, ep.path) }
         findViewById<TextView>(R.id.playerTitleOverlay).text = ep.title
         updateNavButtons()
         updatePlayIcon()
@@ -252,8 +279,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun reloadCurrentMedia() {
         val ep = playlist.getOrNull(playlistIndex) ?: return
         val pos = player?.currentPosition ?: 0L
+        pendingResumeMs = 0L
         player?.let {
-            loadEpisode(it, ep.uri, ep.title)
+            loadEpisode(it, ep.uri, ep.title, ep.path)
             it.seekTo(pos)
         }
     }
@@ -299,11 +327,14 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        super.onStop()
+        persistPlaybackProgress()
         player?.pause()
+        super.onStop()
     }
 
     override fun onDestroy() {
+        progressHandler.removeCallbacks(progressTick)
+        persistPlaybackProgress()
         if (::chromeController.isInitialized) chromeController.release()
         player?.release()
         player = null
@@ -314,6 +345,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val EXTRA_PATH = "path"
         private const val EXTRA_URI_LEGACY = "uri"
         private const val EXTRA_TITLE = "title"
+        const val EXTRA_RESUME_MS = "resume_ms"
 
         fun intent(ctx: Context, path: String, title: String): Intent =
             Intent(ctx, PlayerActivity::class.java)
