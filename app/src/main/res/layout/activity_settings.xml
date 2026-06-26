@@ -49,9 +49,12 @@
                 android:id="@+id/addWebDavBtn"
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="2"
+                android:ellipsize="end"
                 android:text="@string/add_webdav"
                 android:textSize="11sp" />
 
@@ -59,9 +62,12 @@
                 android:id="@+id/addFtpBtn"
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="2"
+                android:ellipsize="end"
                 android:text="@string/add_ftp"
                 android:textSize="11sp" />
 
@@ -69,8 +75,11 @@
                 android:id="@+id/addSmbBtn"
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_weight="1"
+                android:gravity="center"
+                android:maxLines="2"
+                android:ellipsize="end"
                 android:text="@string/add_smb"
                 android:textSize="11sp" />
         </LinearLayout>

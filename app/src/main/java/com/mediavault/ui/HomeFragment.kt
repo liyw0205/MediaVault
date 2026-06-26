@@ -114,7 +114,7 @@ class HomeFragment : Fragment() {
                 pageInfo.text = getString(R.string.recommend_count_fmt, slice.size)
                 actionBtn.visibility = View.VISIBLE
                 actionBtn.text = getString(R.string.refresh_recommend)
-                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.recommend_hint)
+                view.findViewById<TextView>(R.id.statusText).visibility = View.GONE
             }
             "history" -> {
                 val pages = pagesFor(list)
@@ -127,6 +127,7 @@ class HomeFragment : Fragment() {
                 next.isEnabled = page < pages.coerceAtLeast(1)
                 actionBtn.visibility = View.VISIBLE
                 actionBtn.text = getString(R.string.clear_history)
+                view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
                 view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
             }
             else -> {
@@ -139,6 +140,7 @@ class HomeFragment : Fragment() {
                 prev.isEnabled = page > 1
                 next.isEnabled = page < pages.coerceAtLeast(1)
                 actionBtn.visibility = View.GONE
+                view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
                 view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
             }
         }
