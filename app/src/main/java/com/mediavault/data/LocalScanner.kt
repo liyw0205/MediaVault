@@ -34,6 +34,7 @@ object LocalScanner {
     fun scanTreeUrisParallel(
         context: Context,
         store: MediaStore,
+        scrapeSession: ScrapeSession,
         rebuild: Boolean,
         threadCount: Int,
         rootUrisFilter: List<String>? = null,
@@ -53,7 +54,7 @@ object LocalScanner {
             if (shouldCancel()) return
             val uri = Uri.parse(uriStr)
             val root = DocumentFile.fromTreeUri(context, uri) ?: continue
-            collectVideos(store, root, null, root.name ?: "root", rebuild, shouldCancel, queue)
+            collectVideos(scrapeSession, root, null, root.name ?: "root", rebuild, shouldCancel, queue)
         }
         val total = queue.size
         if (total == 0) {
@@ -68,13 +69,11 @@ object LocalScanner {
                 pool.submit {
                     while (!shouldCancel()) {
                         val work = queue.poll() ?: break
-                        if (!rebuild && store.hasScrapeRecord(work.path)) continue
+                        if (!rebuild && scrapeSession.has(work.path)) continue
                         val item = runCatching {
                             buildItem(context, store, work)
                         }.getOrNull() ?: continue
-                        synchronized(store) {
-                            store.recordScrapedPath(work.path)
-                        }
+                        scrapeSession.record(store, work.path)
                         onFile(item)
                         val n = done.incrementAndGet()
                         if (n % 3 == 0 || n == total) {
@@ -92,7 +91,7 @@ object LocalScanner {
     }
 
     private fun collectVideos(
-        store: MediaStore,
+        scrapeSession: ScrapeSession,
         dir: DocumentFile,
         parent: DocumentFile?,
         prefix: String,
@@ -103,13 +102,13 @@ object LocalScanner {
         for (child in dir.listFiles()) {
             if (shouldCancel()) return
             if (child.isDirectory) {
-                collectVideos(store, child, dir, "$prefix/${child.name}", rebuild, shouldCancel, out)
+                collectVideos(scrapeSession, child, dir, "$prefix/${child.name}", rebuild, shouldCancel, out)
             } else if (child.isFile) {
                 val name = child.name ?: continue
                 val ext = name.substringAfterLast('.', "").lowercase()
                 if (ext !in VIDEO_EXT) continue
                 val path = child.uri.toString()
-                if (!rebuild && store.hasScrapeRecord(path)) continue
+                if (!rebuild && scrapeSession.has(path)) continue
                 val folder = dir.name ?: ""
                 out.add(VideoWork(dir, parent, child, name, path, folder))
             }

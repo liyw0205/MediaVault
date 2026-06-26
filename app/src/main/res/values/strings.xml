@@ -41,6 +41,8 @@
     <string name="scrape_sidecar_hint">多线程扫描，扫完一条就写入库；已有刮削记录的路径会跳过。封面顺序：同名图片 → fanart → poster → 其他图。</string>
     <string name="scrape_threads_label">刮削线程数（1–32，默认 10）</string>
     <string name="scrape_threads_fmt">当前 %1$d 线程</string>
+    <string name="scrape_remote_frame_label">远程抽帧并发（1–5，默认 2，与刮削线程分开）</string>
+    <string name="scrape_remote_frame_fmt">远程抽帧 %1$d 路</string>
     <string name="video_info">视频信息</string>
     <string name="stat_collections">合集</string>
     <string name="stat_items">视频</string>

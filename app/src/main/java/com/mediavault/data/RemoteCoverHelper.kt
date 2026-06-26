@@ -25,10 +25,13 @@ object RemoteCoverHelper {
         client: RemoteClient,
         relVideoPath: String,
         libraryPath: String,
+        frameGate: RemoteFrameGate,
     ): Pair<String?, String> {
         val sidecar = cacheSidecarCover(context, store, config, client, relVideoPath)
         if (sidecar != null) return sidecar to "sidecar"
-        val frame = cacheFrameCover(context, store, config, client, relVideoPath)
+        val frame = frameGate.withPermit {
+            cacheFrameCover(context, store, config, client, relVideoPath)
+        }
         if (frame != null) return frame to "frame"
         return null to ""
     }

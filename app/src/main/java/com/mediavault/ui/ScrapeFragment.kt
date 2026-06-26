@@ -54,6 +54,7 @@ class ScrapeFragment : Fragment() {
             act.scrapeManager.cancel()
         }
         bindThreadSlider(view)
+        bindRemoteFrameSlider(view)
         refreshRoots()
         bindScrapeState(view)
     }
@@ -146,6 +147,21 @@ class ScrapeFragment : Fragment() {
             val n = value.toInt().coerceIn(ScrapeConfig.MIN_THREADS, ScrapeConfig.MAX_THREADS)
             ScrapeConfig.writeThreadCount(ctx, n)
             label.text = getString(R.string.scrape_threads_fmt, n)
+        }
+    }
+
+    private fun bindRemoteFrameSlider(view: View) {
+        val slider = view.findViewById<Slider>(R.id.scrapeRemoteFrameSlider)
+        val label = view.findViewById<TextView>(R.id.scrapeRemoteFrameValue)
+        val ctx = requireContext()
+        val cur = ScrapeConfig.readRemoteFrameConcurrency(ctx).toFloat()
+        slider.value = cur
+        label.text = getString(R.string.scrape_remote_frame_fmt, cur.toInt())
+        slider.addOnChangeListener { _, value, fromUser ->
+            if (!fromUser) return@addOnChangeListener
+            val n = value.toInt().coerceIn(ScrapeConfig.MIN_REMOTE_FRAME, ScrapeConfig.MAX_REMOTE_FRAME)
+            ScrapeConfig.writeRemoteFrameConcurrency(ctx, n)
+            label.text = getString(R.string.scrape_remote_frame_fmt, n)
         }
     }
 

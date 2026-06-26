@@ -13,9 +13,11 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.LocalScanner
 import com.mediavault.data.MediaItem
+import com.mediavault.data.RemoteFrameGate
 import com.mediavault.data.RemoteLibraryScanner
+import com.mediavault.data.ScrapeBatchAccumulator
 import com.mediavault.data.ScrapeConfig
-import com.mediavault.remote.RemotePath
+import com.mediavault.data.ScrapeSession
 import com.mediavault.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,9 +25,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicInteger
 
 class ScrapeForegroundService : Service() {
     companion object {
@@ -80,18 +82,31 @@ class ScrapeForegroundService : Service() {
         }
 
         val threads = ScrapeConfig.readThreadCount(this)
+        val remoteFrame = ScrapeConfig.readRemoteFrameConcurrency(this)
+        val scrapeSession = ScrapeSession(store)
+        val frameGate = RemoteFrameGate(remoteFrame)
+        val batchAcc = ScrapeBatchAccumulator(repository)
         var scannedThisRun = 0
+        val notifEvery = AtomicInteger(0)
 
-        suspend fun persistOne(item: MediaItem) {
-            persistMutex.withLock {
-                repository.appendSingleContentItem(item).onSuccess { total ->
+        fun persistOneBlocking(item: MediaItem) {
+            kotlinx.coroutines.runBlocking {
+                persistMutex.withLock {
+                    batchAcc.offer(item)
+                    val total = batchAcc.afterOffer()
                     scannedThisRun++
-                    val msg = "已入库 $scannedThisRun 条（库 $total）· ${item.displayTitle()}"
-                    manager.onProgress(msg, scannedThisRun, total)
-                    updateNotification(msg, scannedThisRun)
-                }.onFailure { e ->
-                    manager.onError(e.message ?: "写入失败")
-                    throw e
+                    val n = notifEvery.incrementAndGet()
+                    if (n % 5 == 0 || scannedThisRun == 1) {
+                        val msg = "已入库 $scannedThisRun 条（库 $total）· ${item.displayTitle()}"
+                        manager.onProgress(msg, scannedThisRun, total)
+                        updateNotification(msg, scannedThisRun)
+                    } else {
+                        manager.onProgress(
+                            "已刮削 $scannedThisRun 条（库 $total）",
+                            scannedThisRun,
+                            total,
+                        )
+                    }
                 }
             }
         }
@@ -104,15 +119,14 @@ class ScrapeForegroundService : Service() {
                 LocalScanner.scanTreeUrisParallel(
                     this,
                     store,
+                    scrapeSession,
                     rebuild,
                     threadCount = threads,
                     rootUrisFilter = rootUris,
                     shouldCancel = { cancelRequested },
-                    onFile = { item ->
-                        runBlocking { persistOne(item) }
-                    },
+                    onFile = { item -> persistOneBlocking(item) },
                     onStatus = { msg ->
-                        val total = repository.library.value.items.size
+                        val total = batchAcc.currentLibrarySize()
                         manager.onProgress(msg, scannedThisRun, total)
                         updateNotification(msg, scannedThisRun)
                     },
@@ -122,28 +136,40 @@ class ScrapeForegroundService : Service() {
                 RemoteLibraryScanner.scanRemotesParallel(
                     this,
                     store,
+                    scrapeSession,
                     rebuild,
                     remoteIds,
                     threads,
+                    frameGate,
                     shouldCancel = { cancelRequested },
-                    onFile = { item ->
-                        runBlocking { persistOne(item) }
-                    },
+                    onFile = { item -> persistOneBlocking(item) },
                     onStatus = { msg ->
-                        val total = repository.library.value.items.size
+                        val total = batchAcc.currentLibrarySize()
                         manager.onProgress(msg, scannedThisRun, total)
                         updateNotification(msg, scannedThisRun)
                     },
                 )
             }
-            if (cancelRequested) {
-                manager.onCancelled(scannedThisRun, repository.library.value.items.size)
-            } else {
-                manager.onFinished(repository.library.value.items.size, scannedThisRun)
+            persistMutex.withLock {
+                val total = batchAcc.flushAll()
+                repository.reload()
+                if (cancelRequested) {
+                    manager.onCancelled(scannedThisRun, total)
+                } else {
+                    manager.onFinished(total, scannedThisRun)
+                }
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
+            persistMutex.withLock {
+                batchAcc.flushAll()
+                repository.reload()
+            }
             manager.onCancelled(scannedThisRun, repository.library.value.items.size)
         } catch (e: Exception) {
+            persistMutex.withLock {
+                batchAcc.flushAll()
+                repository.reload()
+            }
             if (manager.state.value.phase != ScrapePhase.ERROR) {
                 manager.onError(e.message ?: e.toString())
             }

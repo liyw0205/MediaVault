@@ -112,6 +112,30 @@
                     android:textColor="@color/mv_muted"
                     android:textSize="12sp" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/scrape_remote_frame_label"
+                    android:textColor="@color/mv_text_secondary"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/scrapeRemoteFrameSlider"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:stepSize="1"
+                    android:valueFrom="1"
+                    android:valueTo="5"
+                    app:labelBehavior="gone" />
+
+                <TextView
+                    android:id="@+id/scrapeRemoteFrameValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/mv_muted"
+                    android:textSize="12sp" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

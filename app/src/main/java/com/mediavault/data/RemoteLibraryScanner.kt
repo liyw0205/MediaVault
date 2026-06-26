@@ -21,9 +21,11 @@ object RemoteLibraryScanner {
     fun scanRemotesParallel(
         context: Context,
         store: MediaStore,
+        scrapeSession: ScrapeSession,
         rebuild: Boolean,
         remoteIdsFilter: List<String>?,
         threadCount: Int,
+        frameGate: RemoteFrameGate,
         shouldCancel: () -> Boolean,
         onFile: (MediaItem) -> Unit,
         onStatus: (String) -> Unit,
@@ -41,7 +43,7 @@ object RemoteLibraryScanner {
             if (shouldCancel()) return
             onStatus("扫描 ${cfg.name} (${cfg.type})…")
             val client = RemoteClients.create(cfg)
-            collectVideos(cfg, client, "", rebuild, store, shouldCancel, queue)
+            collectVideos(cfg, client, "", rebuild, scrapeSession, shouldCancel, queue)
         }
         val total = queue.size
         if (total == 0) {
@@ -57,10 +59,10 @@ object RemoteLibraryScanner {
                     while (!shouldCancel()) {
                         val w = queue.poll() ?: break
                         val libPath = RemotePath.encode(w.config.id, w.relPath)
-                        if (!rebuild && store.hasScrapeRecord(libPath)) continue
+                        if (!rebuild && scrapeSession.has(libPath)) continue
                         val client = RemoteClients.create(w.config)
-                        val item = buildItem(context, store, client, w)
-                        synchronized(store) { store.recordScrapedPath(libPath) }
+                        val item = buildItem(context, store, client, w, frameGate)
+                        scrapeSession.record(store, libPath)
                         onFile(item)
                         val n = done.incrementAndGet()
                         if (n % 3 == 0 || n == total) {
@@ -90,7 +92,7 @@ object RemoteLibraryScanner {
         client: com.mediavault.remote.RemoteClient,
         relDir: String,
         rebuild: Boolean,
-        store: MediaStore,
+        scrapeSession: ScrapeSession,
         shouldCancel: () -> Boolean,
         out: ConcurrentLinkedQueue<Work>,
     ) {
@@ -99,12 +101,12 @@ object RemoteLibraryScanner {
             if (shouldCancel()) return
             val childRel = joinPath(relDir, e.path, e.name, e.directory)
             if (e.directory) {
-                collectVideos(cfg, client, childRel, rebuild, store, shouldCancel, out)
+                collectVideos(cfg, client, childRel, rebuild, scrapeSession, shouldCancel, out)
             } else {
                 val ext = e.name.substringAfterLast('.', "").lowercase()
                 if (ext !in VIDEO_EXT) continue
                 val libPath = RemotePath.encode(cfg.id, childRel)
-                if (!rebuild && store.hasScrapeRecord(libPath)) continue
+                if (!rebuild && scrapeSession.has(libPath)) continue
                 val folder = childRel.substringBeforeLast('/', "").substringAfterLast('/')
                 out.add(Work(cfg, childRel, e.name, e.size, folder))
             }
@@ -125,6 +127,7 @@ object RemoteLibraryScanner {
         store: MediaStore,
         client: com.mediavault.remote.RemoteClient,
         w: Work,
+        frameGate: RemoteFrameGate,
     ): MediaItem {
         val clean = w.name.substringBeforeLast('.')
         val path = RemotePath.encode(w.config.id, w.relPath)
@@ -135,7 +138,7 @@ object RemoteLibraryScanner {
         val tags = TagPresetLibrary.mergeWithHarvested(w.name, harvested)
         val collection = CollectionNames.sanitize(folder.ifBlank { clean })
         val (coverLocal, coverSource) = RemoteCoverHelper.coverForVideo(
-            context, store, w.config, client, w.relPath, path,
+            context, store, w.config, client, w.relPath, path, frameGate,
         )
         val o = JSONObject()
         o.put("path", path)

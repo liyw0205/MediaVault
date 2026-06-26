@@ -3,7 +3,6 @@ package com.mediavault.data
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
-import org.json.JSONArray
 import java.io.File
 import java.security.MessageDigest
 
@@ -25,9 +24,48 @@ object SidecarScanner {
     fun listVideoSiblingNames(dir: DocumentFile): List<String> =
         dir.listFiles().mapNotNull { it.name }
 
-    fun findNfoFile(context: Context, dir: DocumentFile, parent: DocumentFile?, videoName: String): Pair<DocumentFile?, String?> {
+    fun scanAroundVideo(
+        context: Context,
+        dir: DocumentFile,
+        parent: DocumentFile?,
+        videoName: String,
+        videoPath: String,
+        coversDir: File,
+    ): SidecarBundle {
+        val children = dir.listFiles()
+        val byName = indexByName(children)
+        val xml = pickNfoXml(context, byName, parent, dir.name ?: "", videoName)
+        val coverUri = pickCoverUri(byName, videoName)
+        val coverLocal = coverUri?.let { cacheCoverFromUri(context, it, videoPath, coversDir) }
+        val subs = pickSubtitles(byName, videoName)
+        val siblings = children.mapNotNull { it.name }.filter { name ->
+            val ext = name.substringAfterLast('.', "").lowercase()
+            ext !in VIDEO_EXT
+        }
+        return SidecarBundle(subs, coverUri?.toString(), coverLocal, xml, siblings)
+    }
+
+    private data class IndexedChild(val file: DocumentFile, val name: String, val ext: String)
+
+    private fun indexByName(children: Array<DocumentFile>): Map<String, IndexedChild> {
+        val map = linkedMapOf<String, IndexedChild>()
+        for (c in children) {
+            if (!c.isFile) continue
+            val name = c.name ?: continue
+            val ext = name.substringAfterLast('.', "").lowercase()
+            map.putIfAbsent(name, IndexedChild(c, name, ext))
+        }
+        return map
+    }
+
+    private fun pickNfoXml(
+        context: Context,
+        byName: Map<String, IndexedChild>,
+        parent: DocumentFile?,
+        folder: String,
+        videoName: String,
+    ): String? {
         val base = videoName.substringBeforeLast('.')
-        val folder = dir.name ?: ""
         val candidates = mutableListOf<String>()
         candidates += "$base.nfo"
         candidates += "$base.NFO"
@@ -40,23 +78,22 @@ object SidecarScanner {
             candidates += "$folder.NFO"
         }
         for (name in candidates) {
-            val f = dir.findFile(name) ?: continue
-            if (!f.isFile) continue
-            val xml = context.contentResolver.openInputStream(f.uri)?.bufferedReader()?.readText()
-            if (!xml.isNullOrBlank()) return f to xml
+            val ic = byName[name] ?: continue
+            val xml = context.contentResolver.openInputStream(ic.file.uri)?.bufferedReader()?.readText()
+            if (!xml.isNullOrBlank()) return xml
         }
         if (parent != null && folder.isNotBlank()) {
             for (name in listOf("$folder.nfo", "$folder.NFO")) {
                 val f = parent.findFile(name) ?: continue
                 if (!f.isFile) continue
                 val xml = context.contentResolver.openInputStream(f.uri)?.bufferedReader()?.readText()
-                if (!xml.isNullOrBlank()) return f to xml
+                if (!xml.isNullOrBlank()) return xml
             }
         }
-        return null to null
+        return null
     }
 
-    fun findCoverUri(dir: DocumentFile, videoName: String): Uri? {
+    private fun pickCoverUri(byName: Map<String, IndexedChild>, videoName: String): Uri? {
         val base = videoName.substringBeforeLast('.')
         val ordered = mutableListOf<String>()
         for (ext in IMG_EXT) {
@@ -81,30 +118,24 @@ object SidecarScanner {
             ordered += "$base-thumbnail.$ext"
             ordered += "thumb.$ext"
         }
-        for (child in dir.listFiles()) {
-            if (!child.isFile) continue
-            val name = child.name ?: continue
-            val ext = name.substringAfterLast('.', "").lowercase()
-            if (ext !in IMG_EXT) continue
+        for ((name, ic) in byName) {
+            if (ic.ext !in IMG_EXT) continue
             if (name !in ordered) ordered += name
         }
         for (name in ordered) {
-            val f = dir.findFile(name) ?: continue
-            if (f.isFile) return f.uri
+            val ic = byName[name] ?: continue
+            return ic.file.uri
         }
         return null
     }
 
-    fun findSubtitles(dir: DocumentFile, videoName: String): List<String> {
+    private fun pickSubtitles(byName: Map<String, IndexedChild>, videoName: String): List<String> {
         val base = videoName.substringBeforeLast('.')
         val out = mutableListOf<String>()
-        for (child in dir.listFiles()) {
-            if (!child.isFile) continue
-            val name = child.name ?: continue
-            val ext = name.substringAfterLast('.', "").lowercase()
-            if (ext !in SUB_EXT) continue
-            if (name.startsWith(base, ignoreCase = true) || name.equals("$base.$ext", ignoreCase = true)) {
-                out.add(child.uri.toString())
+        for ((name, ic) in byName) {
+            if (ic.ext !in SUB_EXT) continue
+            if (name.startsWith(base, ignoreCase = true) || name.equals("$base.${ic.ext}", ignoreCase = true)) {
+                out.add(ic.file.uri.toString())
             }
         }
         return out.sorted()
@@ -124,25 +155,6 @@ object SidecarScanner {
         } catch (_: Exception) {
             null
         }
-    }
-
-    fun scanAroundVideo(
-        context: Context,
-        dir: DocumentFile,
-        parent: DocumentFile?,
-        videoName: String,
-        videoPath: String,
-        coversDir: File,
-    ): SidecarBundle {
-        val (_, xml) = findNfoFile(context, dir, parent, videoName)
-        val coverUri = findCoverUri(dir, videoName)
-        val coverLocal = coverUri?.let { cacheCoverFromUri(context, it, videoPath, coversDir) }
-        val subs = findSubtitles(dir, videoName)
-        val siblings = listVideoSiblingNames(dir).filter { name ->
-            val ext = name.substringAfterLast('.', "").lowercase()
-            ext !in VIDEO_EXT
-        }
-        return SidecarBundle(subs, coverUri?.toString(), coverLocal, xml, siblings)
     }
 
     fun seasonEpisodeFromName(name: String): Pair<String, String> {

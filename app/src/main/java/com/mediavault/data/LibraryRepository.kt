@@ -48,6 +48,22 @@ class LibraryRepository(context: Context) {
         mergeAndPersist(listOf(item))
     }
 
+    /** 刮削批量写盘，不触发 reload（结束时再 reload 一次）。 */
+    fun mergeContentBatchWithoutReload(batch: List<MediaItem>): Result<Int> = runCatching {
+        if (batch.isEmpty()) return@runCatching _library.value.items.size
+        synchronized(this) {
+            val existing = _library.value.items
+            val byPath = existing.associateBy { it.path }.toMutableMap()
+            for (item in batch) {
+                byPath[item.path] = item
+            }
+            val merged = byPath.values.toList()
+            store.writeLibraryJson(merged).getOrThrow()
+            _library.value = MediaLibrary(true, merged, store.libraryFile.absolutePath)
+            merged.size
+        }
+    }
+
     private fun mergeAndPersist(batch: List<MediaItem>): Int {
         val existing = _library.value.items
         val byPath = existing.associateBy { it.path }.toMutableMap()

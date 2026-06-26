@@ -163,6 +163,19 @@ class MediaStore(private val context: Context) {
         return scrapeRecordFile.readLines().any { it.trim() == path }
     }
 
+    /** 刮削开始时一次性载入，供 [ScrapeSession] 使用。 */
+    fun loadScrapeRecordPaths(): Set<String> {
+        if (!scrapeRecordFile.isFile) return emptySet()
+        return scrapeRecordFile.readLines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+    }
+
+    fun appendScrapeRecordPath(path: String) {
+        scrapeRecordFile.appendText("$path\n", Charsets.UTF_8)
+    }
+
     fun recordScrapedPath(path: String) {
         if (hasScrapeRecord(path)) return
         scrapeRecordFile.appendText("$path\n", Charsets.UTF_8)
