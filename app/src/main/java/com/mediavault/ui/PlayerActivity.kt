@@ -33,6 +33,7 @@ import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.playback.PlaylistBuilder
 import com.mediavault.remote.RemoteDataSourceFactory
 import com.mediavault.remote.RemotePath
+import com.mediavault.remote.RemotePlayUri
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import java.io.File
@@ -84,7 +85,7 @@ class PlayerActivity : AppCompatActivity() {
         val episode = playlist.getOrNull(playlistIndex)
         val uri = episode?.uri
             ?: libItem?.let { PlaylistBuilder.resolveUri(it, store) }
-            ?: Uri.parse(startPath)
+            ?: resolveStartUri(startPath, store)
         externalSubtitles = episode?.subtitles ?: run {
             val arr = libItem?.raw?.optJSONArray("subtitles")
             if (arr == null) emptyList()
@@ -99,7 +100,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         chromeController.bind(playerView.rootView)
 
-        val remoteFactory = RemoteDataSourceFactory(store)
+        val remoteFactory = RemoteDataSourceFactory(this, store)
         val defaultDs = DefaultDataSource.Factory(this, remoteFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(defaultDs)
 
@@ -288,13 +289,38 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun reloadCurrentMedia() {
-        val ep = playlist.getOrNull(playlistIndex) ?: return
+        val ep = playlist.getOrNull(playlistIndex)
         val pos = player?.currentPosition ?: 0L
         pendingResumeMs = 0L
+        if (ep != null) {
+            player?.let {
+                loadEpisode(it, ep.uri, ep.title, ep.path)
+                it.seekTo(pos)
+            }
+            return
+        }
+        val store = (application as MediaVaultApp).repository.store
+        val uri = resolveStartUri(currentMediaPath, store)
+        val title = findViewById<TextView>(R.id.playerTitleOverlay).text?.toString().orEmpty()
         player?.let {
-            loadEpisode(it, ep.uri, ep.title, ep.path)
+            loadEpisode(it, uri, title, currentMediaPath)
             it.seekTo(pos)
         }
+    }
+
+    private fun resolveStartUri(startPath: String, store: com.mediavault.data.MediaStore): Uri {
+        if (startPath.startsWith("content://") || startPath.startsWith("file://")) {
+            return Uri.parse(startPath)
+        }
+        if (RemotePath.isRemote(startPath)) {
+            val parsed = RemotePath.parse(startPath)
+            if (parsed != null) {
+                return RemotePlayUri.forRelative(parsed.configId, parsed.relativePath)
+            }
+        }
+        val f = File(startPath)
+        if (f.isAbsolute && f.exists()) return Uri.fromFile(f)
+        return Uri.parse(startPath)
     }
 
     private fun takeScreenshot() {

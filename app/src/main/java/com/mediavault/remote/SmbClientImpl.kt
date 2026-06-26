@@ -9,6 +9,7 @@ import com.hierynomus.smbj.auth.AuthenticationContext
 import com.hierynomus.smbj.connection.Connection
 import com.hierynomus.smbj.session.Session
 import com.hierynomus.smbj.share.DiskShare
+import androidx.media3.common.C
 
 class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     private val shareName: String
@@ -46,11 +47,34 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         return "SMB 连接成功 (share=$shareName)"
     }
 
-    override fun openRead(relativePath: String, offset: Long): java.io.InputStream {
+    override fun fileSize(relativePath: String): Long = withShare { share ->
+        val p = smbPath(relativePath)
+        runCatching {
+            share.openFile(
+                p,
+                java.util.EnumSet.of(AccessMask.GENERIC_READ),
+                null,
+                SMB2ShareAccess.ALL,
+                SMB2CreateDisposition.FILE_OPEN,
+                null,
+            ).use { it.fileInformation.standardInformation.endOfFile }
+        }.getOrDefault(C.LENGTH_UNSET.toLong())
+    }
+
+    private fun smbPath(relativePath: String): String {
         var p = relativePath.replace('/', '\\').trim('\\')
         if (rootOnShare.isNotBlank()) {
             p = if (p.isBlank()) rootOnShare else "$rootOnShare\\$p"
         }
+        return p
+    }
+
+    override fun openRead(
+        relativePath: String,
+        offset: Long,
+        length: Long,
+    ): java.io.InputStream {
+        val p = smbPath(relativePath)
         val client = SMBClient()
         val conn = client.connect(cfg.host)
         val auth = AuthenticationContext(cfg.user, cfg.password.toCharArray(), null)
@@ -66,7 +90,12 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         )
         val raw = file.inputStream
         if (offset > 0) raw.skip(offset)
-        return object : java.io.FilterInputStream(raw) {
+        val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
+            RemoteLimitedInputStream(raw, length)
+        } else {
+            raw
+        }
+        return object : java.io.FilterInputStream(limited) {
             override fun close() {
                 super.close()
                 runCatching { file.close() }

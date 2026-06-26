@@ -3,6 +3,7 @@ package com.mediavault.remote
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
 import org.apache.commons.net.ftp.FTPFile
+import androidx.media3.common.C
 import java.io.IOException
 
 class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
@@ -27,7 +28,22 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         return "FTP 连接成功"
     }
 
-    override fun openRead(relativePath: String, offset: Long): java.io.InputStream {
+    override fun fileSize(relativePath: String): Long {
+        connect().use { ftp ->
+            var path = relativePath.trim().replace('\\', '/')
+            if (!path.startsWith("/")) path = "/$path"
+            val parent = path.substringBeforeLast('/', "/").ifBlank { "/" }
+            val name = path.substringAfterLast('/')
+            val files = ftp.listFiles(parent) ?: return C.LENGTH_UNSET.toLong()
+            return files.firstOrNull { it.name == name }?.size ?: C.LENGTH_UNSET.toLong()
+        }
+    }
+
+    override fun openRead(
+        relativePath: String,
+        offset: Long,
+        length: Long,
+    ): java.io.InputStream {
         val ftp = connect()
         var path = relativePath.trim().replace('\\', '/')
         if (!path.startsWith("/")) path = "/$path"
@@ -37,7 +53,12 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
                 throw IOException("FTP 无法打开: $path")
             }
         if (offset > 0) raw.skip(offset)
-        return object : java.io.FilterInputStream(raw) {
+        val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
+            RemoteLimitedInputStream(raw, length)
+        } else {
+            raw
+        }
+        return object : java.io.FilterInputStream(limited) {
             override fun close() {
                 super.close()
                 runCatching {

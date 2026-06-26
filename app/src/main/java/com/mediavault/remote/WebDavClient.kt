@@ -5,6 +5,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import androidx.media3.common.C
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.net.URI
@@ -35,12 +36,35 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         return Credentials.basic(cfg.user, cfg.password)
     }
 
-    override fun openRead(relativePath: String, offset: Long): java.io.InputStream {
+    override fun fileSize(relativePath: String): Long {
+        var p = relativePath.trim().replace('\\', '/').trimStart('/')
+        val url = baseUrl() + p
+        val req = Request.Builder().url(url).head()
+        authHeader()?.let { req.header("Authorization", it) }
+        http.newCall(req.build()).execute().use { resp ->
+            if (!resp.isSuccessful) return C.LENGTH_UNSET.toLong()
+            val cl = resp.header("Content-Length")?.toLongOrNull()
+            if (cl != null && cl >= 0) return cl
+            return C.LENGTH_UNSET.toLong()
+        }
+    }
+
+    override fun openRead(
+        relativePath: String,
+        offset: Long,
+        length: Long,
+    ): java.io.InputStream {
         var p = relativePath.trim().replace('\\', '/').trimStart('/')
         val url = baseUrl() + p
         val req = Request.Builder().url(url).get()
         authHeader()?.let { req.header("Authorization", it) }
-        if (offset > 0) req.header("Range", "bytes=$offset-")
+        if (offset > 0 || length != C.LENGTH_UNSET.toLong()) {
+            val end = when {
+                length != C.LENGTH_UNSET.toLong() && length > 0 -> offset + length - 1
+                else -> ""
+            }
+            req.header("Range", "bytes=$offset-$end")
+        }
         val resp = http.newCall(req.build()).execute()
         if (!resp.isSuccessful && resp.code != 206) {
             resp.close()
