@@ -336,7 +336,7 @@ class PlayerActivity : AppCompatActivity() {
                 FileOutputStream(file).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 92, out) }
                 Toast.makeText(this, getString(R.string.screenshot_saved, file.absolutePath), Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Toast.makeText(this, e.message ?: "截图失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, e.message ?: getString(R.string.screenshot_failed), Toast.LENGTH_SHORT).show()
             } finally {
                 bmp.recycle()
             }

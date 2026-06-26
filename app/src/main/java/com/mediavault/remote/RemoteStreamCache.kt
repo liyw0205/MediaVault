@@ -11,7 +11,7 @@ import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 远程流边下边播前缀缓存（对齐 Neribox prefix 思路）：顺序下载写入本地，seek 时先读缓存再拉网。
+ * 远程播放缓存：顺序下载到本地，拖动进度条时优先读已缓存部分。
  */
 object RemoteStreamCache {
     private const val MAX_CACHE_BYTES = 512L * 1024 * 1024
@@ -151,7 +151,7 @@ object RemoteStreamCache {
         }
     }
 
-    /** 删除全部远程点播前缀缓存文件，返回删除个数 */
+    /** 删除全部远程播放缓存文件，返回删除个数 */
     fun clearAll(context: Context): Int {
         val dir = cacheDir(context)
         if (!dir.isDirectory) return 0

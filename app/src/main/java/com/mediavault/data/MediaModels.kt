@@ -49,7 +49,7 @@ data class MediaItem(
     fun rootKey(): String {
         val p = path
         if (p.startsWith("neribox-remote") || p.startsWith("remote|")) return "远程"
-        if (p.startsWith("content://")) return "本地(SAF)"
+        if (p.startsWith("content://")) return "本机"
         val idx = p.indexOf('/', 1)
         return if (idx > 0) p.substring(0, idx) else p.substringBeforeLast('/').ifBlank { "本地" }
     }

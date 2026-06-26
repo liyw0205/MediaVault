@@ -39,7 +39,7 @@ class SettingsActivity : AppCompatActivity() {
         )
         store.appendLocalRootUri(uri.toString())
         refreshLocalList()
-        Toast.makeText(this, "已添加目录", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.settings_added_local, Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -181,7 +181,7 @@ class SettingsActivity : AppCompatActivity() {
                 .setPositiveButton(R.string.save) { _, _ ->
                 val h = host.text?.toString()?.trim().orEmpty()
                 if (h.isEmpty()) {
-                    Toast.makeText(this, "请填写主机", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, R.string.settings_need_host, Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 val cfg = RemoteConfig(
@@ -228,9 +228,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveRemotes() {
         try {
             store.writeRemotesList(remotes)
-            Toast.makeText(this, "已保存", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "保存失败: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.settings_save_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -257,7 +257,7 @@ class SettingsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val msg = withContext(Dispatchers.IO) {
                 runCatching { RemoteClients.create(cfg).testConnection() }
-                    .fold(onSuccess = { it }, onFailure = { it.message ?: "失败" })
+                    .fold(onSuccess = { it }, onFailure = { getString(R.string.settings_test_failed, it.message ?: "") })
             }
             Toast.makeText(this@SettingsActivity, msg, Toast.LENGTH_LONG).show()
         }
@@ -266,7 +266,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun testWebDav() {
         val cfg = remotes.firstOrNull { it.type == "webdav" }
             ?: run {
-                Toast.makeText(this, "列表中无 WebDAV", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.settings_no_webdav, Toast.LENGTH_SHORT).show()
                 return
             }
         lifecycleScope.launch {
@@ -275,11 +275,11 @@ class SettingsActivity : AppCompatActivity() {
                     val client = RemoteClients.create(cfg)
                     val test = client.testConnection()
                     val list = client.list("").take(5).joinToString { it.name }
-                    "$test\n示例: $list"
+                    "$test\n${getString(R.string.settings_test_sample, list)}"
                 }
                 Toast.makeText(this@SettingsActivity, msg, Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Toast.makeText(this@SettingsActivity, "失败: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@SettingsActivity, getString(R.string.settings_test_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
             }
         }
     }

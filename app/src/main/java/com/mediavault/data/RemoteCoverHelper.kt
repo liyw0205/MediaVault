@@ -11,7 +11,7 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 
 /**
- * 远程目录封面：先拉同目录 sidecar 图，否则下载片头字节抽帧（对齐 Neribox coverForRemoteVideo）。
+ * 远程视频封面：优先同目录图片，否则下载片头一小段再抽帧。
  */
 object RemoteCoverHelper {
     private const val MAX_SIDECAR_BYTES = 20L * 1024 * 1024

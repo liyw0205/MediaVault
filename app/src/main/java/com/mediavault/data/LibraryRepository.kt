@@ -60,7 +60,7 @@ class LibraryRepository(context: Context) {
         return merged.size
     }
 
-    /** 全部重新刮削前：去掉库中所有 SAF/content 条目 */
+    /** 全部重扫前：去掉库里所有通过「文档选择器」添加的本机条目 */
     fun stripContentItems(): Result<Int> = runCatching {
         val kept = _library.value.items.filter { !LocalScanner.isContentLibraryPath(it.path) }
         store.writeLibraryJson(kept).getOrThrow()
@@ -106,7 +106,7 @@ class LibraryRepository(context: Context) {
         return n
     }
 
-    /** 从库中移除指定根下的 SAF 条目（不删配置） */
+    /** 从库里移除某个本机根下的条目（不删根目录配置） */
     fun removeItemsUnderRoot(rootUri: String): Result<Int> = runCatching {
         val n = store.removeLibraryItemsUnderRoot(rootUri)
         reload()

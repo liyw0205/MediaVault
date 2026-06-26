@@ -88,7 +88,7 @@ class MediaStore(private val context: Context) {
         runCatching { com.mediavault.remote.RemoteConfig.listFromJson(readRemotesJsonText()) }
             .getOrDefault(emptyList())
 
-    /** 移除某根下所有 SAF 条目及刮削记录 */
+    /** 移除某个本机根下的库条目和刮削记录 */
     fun removeLibraryItemsUnderRoot(rootUri: String): Int {
         val text = readLibraryText() ?: return 0
         val lib = MediaLibrary.parse(text, libraryFile.absolutePath)

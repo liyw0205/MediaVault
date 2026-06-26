@@ -145,7 +145,7 @@ class MainActivity : AppCompatActivity() {
                         refreshHome(recommendPathsOnly = false)
                     }
                     .onFailure { e ->
-                        Toast.makeText(this@MainActivity, e.message ?: "重读失败", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, e.message ?: getString(R.string.reload_failed), Toast.LENGTH_LONG).show()
                     }
             }
             true
@@ -211,37 +211,37 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton(android.R.string.cancel, null)
         val dialog = MvDialog.showStyled(builder)
         root.findViewById<View>(R.id.dataClearCovers).setOnClickListener {
-            confirmDataAction("清空全部封面文件？") {
+            confirmDataAction(getString(R.string.confirm_clear_covers)) {
                 val n = repository.clearCovers()
-                Toast.makeText(this, "已删 $n 个封面", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.data_cleared_covers_fmt, n), Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
         }
         root.findViewById<View>(R.id.dataClearScrape).setOnClickListener {
-            confirmDataAction("清空全部刮削记录？") {
+            confirmDataAction(getString(R.string.confirm_clear_scrape)) {
                 repository.clearScrapeRecord()
-                Toast.makeText(this, "刮削记录已清空", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.data_cleared_scrape, Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
         }
         root.findViewById<View>(R.id.dataClearRemoteStream).setOnClickListener {
-            confirmDataAction("清空远程边下边播前缀缓存？") {
+            confirmDataAction(getString(R.string.confirm_clear_remote)) {
                 val n = repository.clearRemoteStreamCache()
-                Toast.makeText(this, "已删 $n 个缓存文件", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.data_cleared_remote_fmt, n), Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
         }
         root.findViewById<View>(R.id.dataClearLibrary).setOnClickListener {
-            confirmDataAction("清空媒体库 JSON（保留目录与远程配置）？") {
+            confirmDataAction(getString(R.string.confirm_clear_library)) {
                 lifecycleScope.launch {
                     repository.clearLibraryJson()
                         .onSuccess {
-                            Toast.makeText(this@MainActivity, "媒体库已清空", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, R.string.data_cleared_library, Toast.LENGTH_SHORT).show()
                             refreshHome(recommendPathsOnly = false)
                             dialog.dismiss()
                         }
                         .onFailure { e ->
-                            Toast.makeText(this@MainActivity, e.message ?: "失败", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
                         }
                 }
             }

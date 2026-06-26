@@ -152,7 +152,7 @@ class ScrapeFragment : Fragment() {
     private fun startScrape(rebuild: Boolean, localRoots: List<String>?, remoteIds: List<String>?) {
         val act = activity as? MainActivity ?: return
         if (act.scrapeManager.isRunning()) {
-            Toast.makeText(requireContext(), "刮削已在后台运行", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
             return
         }
         act.scrapeManager.start(rebuild, localRoots, remoteIds)

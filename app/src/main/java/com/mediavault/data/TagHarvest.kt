@@ -2,7 +2,7 @@ package com.mediavault.data
 
 import org.json.JSONArray
 
-/** 对齐 neribox_web.sh tags_from_nfo_all / tags_from_name_lines（常用子集） */
+/** 从 NFO 和文件名里收集标签（常用规则） */
 object TagHarvest {
     fun harvest(fileName: String, parentFolder: String, nfo: org.json.JSONObject): List<String> {
         val seen = linkedSetOf<String>()
