@@ -15,14 +15,10 @@ import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
 import android.widget.ImageButton
-import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MimeTypes
@@ -44,12 +40,14 @@ class PlayerActivity : AppCompatActivity() {
     private var externalSubtitles: List<String> = emptyList()
     private var selectedSubIndex = -1 // -1 off, 0+ external, Int.MAX embedded handled separately
 
+    private lateinit var chromeController: PlayerChromeController
+    private var lastToastAt = 0L
+
     private val historyStore by lazy { HistoryStore(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
-        enterFullscreen()
 
         val startPath = intent.getStringExtra(EXTRA_PATH) ?: intent.getStringExtra(EXTRA_URI_LEGACY)
         val title = intent.getStringExtra(EXTRA_TITLE) ?: ""
@@ -77,6 +75,9 @@ class PlayerActivity : AppCompatActivity() {
         val playerView = findViewById<PlayerView>(R.id.playerView)
         playerView.useController = false
 
+        chromeController = PlayerChromeController(this) { player }
+        chromeController.bind(playerView.rootView)
+
         player = ExoPlayer.Builder(this).build().also { exo ->
             playerView.player = exo
             loadEpisode(exo, uri, title.ifBlank { episode?.title ?: "" })
@@ -94,19 +95,21 @@ class PlayerActivity : AppCompatActivity() {
             })
         }
 
-        val bar = findViewById<LinearLayout>(R.id.playerControlBar)
-        val titleOverlay = findViewById<TextView>(R.id.playerTitleOverlay)
-        fun showChrome() {
-            bar.visibility = View.VISIBLE
-            titleOverlay.visibility = View.VISIBLE
-        }
-        PlayerGestureController(playerView, { player }, { showChrome() }).attach()
-        playerView.setOnClickListener {
-            bar.visibility = if (bar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-            titleOverlay.visibility = bar.visibility
-        }
+        PlayerGestureController(
+            playerView,
+            { player },
+            chromeController,
+        ) { msg -> showPlayerToast(msg) }.attach()
+
         bindControls(title.ifBlank { episode?.title ?: "" })
         updateNavButtons()
+    }
+
+    private fun showPlayerToast(msg: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastToastAt < 400) return
+        lastToastAt = now
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
     private fun loadEpisode(exo: ExoPlayer, uri: Uri, title: String) {
@@ -195,7 +198,7 @@ class PlayerActivity : AppCompatActivity() {
             val mark = if (i == playlistIndex) "▶ " else ""
             "$mark${ep.title}"
         }.toTypedArray()
-        AlertDialog.Builder(this)
+        MvDialog.builder(this)
             .setTitle(R.string.player_playlist)
             .setItems(labels) { _, which -> playIndex(which) }
             .show()
@@ -234,7 +237,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
-        AlertDialog.Builder(this)
+        MvDialog.builder(this)
             .setTitle(R.string.subtitle_pick)
             .setItems(options.toTypedArray()) { _, which -> actions[which]() }
             .show()
@@ -295,20 +298,13 @@ class PlayerActivity : AppCompatActivity() {
         Toast.makeText(this, R.string.screenshot_use_system, Toast.LENGTH_SHORT).show()
     }
 
-    private fun enterFullscreen() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).let { c ->
-            c.hide(WindowInsetsCompat.Type.systemBars())
-            c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
-    }
-
     override fun onStop() {
         super.onStop()
         player?.pause()
     }
 
     override fun onDestroy() {
+        if (::chromeController.isInitialized) chromeController.release()
         player?.release()
         player = null
         super.onDestroy()

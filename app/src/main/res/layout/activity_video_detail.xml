@@ -57,18 +57,15 @@
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipCollection"
-                    style="@style/Widget.MaterialComponents.Chip.Action"
+                    style="@style/Widget.MediaVault.Chip.Tag"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/mv_text"
-                    app:chipBackgroundColor="@color/mv_surface2" />
+                    android:layout_height="wrap_content" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipEpisode"
+                    style="@style/Widget.MediaVault.Chip"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/mv_text_secondary"
-                    app:chipBackgroundColor="@color/mv_surface2" />
+                    android:layout_height="wrap_content" />
             </com.google.android.material.chip.ChipGroup>
 
             <com.google.android.material.chip.ChipGroup

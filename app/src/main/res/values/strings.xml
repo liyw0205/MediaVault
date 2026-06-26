@@ -26,6 +26,12 @@
     <string name="player_pause">暂停</string>
     <string name="player_playlist">选集目录</string>
     <string name="player_screenshot">截图</string>
+    <string name="player_toast_rewind">快退 10 秒</string>
+    <string name="player_toast_forward">快进 10 秒</string>
+    <string name="player_toast_pause">已暂停</string>
+    <string name="player_toast_play">继续播放</string>
+    <string name="player_toast_speed_left">左侧 %1$.1fx 倍速</string>
+    <string name="player_toast_speed_right">右侧 %1$.1fx 倍速</string>
     <string name="subtitle_pick">字幕</string>
     <string name="subtitle_off">关闭字幕</string>
     <string name="subtitle_external_fmt">外置：%1$s</string>
@@ -73,7 +79,7 @@
     <string name="detail">详情</string>
     <string name="player_title">播放</string>
     <string name="recommend_count_fmt">随机推荐 %1$d 条</string>
-    <string name="recommend_hint">推荐仅在本次启动时自动随机一次；可点「刷新推荐」换一批</string>
+    <string name="recommend_hint">推荐已持久化；无列表时自动随机一次；仅「重读」或「刷新推荐」会换一批</string>
     <string name="scrape_root_incremental">刮削</string>
     <string name="scrape_root_rescan">重新</string>
     <string name="scrape_root_remove">移除</string>

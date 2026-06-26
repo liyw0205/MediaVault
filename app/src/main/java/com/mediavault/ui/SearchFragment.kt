@@ -17,11 +17,15 @@ import com.google.android.material.chip.ChipGroup
 import com.google.android.material.textfield.TextInputEditText
 import com.mediavault.R
 import com.mediavault.data.MediaItem
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class SearchFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
+    private var searchDebounce: Job? = null
+    private var lastQueryForTags: String? = null
 
     companion object {
         private const val ARG_QUERY = "q"
@@ -37,7 +41,10 @@ class SearchFragment : Fragment() {
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
         val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
         grid.layoutManager = GridLayoutManager(requireContext(), span)
+        grid.setHasFixedSize(true)
+        grid.setItemViewCacheSize(20)
         adapter = VideoCardAdapter(
+            scope = viewLifecycleOwner.lifecycleScope,
             onCoverClick = { openDetail(it) },
             onInfoClick = { openDetail(it) },
         )
@@ -47,26 +54,42 @@ class SearchFragment : Fragment() {
         arguments?.getString(ARG_QUERY)?.let { input.setText(it) }
         view.findViewById<MaterialButton>(R.id.clearSearchBtn).setOnClickListener {
             input.text?.clear()
-            runSearch(view, "")
+            scheduleSearch(view, "")
         }
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                runSearch(view, s?.toString() ?: "")
+                scheduleSearch(view, s?.toString() ?: "")
             }
         })
 
         val act = activity as? MainActivity ?: return
         viewLifecycleOwner.lifecycleScope.launch {
             act.repository.library.collectLatest { lib ->
-                runSearch(view, input.text?.toString() ?: "", lib.items)
+                val q = input.text?.toString() ?: ""
+                applySearchResults(view, q, lib.items, refreshTags = lastQueryForTags != q)
+                lastQueryForTags = q
             }
         }
     }
 
-    private fun runSearch(view: View, query: String, items: List<MediaItem>? = null) {
-        val all = items ?: (activity as MainActivity).repository.library.value.items
+    private fun scheduleSearch(view: View, query: String) {
+        searchDebounce?.cancel()
+        searchDebounce = viewLifecycleOwner.lifecycleScope.launch {
+            delay(280)
+            val act = activity as? MainActivity ?: return@launch
+            applySearchResults(view, query, act.repository.library.value.items, refreshTags = true)
+            lastQueryForTags = query
+        }
+    }
+
+    private fun applySearchResults(
+        view: View,
+        query: String,
+        all: List<MediaItem>,
+        refreshTags: Boolean,
+    ) {
         val q = query.trim()
         val hits = if (q.isBlank()) emptyList() else LibraryUi.search(all, query)
         adapter.submitList(hits)
@@ -79,32 +102,25 @@ class SearchFragment : Fragment() {
             grid.visibility = View.GONE
             tagGroup.visibility = View.VISIBLE
             countTv.text = getString(R.string.search_tags_only_hint, LibraryUi.allTags(all).size)
-            tagGroup.removeAllViews()
-            for (t in LibraryUi.allTags(all)) {
-                val chip = Chip(requireContext())
-                chip.text = t
-                chip.isClickable = true
-                chip.textSize = 11f
-                chip.setOnClickListener {
-                    view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
-                }
-                tagGroup.addView(chip)
-            }
+            if (refreshTags) bindTagChips(view, tagGroup, LibraryUi.allTags(all))
         } else {
             grid.visibility = View.VISIBLE
             tagGroup.visibility = View.VISIBLE
             countTv.text = getString(R.string.search_count, hits.size)
-            tagGroup.removeAllViews()
-            for (t in LibraryUi.matchedTags(all, query)) {
-                val chip = Chip(requireContext())
-                chip.text = t
-                chip.isClickable = true
-                chip.textSize = 11f
-                chip.setOnClickListener {
-                    view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
-                }
-                tagGroup.addView(chip)
+            if (refreshTags) bindTagChips(view, tagGroup, LibraryUi.matchedTags(all, query))
+        }
+    }
+
+    private fun bindTagChips(view: View, tagGroup: ChipGroup, tags: List<String>) {
+        tagGroup.removeAllViews()
+        for (t in tags) {
+            val chip = Chip(requireContext(), null, R.style.Widget_MediaVault_Chip_Tag)
+            chip.text = t
+            chip.isClickable = true
+            chip.setOnClickListener {
+                view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
             }
+            tagGroup.addView(chip)
         }
     }
 
@@ -115,6 +131,7 @@ class SearchFragment : Fragment() {
     fun refreshFromParent() {
         view ?: return
         val input = view!!.findViewById<TextInputEditText>(R.id.searchInput)
-        runSearch(view!!, input.text?.toString() ?: "")
+        val act = activity as? MainActivity ?: return
+        applySearchResults(view!!, input.text?.toString() ?: "", act.repository.library.value.items, refreshTags = true)
     }
 }

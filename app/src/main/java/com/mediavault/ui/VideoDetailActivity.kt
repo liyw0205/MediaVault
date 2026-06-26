@@ -73,7 +73,7 @@ class VideoDetailActivity : AppCompatActivity() {
         val tagGroup = findViewById<ChipGroup>(R.id.detailTags)
         tagGroup.removeAllViews()
         for (t in (item.tags + item.genres).distinct()) {
-            val chip = Chip(this)
+            val chip = Chip(this, null, R.style.Widget_MediaVault_Chip_Tag)
             chip.text = t
             chip.isClickable = true
             chip.setOnClickListener {

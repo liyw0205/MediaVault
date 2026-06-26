@@ -7,7 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
@@ -25,12 +25,25 @@ class HomeFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
     private var homeFilter = "recommend"
     private var page = 1
-    private var recommendSeed = System.currentTimeMillis()
-    private var recommendCache: List<MediaItem>? = null
-    private var recommendCacheKey: String? = null
-    /** 仅进程内首次进入推荐时自动随机，之后换 Tab 回来不自动重算 */
-    private var recommendInitialized = false
+    private var lastChipRootsKey: String? = null
+    /** 工具栏「重读」后为 true，在推荐 Tab 下重建持久化列表 */
+    var pendingRecommendRebuild = false
+
     private val historyStore by lazy { HistoryStore(requireContext()) }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        savedInstanceState?.let {
+            homeFilter = it.getString(STATE_FILTER) ?: homeFilter
+            page = it.getInt(STATE_PAGE, page)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_FILTER, homeFilter)
+        outState.putInt(STATE_PAGE, page)
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
         inflater.inflate(R.layout.fragment_home, container, false)
@@ -39,7 +52,10 @@ class HomeFragment : Fragment() {
         val grid = view.findViewById<RecyclerView>(R.id.gridRecycler)
         val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
         grid.layoutManager = GridLayoutManager(requireContext(), span)
+        grid.setHasFixedSize(true)
+        grid.setItemViewCacheSize(16)
         adapter = VideoCardAdapter(
+            scope = viewLifecycleOwner.lifecycleScope,
             onCoverClick = { openDetail(it) },
             onInfoClick = { openDetail(it) },
         )
@@ -52,15 +68,12 @@ class HomeFragment : Fragment() {
 
         val act = activity as? MainActivity ?: return
         viewLifecycleOwner.lifecycleScope.launch {
-            act.repository.library.collectLatest { lib ->
-                bindLibrary(view, lib.items)
-            }
-        }
-        viewLifecycleOwner.lifecycleScope.launch {
             act.repository.updatedAt.collectLatest { t ->
                 view.findViewById<TextView>(R.id.statTime).text = t
             }
         }
+        // 库变更由 MainActivity 统一 refreshHome，避免与 collect 双通道重复刷 UI
+        refreshFromParent()
     }
 
     fun refreshFromParent() {
@@ -76,7 +89,7 @@ class HomeFragment : Fragment() {
         view.findViewById<TextView>(R.id.statItems).text = items.size.toString()
         view.findViewById<TextView>(R.id.statRoots).text = LibraryUi.distinctRoots(items).size.toString()
 
-        rebuildFilterChips(view, items)
+        rebuildFilterChipsIfNeeded(view, items)
         val list = currentList(items)
         val slice = displaySlice(list)
         adapter.submitList(slice)
@@ -130,7 +143,7 @@ class HomeFragment : Fragment() {
 
     private fun displaySlice(list: List<MediaItem>): List<MediaItem> {
         if (homeFilter == "recommend") {
-            return list.take(RECOMMEND_COUNT)
+            return list.take(HomeRecommendState.RECOMMEND_COUNT)
         }
         return paginate(list, page)
     }
@@ -146,8 +159,32 @@ class HomeFragment : Fragment() {
     private fun scopedItems(all: List<MediaItem>): List<MediaItem> =
         LibraryUi.filterByRoot(all, selectedRoot())
 
-    private fun cacheKey(filtered: List<MediaItem>): String =
-        "${homeFilter}:${filtered.size}:${filtered.firstOrNull()?.path}:${filtered.lastOrNull()?.path}"
+    private fun recommendList(filtered: List<MediaItem>): List<MediaItem> {
+        val ctx = requireContext()
+        HomeRecommendState.ensureLoaded(ctx)
+        if (pendingRecommendRebuild) {
+            pendingRecommendRebuild = false
+            return HomeRecommendState.rebuildAndPersist(ctx, filtered)
+        }
+        if (!HomeRecommendState.hasPersistedList()) {
+            if (filtered.isNotEmpty() && HomeRecommendState.shouldAutoSeedOnce(ctx)) {
+                HomeRecommendState.markAutoSeeded(ctx)
+                return HomeRecommendState.rebuildAndPersist(ctx, filtered)
+            }
+            return emptyList()
+        }
+        return HomeRecommendState.resolveItems(ctx, filtered)
+    }
+
+    private fun rebuildFilterChipsIfNeeded(view: View, items: List<MediaItem>) {
+        val roots = LibraryUi.distinctRoots(items)
+        val key = roots.joinToString("|")
+        if (key == lastChipRootsKey && view.findViewById<ChipGroup>(R.id.homeFilterChips).childCount > 0) {
+            return
+        }
+        lastChipRootsKey = key
+        rebuildFilterChips(view, items)
+    }
 
     private fun rebuildFilterChips(view: View, items: List<MediaItem>) {
         val group = view.findViewById<ChipGroup>(R.id.homeFilterChips)
@@ -179,19 +216,7 @@ class HomeFragment : Fragment() {
         val filtered = scopedItems(all)
         return when (homeFilter) {
             "history" -> LibraryUi.historyItems(all, historyStore.list())
-            "recommend" -> {
-                val key = cacheKey(filtered)
-                if (!recommendInitialized) {
-                    recommendSeed = System.currentTimeMillis()
-                    recommendCache = LibraryUi.recommend(filtered, recommendSeed)
-                    recommendCacheKey = key
-                    recommendInitialized = true
-                } else if (recommendCacheKey != key) {
-                    recommendCache = LibraryUi.recommend(filtered, recommendSeed)
-                    recommendCacheKey = key
-                }
-                recommendCache ?: emptyList()
-            }
+            "recommend" -> recommendList(filtered)
             else -> filtered.sortedBy { it.displayTitle().lowercase() }
         }
     }
@@ -225,26 +250,29 @@ class HomeFragment : Fragment() {
             setText(page.toString())
             setSelection(text?.length ?: 0)
         }
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.page_jump_title)
-            .setMessage(getString(R.string.page_jump_hint, pages))
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val n = input.text?.toString()?.toIntOrNull() ?: return@setPositiveButton
-                page = n.coerceIn(1, pages)
-                refreshFromParent()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        input.setTextColor(ContextCompat.getColor(requireContext(), R.color.mv_text))
+        input.setHintTextColor(ContextCompat.getColor(requireContext(), R.color.mv_muted))
+        MvDialog.showStyled(
+            MvDialog.builder(requireContext())
+                .setTitle(R.string.page_jump_title)
+                .setMessage(getString(R.string.page_jump_hint, pages))
+                .setView(input)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val n = input.text?.toString()?.toIntOrNull() ?: return@setPositiveButton
+                    page = n.coerceIn(1, pages)
+                    refreshFromParent()
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+            inputRoot = input,
+        )
     }
 
     private fun onPagerAction() {
         when (homeFilter) {
             "history" -> historyStore.clear()
             "recommend" -> {
-                recommendSeed = System.currentTimeMillis()
-                recommendCache = null
-                recommendCacheKey = null
+                HomeRecommendState.clearForManualRefresh(requireContext())
+                pendingRecommendRebuild = true
                 page = 1
             }
         }
@@ -265,6 +293,7 @@ class HomeFragment : Fragment() {
     }
 
     companion object {
-        private const val RECOMMEND_COUNT = 20
+        private const val STATE_FILTER = "home_filter"
+        private const val STATE_PAGE = "home_page"
     }
 }

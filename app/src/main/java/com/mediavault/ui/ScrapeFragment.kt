@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -59,7 +58,7 @@ class ScrapeFragment : Fragment() {
         act.repository.library.value.items.count { it.path.startsWith("content://") && it.path.startsWith(rootUri) }
 
     private fun confirmRescanRoot(uri: String) {
-        AlertDialog.Builder(requireContext())
+        MvDialog.builder(requireContext())
             .setMessage(R.string.scrape_root_rescan_confirm)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val act = activity as? MainActivity ?: return@setPositiveButton
@@ -75,7 +74,7 @@ class ScrapeFragment : Fragment() {
     }
 
     private fun confirmRemoveRoot(uri: String, n: Int) {
-        AlertDialog.Builder(requireContext())
+        MvDialog.builder(requireContext())
             .setMessage(getString(R.string.scrape_root_remove_confirm, n))
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val act = activity as? MainActivity ?: return@setPositiveButton

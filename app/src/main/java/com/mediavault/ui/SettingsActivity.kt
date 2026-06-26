@@ -9,7 +9,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
+
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -81,7 +81,7 @@ class SettingsActivity : AppCompatActivity() {
                 val label = Uri.parse(uri).lastPathSegment ?: uri.takeLast(48)
                 h.label.text = label
                 h.delete.setOnClickListener {
-                    AlertDialog.Builder(this@SettingsActivity)
+                    MvDialog.builder(this@SettingsActivity)
                         .setMessage(R.string.delete_local_root_confirm)
                         .setPositiveButton(android.R.string.ok) { _, _ ->
                             store.removeLocalRootUri(uri)
@@ -109,7 +109,7 @@ class SettingsActivity : AppCompatActivity() {
                 h.meta.text = "${r.type.uppercase()} ${r.host}:${r.port} ${r.basePath}"
                 h.edit.setOnClickListener { showRemoteDialog(r.type, r) }
                 h.delete.setOnClickListener {
-                    AlertDialog.Builder(this@SettingsActivity)
+                    MvDialog.builder(this@SettingsActivity)
                         .setMessage(R.string.delete_remote_confirm)
                         .setPositiveButton(android.R.string.ok) { _, _ ->
                             remotes.removeAt(position)
@@ -151,11 +151,12 @@ class SettingsActivity : AppCompatActivity() {
         } else {
             getString(R.string.remote_dialog_edit)
         }
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(view)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.save) { _, _ ->
+        MvDialog.showStyled(
+            MvDialog.builder(this)
+                .setTitle(title)
+                .setView(view)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.save) { _, _ ->
                 val h = host.text?.toString()?.trim().orEmpty()
                 if (h.isEmpty()) {
                     Toast.makeText(this, "请填写主机", Toast.LENGTH_SHORT).show()
@@ -178,8 +179,9 @@ class SettingsActivity : AppCompatActivity() {
                     remotes.add(cfg)
                 }
                 refreshRemoteList()
-            }
-            .show()
+            },
+            inputRoot = view,
+        )
     }
 
     private fun saveRemotes() {

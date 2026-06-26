@@ -16,4 +16,6 @@
     <color name="mv_amber_on">#78350f</color>
     <color name="mv_chip_bg">#243b55</color>
     <color name="mv_hint">#9ca3af</color>
+    <color name="mv_input_bg">#1a2332</color>
+    <color name="mv_dialog_bg">#111827</color>
 </resources>

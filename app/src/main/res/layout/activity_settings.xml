@@ -2,6 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/mv_bg"
     android:padding="16dp">
 
     <LinearLayout
@@ -13,6 +14,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/local_roots_title"
+            android:textColor="@color/mv_text"
             android:textStyle="bold" />
 
         <androidx.recyclerview.widget.RecyclerView
@@ -23,6 +25,7 @@
 
         <Button
             android:id="@+id/pickLocalRootBtn"
+            style="@style/Widget.MediaVault.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -33,6 +36,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="@string/remote_roots_title"
+            android:textColor="@color/mv_text"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -43,6 +47,7 @@
 
             <Button
                 android:id="@+id/addWebDavBtn"
+                style="@style/Widget.MediaVault.Button"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="4dp"
@@ -52,6 +57,7 @@
 
             <Button
                 android:id="@+id/addFtpBtn"
+                style="@style/Widget.MediaVault.Button"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="4dp"
@@ -61,6 +67,7 @@
 
             <Button
                 android:id="@+id/addSmbBtn"
+                style="@style/Widget.MediaVault.Button"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -77,6 +84,7 @@
 
         <Button
             android:id="@+id/testWebDavBtn"
+            style="@style/Widget.MediaVault.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -84,6 +92,7 @@
 
         <Button
             android:id="@+id/saveBtn"
+            style="@style/Widget.MediaVault.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
