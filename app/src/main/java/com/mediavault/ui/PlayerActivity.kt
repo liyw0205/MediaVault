@@ -31,6 +31,10 @@ import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.playback.PlaylistBuilder
+import com.mediavault.remote.RemoteDataSourceFactory
+import com.mediavault.remote.RemotePath
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import java.io.File
 import java.io.FileOutputStream
 
@@ -71,14 +75,15 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         val repo = (application as MediaVaultApp).repository
+        val store = repo.store
         val libItem = repo.library.value.items.find { it.path == startPath }
-        val (pl, idx) = PlaylistBuilder.buildPlaylist(repo.library.value.items, startPath)
+        val (pl, idx) = PlaylistBuilder.buildPlaylist(repo.library.value.items, startPath, store)
         playlist = pl
         playlistIndex = if (idx >= 0) idx else 0
 
         val episode = playlist.getOrNull(playlistIndex)
         val uri = episode?.uri
-            ?: libItem?.let { PlaylistBuilder.resolveUri(it) }
+            ?: libItem?.let { PlaylistBuilder.resolveUri(it, store) }
             ?: Uri.parse(startPath)
         externalSubtitles = episode?.subtitles ?: run {
             val arr = libItem?.raw?.optJSONArray("subtitles")
@@ -94,7 +99,13 @@ class PlayerActivity : AppCompatActivity() {
         }
         chromeController.bind(playerView.rootView)
 
-        player = ExoPlayer.Builder(this).build().also { exo ->
+        val remoteFactory = RemoteDataSourceFactory(store)
+        val defaultDs = DefaultDataSource.Factory(this, remoteFactory)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(defaultDs)
+
+        player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().also { exo ->
             playerView.player = exo
             loadEpisode(exo, uri, title.ifBlank { episode?.title ?: "" }, episode?.path ?: startPath)
             exo.addListener(object : Player.Listener {

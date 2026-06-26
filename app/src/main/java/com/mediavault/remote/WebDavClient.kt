@@ -31,6 +31,21 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         return Credentials.basic(cfg.user, cfg.password)
     }
 
+    override fun openRead(relativePath: String, offset: Long): java.io.InputStream {
+        var p = relativePath.trim().replace('\\', '/').trimStart('/')
+        val url = baseUrl() + p
+        val req = Request.Builder().url(url).get()
+        authHeader()?.let { req.header("Authorization", it) }
+        if (offset > 0) req.header("Range", "bytes=$offset-")
+        val resp = http.newCall(req.build()).execute()
+        if (!resp.isSuccessful && resp.code != 206) {
+            resp.close()
+            error("WebDAV GET ${resp.code}")
+        }
+        val body = resp.body ?: error("WebDAV empty body")
+        return body.byteStream()
+    }
+
     override fun testConnection(): String {
         val entries = list("")
         return "WebDAV OK，条目 ${entries.size}（根）"

@@ -38,27 +38,43 @@ class ScrapeManager(
 
     fun isRunning(): Boolean = _state.value.phase == ScrapePhase.RUNNING
 
-    fun start(rebuild: Boolean, rootUris: List<String>? = null) {
+    fun start(
+        rebuild: Boolean,
+        localRootUris: List<String>? = null,
+        remoteIds: List<String>? = null,
+    ) {
         if (isRunning()) return
         writeJob(JSONObject().apply {
             put("running", true)
             put("rebuild", rebuild)
             put("interrupted", false)
             put("startedAt", now())
-            if (!rootUris.isNullOrEmpty()) {
-                put("rootUris", JSONArray(rootUris))
+            if (!localRootUris.isNullOrEmpty()) {
+                put("rootUris", JSONArray(localRootUris))
+            }
+            if (!remoteIds.isNullOrEmpty()) {
+                put("remoteIds", JSONArray(remoteIds))
             }
         })
+        val scopeHint = when {
+            !localRootUris.isNullOrEmpty() && !remoteIds.isNullOrEmpty() -> "所选本地与远程…"
+            !remoteIds.isNullOrEmpty() -> "所选远程…"
+            !localRootUris.isNullOrEmpty() -> "所选目录…"
+            else -> null
+        }
         _state.value = ScrapeUiState(
             phase = ScrapePhase.RUNNING,
             rebuild = rebuild,
-            message = if (rootUris.isNullOrEmpty()) "正在启动后台刮削…" else "正在刮削所选目录…",
+            message = scopeHint?.let { "正在刮削$it" } ?: "正在启动后台刮削…",
             totalInLibrary = repository.library.value.items.size,
         )
         val intent = Intent(app, ScrapeForegroundService::class.java).apply {
             putExtra(ScrapeForegroundService.EXTRA_REBUILD, rebuild)
-            if (!rootUris.isNullOrEmpty()) {
-                putStringArrayListExtra(ScrapeForegroundService.EXTRA_ROOT_URIS, ArrayList(rootUris))
+            if (!localRootUris.isNullOrEmpty()) {
+                putStringArrayListExtra(ScrapeForegroundService.EXTRA_ROOT_URIS, ArrayList(localRootUris))
+            }
+            if (!remoteIds.isNullOrEmpty()) {
+                putStringArrayListExtra(ScrapeForegroundService.EXTRA_REMOTE_IDS, ArrayList(remoteIds))
             }
         }
         ContextCompat.startForegroundService(app, intent)

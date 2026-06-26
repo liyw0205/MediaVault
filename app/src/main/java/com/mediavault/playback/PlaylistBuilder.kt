@@ -28,11 +28,11 @@ object PlaylistBuilder {
                 .thenBy { it.path },
         )
 
-    fun buildPlaylist(all: List<MediaItem>, currentPath: String): Pair<List<Episode>, Int> {
+    fun buildPlaylist(all: List<MediaItem>, currentPath: String, store: com.mediavault.data.MediaStore): Pair<List<Episode>, Int> {
         val current = all.find { it.path == currentPath } ?: return emptyList<Episode>() to -1
         val group = sortEpisodes(groupByCollection(all)[collectionKey(current)] ?: listOf(current))
         val episodes = group.mapNotNull { item ->
-            val uri = resolveUri(item) ?: return@mapNotNull null
+            val uri = resolveUri(item, store) ?: return@mapNotNull null
             val subs = mutableListOf<String>()
             val arr = item.raw.optJSONArray("subtitles")
             if (arr != null) {
@@ -44,9 +44,9 @@ object PlaylistBuilder {
         return episodes to index
     }
 
-    fun resolveUri(item: MediaItem): Uri? {
+    fun resolveUri(item: MediaItem, store: com.mediavault.data.MediaStore): Uri? {
         val path = item.path
         if (path.startsWith("content://")) return Uri.parse(path)
-        return MediaPlayback.resolvePlayUri(item)
+        return MediaPlayback.resolvePlayUri(store, item)
     }
 }

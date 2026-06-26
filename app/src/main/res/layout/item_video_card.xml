@@ -38,6 +38,16 @@
                 android:text="▶"
                 android:textColor="@color/mv_muted"
                 android:textSize="32sp" />
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/resumeProgress"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_gravity="bottom"
+                android:visibility="gone"
+                app:indicatorColor="@color/mv_primary"
+                app:trackColor="#66000000"
+                app:trackCornerRadius="0dp" />
         </FrameLayout>
 
         <LinearLayout

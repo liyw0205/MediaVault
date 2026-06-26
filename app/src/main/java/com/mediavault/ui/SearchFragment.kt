@@ -17,6 +17,7 @@ import com.google.android.material.chip.ChipGroup
 import com.google.android.material.textfield.TextInputEditText
 import com.mediavault.R
 import com.mediavault.data.MediaItem
+import com.mediavault.data.PlaybackProgressStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -26,6 +27,7 @@ class SearchFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
     private var searchDebounce: Job? = null
     private var lastQueryForTags: String? = null
+    private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
 
     companion object {
         private const val ARG_QUERY = "q"
@@ -47,6 +49,7 @@ class SearchFragment : Fragment() {
             scope = viewLifecycleOwner.lifecycleScope,
             onCoverClick = { openDetail(it) },
             onInfoClick = { openDetail(it) },
+            progressStore = progressStore,
         )
         grid.adapter = adapter
 
@@ -126,6 +129,11 @@ class SearchFragment : Fragment() {
 
     private fun openDetail(item: MediaItem) {
         startActivity(VideoDetailActivity.intent(requireContext(), item.path))
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::adapter.isInitialized) adapter.refreshProgressHints()
     }
 
     fun refreshFromParent() {

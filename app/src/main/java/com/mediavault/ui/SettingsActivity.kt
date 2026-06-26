@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.Button
 import androidx.activity.result.contract.ActivityResultContracts
 
 import androidx.appcompat.app.AppCompatActivity
@@ -55,7 +56,7 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<android.widget.Button>(R.id.addFtpBtn).setOnClickListener { showRemoteDialog("ftp", null) }
         findViewById<android.widget.Button>(R.id.addSmbBtn).setOnClickListener { showRemoteDialog("smb", null) }
         findViewById<android.widget.Button>(R.id.saveBtn).setOnClickListener { saveRemotes() }
-        findViewById<android.widget.Button>(R.id.testWebDavBtn).setOnClickListener { testWebDav() }
+        findViewById<Button>(R.id.testWebDavBtn).setOnClickListener { testRemotePick() }
 
         refreshLocalList()
         refreshRemoteList()
@@ -190,6 +191,35 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "已保存", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "保存失败: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun testRemotePick() {
+        if (remotes.isEmpty()) {
+            Toast.makeText(this, R.string.test_remote_none, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = remotes.map { r ->
+            val t = r.type.uppercase()
+            val name = r.name.ifBlank { r.host }
+            "$name ($t)"
+        }.toTypedArray()
+        MvDialog.builder(this)
+            .setTitle(R.string.test_remote_pick_title)
+            .setItems(labels) { _, which ->
+                testRemoteAt(which)
+            }
+            .show()
+    }
+
+    private fun testRemoteAt(index: Int) {
+        val cfg = remotes.getOrNull(index) ?: return
+        lifecycleScope.launch {
+            val msg = withContext(Dispatchers.IO) {
+                runCatching { RemoteClients.create(cfg).testConnection() }
+                    .fold(onSuccess = { it }, onFailure = { it.message ?: "失败" })
+            }
+            Toast.makeText(this@SettingsActivity, msg, Toast.LENGTH_LONG).show()
         }
     }
 

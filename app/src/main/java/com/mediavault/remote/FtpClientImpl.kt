@@ -27,6 +27,28 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         return "FTP 连接成功"
     }
 
+    override fun openRead(relativePath: String, offset: Long): java.io.InputStream {
+        val ftp = connect()
+        var path = relativePath.trim().replace('\\', '/')
+        if (!path.startsWith("/")) path = "/$path"
+        val raw = ftp.retrieveFileStream(path)
+            ?: run {
+                runCatching { ftp.logout(); ftp.disconnect() }
+                throw IOException("FTP 无法打开: $path")
+            }
+        if (offset > 0) raw.skip(offset)
+        return object : java.io.FilterInputStream(raw) {
+            override fun close() {
+                super.close()
+                runCatching {
+                    ftp.completePendingCommand()
+                    ftp.logout()
+                    ftp.disconnect()
+                }
+            }
+        }
+    }
+
     override fun list(path: String): List<RemoteEntry> {
         val ftp = connect()
         try {

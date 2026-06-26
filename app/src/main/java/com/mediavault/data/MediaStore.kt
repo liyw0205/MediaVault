@@ -116,6 +116,28 @@ class MediaStore(private val context: Context) {
         scrapeRecordFile.writeText(lines.joinToString("\n").let { if (it.isEmpty()) "" else "$it\n" })
     }
 
+    /** 移除某远程配置下所有库条目及刮削记录 */
+    fun removeLibraryItemsUnderRemote(remoteId: String): Int {
+        val prefix = com.mediavault.remote.RemotePath.PREFIX + remoteId + "|"
+        val text = readLibraryText() ?: return 0
+        val lib = MediaLibrary.parse(text, libraryFile.absolutePath)
+        val kept = lib.items.filter { !it.path.startsWith(prefix) }
+        val removed = lib.items.size - kept.size
+        if (removed > 0) writeLibraryJson(kept).getOrThrow()
+        clearScrapeRecordsUnderRemote(remoteId)
+        return removed
+    }
+
+    fun clearScrapeRecordsUnderRemote(remoteId: String) {
+        if (!scrapeRecordFile.isFile) return
+        val prefix = com.mediavault.remote.RemotePath.PREFIX + remoteId + "|"
+        val lines = scrapeRecordFile.readLines().filter { line ->
+            val p = line.trim()
+            p.isEmpty() || !p.startsWith(prefix)
+        }
+        scrapeRecordFile.writeText(lines.joinToString("\n").let { if (it.isEmpty()) "" else "$it\n" })
+    }
+
     fun readRemotesJsonText(): String {
         if (!remotesFile.isFile) return "[]"
         return remotesFile.readText(Charsets.UTF_8)

@@ -18,6 +18,7 @@ import com.google.android.material.chip.ChipGroup
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
+import com.mediavault.data.PlaybackProgressStore
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -30,6 +31,7 @@ class HomeFragment : Fragment() {
     var pendingRecommendRebuild = false
 
     private val historyStore by lazy { HistoryStore(requireContext()) }
+    private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +60,7 @@ class HomeFragment : Fragment() {
             scope = viewLifecycleOwner.lifecycleScope,
             onCoverClick = { openDetail(it) },
             onInfoClick = { openDetail(it) },
+            progressStore = progressStore,
         )
         grid.adapter = adapter
 
@@ -286,6 +289,11 @@ class HomeFragment : Fragment() {
         }
         page = 1
         refreshFromParent()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::adapter.isInitialized) adapter.refreshProgressHints()
     }
 
     private fun openDetail(item: MediaItem) {

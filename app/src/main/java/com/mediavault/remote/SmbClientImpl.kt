@@ -1,6 +1,9 @@
 package com.mediavault.remote
 
+import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.msfscc.FileAttributes
+import com.hierynomus.mssmb2.SMB2CreateDisposition
+import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.smbj.SMBClient
 import com.hierynomus.smbj.auth.AuthenticationContext
 import com.hierynomus.smbj.connection.Connection
@@ -41,6 +44,38 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
             share.list("")
         }
         return "SMB 连接成功 (share=$shareName)"
+    }
+
+    override fun openRead(relativePath: String, offset: Long): java.io.InputStream {
+        var p = relativePath.replace('/', '\\').trim('\\')
+        if (rootOnShare.isNotBlank()) {
+            p = if (p.isBlank()) rootOnShare else "$rootOnShare\\$p"
+        }
+        val client = SMBClient()
+        val conn = client.connect(cfg.host)
+        val auth = AuthenticationContext(cfg.user, cfg.password.toCharArray(), null)
+        val session = conn.authenticate(auth)
+        val share = session.connectShare(shareName) as DiskShare
+        val file = share.openFile(
+            p,
+            java.util.EnumSet.of(AccessMask.GENERIC_READ),
+            null,
+            SMB2ShareAccess.ALL,
+            SMB2CreateDisposition.FILE_OPEN,
+            null,
+        )
+        val raw = file.inputStream
+        if (offset > 0) raw.skip(offset)
+        return object : java.io.FilterInputStream(raw) {
+            override fun close() {
+                super.close()
+                runCatching { file.close() }
+                runCatching { share.close() }
+                runCatching { session.close() }
+                runCatching { conn.close() }
+                runCatching { client.close() }
+            }
+        }
     }
 
     override fun list(path: String): List<RemoteEntry> {

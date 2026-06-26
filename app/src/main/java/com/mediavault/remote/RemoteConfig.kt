@@ -50,4 +50,6 @@ data class RemoteEntry(
 interface RemoteClient {
     fun list(path: String): List<RemoteEntry>
     fun testConnection(): String
+    /** 从 offset 字节处读取远程文件流（用于播放） */
+    fun openRead(relativePath: String, offset: Long = 0L): java.io.InputStream
 }

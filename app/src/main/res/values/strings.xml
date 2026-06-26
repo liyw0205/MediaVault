@@ -94,6 +94,11 @@
     <string name="delete">删除</string>
     <string name="save">保存</string>
     <string name="test_webdav">测试 WebDAV（列表中首个）</string>
+    <string name="test_ftp">测试 FTP（列表中首个）</string>
+    <string name="test_smb">测试 SMB（列表中首个）</string>
+    <string name="test_remote_pick">测试连接</string>
+    <string name="test_remote_pick_title">选择要测试的远程</string>
+    <string name="test_remote_none">请先在上方添加远程目录并保存</string>
     <string name="remote_field_name">显示名称</string>
     <string name="remote_field_host">主机</string>
     <string name="remote_field_port">端口</string>

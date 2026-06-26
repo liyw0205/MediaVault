@@ -68,6 +68,20 @@ class LibraryRepository(context: Context) {
         kept.size
     }
 
+    /** 全部重新刮削前：去掉库中所有远程条目 */
+    fun stripRemoteItems(): Result<Int> = runCatching {
+        val kept = _library.value.items.filter { !com.mediavault.remote.RemotePath.isRemote(it.path) }
+        store.writeLibraryJson(kept).getOrThrow()
+        reload()
+        kept.size
+    }
+
+    fun removeItemsUnderRemote(remoteId: String): Result<Int> = runCatching {
+        val n = store.removeLibraryItemsUnderRemote(remoteId)
+        reload()
+        n
+    }
+
     fun dataSizes(): DataSizes {
         val lib = store.libraryFile
         val covers = File(app.filesDir, "mediavault/covers")

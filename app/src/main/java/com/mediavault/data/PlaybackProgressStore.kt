@@ -15,6 +15,18 @@ class PlaybackProgressStore(context: Context) {
         return runCatching { JSONObject(raw).optLong("pos", 0L) }.getOrDefault(0L)
     }
 
+    /** 0f..1f，无记录或已看完返回 null */
+    fun getFraction(path: String): Float? {
+        if (path.isBlank()) return null
+        val raw = prefs.getString(key(path), null) ?: return null
+        val o = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+        val pos = o.optLong("pos", 0L)
+        val dur = o.optLong("dur", 0L)
+        if (pos < MIN_SAVE_MS) return null
+        if (dur > 0 && pos >= dur - END_MARGIN_MS) return null
+        return if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else null
+    }
+
     fun save(path: String, positionMs: Long, durationMs: Long = 0L) {
         if (path.isBlank()) return
         val pos = positionMs.coerceAtLeast(0L)

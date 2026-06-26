@@ -1,6 +1,5 @@
 package com.mediavault.ui
 
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -18,6 +17,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.slider.Slider
 import com.mediavault.R
 import com.mediavault.data.ScrapeConfig
+import com.mediavault.remote.RemotePath
 import com.mediavault.scrape.ScrapePhase
 import kotlinx.coroutines.launch
 
@@ -33,18 +33,22 @@ class ScrapeFragment : Fragment() {
         rv.layoutManager = LinearLayoutManager(requireContext())
         rootsAdapter = ScrapeRootAdapter(
             store = act.repository.store,
-            onIncremental = { uri -> startScrape(rebuild = false, listOf(uri)) },
-            onRescan = { uri -> confirmRescanRoot(uri) },
-            onRemove = { uri, n -> confirmRemoveRoot(uri, n) },
-            itemCountForRoot = { uri -> countItemsUnder(act, uri) },
+            onIncrementalLocal = { uri -> startScrape(rebuild = false, localRoots = listOf(uri), remoteIds = null) },
+            onRescanLocal = { uri -> confirmRescanLocal(uri) },
+            onRemoveLocal = { uri, n -> confirmRemoveLocal(uri, n) },
+            onIncrementalRemote = { id -> startScrape(rebuild = false, localRoots = null, remoteIds = listOf(id)) },
+            onRescanRemote = { id -> confirmRescanRemote(id) },
+            onRemoveRemote = { id, n -> confirmRemoveRemote(id, n) },
+            itemCountForLocal = { uri -> countItemsUnderLocal(act, uri) },
+            itemCountForRemote = { id -> countItemsUnderRemote(act, id) },
         )
         rv.adapter = rootsAdapter
 
         view.findViewById<MaterialButton>(R.id.scanIncrementalBtn).setOnClickListener {
-            startScrape(rebuild = false, null)
+            startScrape(rebuild = false, localRoots = null, remoteIds = null)
         }
         view.findViewById<MaterialButton>(R.id.scanRebuildBtn).setOnClickListener {
-            startScrape(rebuild = true, null)
+            startScrape(rebuild = true, localRoots = null, remoteIds = null)
         }
         view.findViewById<MaterialButton>(R.id.stopScrapeBtn).setOnClickListener {
             act.scrapeManager.cancel()
@@ -54,10 +58,17 @@ class ScrapeFragment : Fragment() {
         bindScrapeState(view)
     }
 
-    private fun countItemsUnder(act: MainActivity, rootUri: String): Int =
-        act.repository.library.value.items.count { it.path.startsWith("content://") && it.path.startsWith(rootUri) }
+    private fun countItemsUnderLocal(act: MainActivity, rootUri: String): Int =
+        act.repository.library.value.items.count {
+            it.path.startsWith("content://") && it.path.startsWith(rootUri)
+        }
 
-    private fun confirmRescanRoot(uri: String) {
+    private fun countItemsUnderRemote(act: MainActivity, remoteId: String): Int {
+        val prefix = RemotePath.PREFIX + remoteId + "|"
+        return act.repository.library.value.items.count { it.path.startsWith(prefix) }
+    }
+
+    private fun confirmRescanLocal(uri: String) {
         MvDialog.builder(requireContext())
             .setMessage(R.string.scrape_root_rescan_confirm)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -67,18 +78,50 @@ class ScrapeFragment : Fragment() {
                     Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
-                startScrape(rebuild = true, listOf(uri))
+                startScrape(rebuild = true, localRoots = listOf(uri), remoteIds = null)
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    private fun confirmRemoveRoot(uri: String, n: Int) {
+    private fun confirmRescanRemote(remoteId: String) {
+        MvDialog.builder(requireContext())
+            .setMessage(R.string.scrape_root_rescan_confirm)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val act = activity as? MainActivity ?: return@setPositiveButton
+                act.repository.store.clearScrapeRecordsUnderRemote(remoteId)
+                act.repository.removeItemsUnderRemote(remoteId).onFailure {
+                    Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                startScrape(rebuild = true, localRoots = null, remoteIds = listOf(remoteId))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmRemoveLocal(uri: String, n: Int) {
         MvDialog.builder(requireContext())
             .setMessage(getString(R.string.scrape_root_remove_confirm, n))
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val act = activity as? MainActivity ?: return@setPositiveButton
                 act.repository.removeItemsUnderRoot(uri)
+                    .onSuccess { removed ->
+                        refreshRoots()
+                        Toast.makeText(requireContext(), "已移除 $removed 条", Toast.LENGTH_SHORT).show()
+                    }
+                    .onFailure { Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show() }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmRemoveRemote(remoteId: String, n: Int) {
+        MvDialog.builder(requireContext())
+            .setMessage(getString(R.string.scrape_root_remove_confirm, n))
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val act = activity as? MainActivity ?: return@setPositiveButton
+                act.repository.removeItemsUnderRemote(remoteId)
                     .onSuccess { removed ->
                         refreshRoots()
                         Toast.makeText(requireContext(), "已移除 $removed 条", Toast.LENGTH_SHORT).show()
@@ -104,13 +147,13 @@ class ScrapeFragment : Fragment() {
         }
     }
 
-    private fun startScrape(rebuild: Boolean, rootUris: List<String>?) {
+    private fun startScrape(rebuild: Boolean, localRoots: List<String>?, remoteIds: List<String>?) {
         val act = activity as? MainActivity ?: return
         if (act.scrapeManager.isRunning()) {
             Toast.makeText(requireContext(), "刮削已在后台运行", Toast.LENGTH_SHORT).show()
             return
         }
-        act.scrapeManager.start(rebuild, rootUris)
+        act.scrapeManager.start(rebuild, localRoots, remoteIds)
     }
 
     private fun bindScrapeState(view: View) {

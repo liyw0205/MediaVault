@@ -13,7 +13,9 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.LocalScanner
 import com.mediavault.data.MediaItem
+import com.mediavault.data.RemoteLibraryScanner
 import com.mediavault.data.ScrapeConfig
+import com.mediavault.remote.RemotePath
 import com.mediavault.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +31,7 @@ class ScrapeForegroundService : Service() {
     companion object {
         const val EXTRA_REBUILD = "rebuild"
         const val EXTRA_ROOT_URIS = "root_uris"
+        const val EXTRA_REMOTE_IDS = "remote_ids"
         private const val CHANNEL_ID = "mediavault_scrape"
         private const val NOTIF_ID = 4102
     }
@@ -48,12 +51,13 @@ class ScrapeForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val rebuild = intent?.getBooleanExtra(EXTRA_REBUILD, false) ?: false
         val rootUris = intent?.getStringArrayListExtra(EXTRA_ROOT_URIS)
+        val remoteIds = intent?.getStringArrayListExtra(EXTRA_REMOTE_IDS)
         cancelRequested = false
         createChannel()
         startForeground(NOTIF_ID, buildNotification("准备扫描…", 0))
         workJob?.cancel()
         workJob = scope.launch {
-            runScan(rebuild, rootUris)
+            runScan(rebuild, rootUris, remoteIds)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -66,11 +70,13 @@ class ScrapeForegroundService : Service() {
         super.onDestroy()
     }
 
-    private suspend fun runScan(rebuild: Boolean, rootUris: List<String>?) {
+    private suspend fun runScan(rebuild: Boolean, rootUris: List<String>?, remoteIds: List<String>?) {
         val store = repository.store
-        if (rebuild && rootUris.isNullOrEmpty()) {
+        val fullRebuild = rebuild && rootUris.isNullOrEmpty() && remoteIds.isNullOrEmpty()
+        if (fullRebuild) {
             store.clearScrapeRecord()
             repository.stripContentItems()
+            repository.stripRemoteItems()
         }
 
         val threads = ScrapeConfig.readThreadCount(this)
@@ -90,25 +96,45 @@ class ScrapeForegroundService : Service() {
             }
         }
 
+        val scanLocal = rootUris.isNullOrEmpty() && remoteIds.isNullOrEmpty() || !rootUris.isNullOrEmpty()
+        val scanRemote = rootUris.isNullOrEmpty() && remoteIds.isNullOrEmpty() || !remoteIds.isNullOrEmpty()
+
         try {
-            LocalScanner.scanTreeUrisParallel(
-                this,
-                store,
-                rebuild,
-                threadCount = threads,
-                rootUrisFilter = rootUris,
-                shouldCancel = { cancelRequested },
-                onFile = { item ->
-                    runBlocking {
-                        persistOne(item)
-                    }
-                },
-                onStatus = { msg ->
-                    val total = repository.library.value.items.size
-                    manager.onProgress(msg, scannedThisRun, total)
-                    updateNotification(msg, scannedThisRun)
-                },
-            )
+            if (scanLocal) {
+                LocalScanner.scanTreeUrisParallel(
+                    this,
+                    store,
+                    rebuild,
+                    threadCount = threads,
+                    rootUrisFilter = rootUris,
+                    shouldCancel = { cancelRequested },
+                    onFile = { item ->
+                        runBlocking { persistOne(item) }
+                    },
+                    onStatus = { msg ->
+                        val total = repository.library.value.items.size
+                        manager.onProgress(msg, scannedThisRun, total)
+                        updateNotification(msg, scannedThisRun)
+                    },
+                )
+            }
+            if (!cancelRequested && scanRemote) {
+                RemoteLibraryScanner.scanRemotesParallel(
+                    store,
+                    rebuild,
+                    remoteIds,
+                    threads,
+                    shouldCancel = { cancelRequested },
+                    onFile = { item ->
+                        runBlocking { persistOne(item) }
+                    },
+                    onStatus = { msg ->
+                        val total = repository.library.value.items.size
+                        manager.onProgress(msg, scannedThisRun, total)
+                        updateNotification(msg, scannedThisRun)
+                    },
+                )
+            }
             if (cancelRequested) {
                 manager.onCancelled(scannedThisRun, repository.library.value.items.size)
             } else {

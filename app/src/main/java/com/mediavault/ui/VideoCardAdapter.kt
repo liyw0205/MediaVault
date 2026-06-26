@@ -9,13 +9,16 @@ import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.mediavault.R
 import com.mediavault.data.MediaItem
+import com.mediavault.data.PlaybackProgressStore
 
 class VideoCardAdapter(
     private val scope: LifecycleCoroutineScope,
     private val onCoverClick: (MediaItem) -> Unit,
     private val onInfoClick: (MediaItem) -> Unit,
+    private val progressStore: PlaybackProgressStore? = null,
 ) : ListAdapter<MediaItem, VideoCardAdapter.VH>(Diff) {
 
     private var coverW = 0
@@ -29,10 +32,15 @@ class VideoCardAdapter(
             coverW = (dm.widthPixels / span).coerceAtLeast(120)
             coverH = (coverW * 120 / 180).coerceAtLeast(80)
         }
-        return VH(v, scope, coverW, coverH, onCoverClick, onInfoClick)
+        return VH(v, scope, coverW, coverH, onCoverClick, onInfoClick, progressStore)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
+
+    /** 从播放器返回后刷新封面续播条 */
+    fun refreshProgressHints() {
+        if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
+    }
 
     override fun onViewRecycled(holder: VH) {
         holder.recycle()
@@ -46,6 +54,7 @@ class VideoCardAdapter(
         private val coverH: Int,
         private val onCoverClick: (MediaItem) -> Unit,
         private val onInfoClick: (MediaItem) -> Unit,
+        private val progressStore: PlaybackProgressStore?,
     ) : RecyclerView.ViewHolder(itemView) {
         private val title: TextView = itemView.findViewById(R.id.titleText)
         private val meta: TextView = itemView.findViewById(R.id.metaText)
@@ -54,6 +63,7 @@ class VideoCardAdapter(
         private val coverArea: View = itemView.findViewById(R.id.coverClickArea)
         private val infoArea: View = itemView.findViewById(R.id.infoClickArea)
         private val tagsLine: TextView = itemView.findViewById(R.id.tagsLine)
+        private val resumeBar: LinearProgressIndicator = itemView.findViewById(R.id.resumeProgress)
 
         private var boundPath: String? = null
 
@@ -75,6 +85,16 @@ class VideoCardAdapter(
             } else {
                 tagsLine.visibility = View.VISIBLE
                 tagsLine.text = tags.joinToString(" · ")
+            }
+
+            val frac = progressStore?.getFraction(item.path)
+            if (frac != null && frac > 0.01f) {
+                resumeBar.visibility = View.VISIBLE
+                resumeBar.isIndeterminate = false
+                resumeBar.max = 1000
+                resumeBar.progress = (frac * 1000).toInt().coerceIn(1, 999)
+            } else {
+                resumeBar.visibility = View.GONE
             }
 
             coverArea.setOnClickListener { onCoverClick(item) }
