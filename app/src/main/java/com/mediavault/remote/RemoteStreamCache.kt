@@ -5,8 +5,10 @@ import androidx.media3.common.C
 import java.io.File
 import java.io.IOException
 import java.io.FileOutputStream
+import java.io.OutputStream
 import java.io.RandomAccessFile
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 远程流边下边播前缀缓存（对齐 Neribox prefix 思路）：顺序下载写入本地，seek 时先读缓存再拉网。
@@ -34,12 +36,24 @@ object RemoteStreamCache {
         return if (f.isFile) f.length() else 0L
     }
 
+    private fun writeOut(out: OutputStream, buf: ByteArray, off: Int, len: Int, alive: AtomicBoolean): Boolean {
+        if (!alive.get()) return false
+        return try {
+            out.write(buf, off, len)
+            true
+        } catch (_: IOException) {
+            alive.set(false)
+            false
+        }
+    }
+
     fun readPrefix(
         context: Context,
         key: String,
         fileOffset: Long,
         length: Long,
-        out: java.io.OutputStream,
+        out: OutputStream,
+        alive: AtomicBoolean,
     ): Long {
         val f = prefixFile(context, key)
         if (!f.isFile) return 0L
@@ -55,15 +69,15 @@ object RemoteStreamCache {
             raf.seek(fileOffset)
             val buf = ByteArray(64 * 1024)
             var left = toRead
-            while (left > 0) {
+            while (left > 0 && alive.get()) {
                 val n = raf.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
                 if (n <= 0) break
-                out.write(buf, 0, n)
+                if (!writeOut(out, buf, 0, n, alive)) break
                 left -= n.toLong()
                 written += n.toLong()
             }
         }
-        f.setLastModified(System.currentTimeMillis())
+        if (written > 0) f.setLastModified(System.currentTimeMillis())
         return written
     }
 
@@ -74,9 +88,12 @@ object RemoteStreamCache {
         relativePath: String,
         netOffset: Long,
         length: Long,
-        out: java.io.OutputStream,
+        out: OutputStream,
+        alive: AtomicBoolean,
     ) {
+        if (!alive.get()) return
         synchronized(lock) {
+            if (!alive.get()) return
             cleanup(context)
             val prefix = prefixFile(context, key)
             val prefixLen = if (prefix.isFile) prefix.length() else 0L
@@ -93,7 +110,7 @@ object RemoteStreamCache {
                     } else {
                         Long.MAX_VALUE
                     }
-                    while (remaining > 0) {
+                    while (remaining > 0 && alive.get()) {
                         val toRead = if (remaining == Long.MAX_VALUE) {
                             buf.size
                         } else {
@@ -101,15 +118,17 @@ object RemoteStreamCache {
                         }
                         val n = input.read(buf, 0, toRead)
                         if (n <= 0) break
-                        out.write(buf, 0, n)
-                        fos?.write(buf, 0, n)
+                        if (!writeOut(out, buf, 0, n, alive)) break
+                        if (append && fos != null) {
+                            runCatching { fos.write(buf, 0, n) }
+                        }
                         if (remaining != Long.MAX_VALUE) remaining -= n.toLong()
                     }
                 } finally {
                     fos?.close()
                 }
             }
-            prefix.setLastModified(System.currentTimeMillis())
+            if (alive.get()) prefix.setLastModified(System.currentTimeMillis())
         }
     }
 
