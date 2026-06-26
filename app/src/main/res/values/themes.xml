@@ -46,6 +46,15 @@
         <item name="strokeColor">@color/mv_line</item>
         <item name="android:textColor">@color/mv_text</item>
     </style>
+    <!-- 设置页并排小按钮：去掉 Material 默认 inset，避免高度不一致 -->
+    <style name="Widget.MediaVault.Button.SettingsTile" parent="Widget.MediaVault.Button">
+        <item name="android:minHeight">0dp</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:gravity">center</item>
+    </style>
     <style name="Widget.MediaVault.Button.Green" parent="Widget.MaterialComponents.Button">
         <item name="backgroundTint">@color/mv_green</item>
         <item name="android:textColor">@color/mv_green_on</item>

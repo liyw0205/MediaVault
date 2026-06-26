@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/mv_bg"
@@ -23,7 +24,7 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/pickLocalRootBtn"
             style="@style/Widget.MediaVault.Button"
             android:layout_width="match_parent"
@@ -43,45 +44,38 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/addWebDavBtn"
-                style="@style/Widget.MediaVault.Button"
+                style="@style/Widget.MediaVault.Button.SettingsTile"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="40dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
-                android:gravity="center"
-                android:maxLines="2"
-                android:ellipsize="end"
-                android:text="@string/add_webdav"
-                android:textSize="11sp" />
+                android:text="@string/add_webdav_tile"
+                android:textSize="12sp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/addFtpBtn"
-                style="@style/Widget.MediaVault.Button"
+                style="@style/Widget.MediaVault.Button.SettingsTile"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="40dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
-                android:gravity="center"
-                android:maxLines="2"
-                android:ellipsize="end"
-                android:text="@string/add_ftp"
-                android:textSize="11sp" />
+                android:text="@string/add_ftp_tile"
+                android:textSize="12sp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/addSmbBtn"
-                style="@style/Widget.MediaVault.Button"
+                style="@style/Widget.MediaVault.Button.SettingsTile"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="40dp"
                 android:layout_weight="1"
-                android:gravity="center"
-                android:maxLines="2"
-                android:ellipsize="end"
-                android:text="@string/add_smb"
-                android:textSize="11sp" />
+                android:text="@string/add_smb_tile"
+                android:textSize="12sp" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
@@ -91,7 +85,7 @@
             android:layout_marginTop="8dp"
             android:nestedScrollingEnabled="false" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/testWebDavBtn"
             style="@style/Widget.MediaVault.Button"
             android:layout_width="match_parent"
@@ -99,7 +93,7 @@
             android:layout_marginTop="8dp"
             android:text="@string/test_remote_pick" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/saveBtn"
             style="@style/Widget.MediaVault.Button"
             android:layout_width="match_parent"

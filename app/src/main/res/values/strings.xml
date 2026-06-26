@@ -95,10 +95,13 @@
     <string name="local_roots_title">本机文件夹</string>
     <string name="remote_roots_title">远程目录</string>
     <string name="add_webdav">添加 WebDAV</string>
+    <string name="add_webdav_tile">WebDAV</string>
     <string name="add_webdav_dav">WebDAV（/dav）</string>
     <string name="add_webdav_root">WebDAV（网站根）</string>
     <string name="add_ftp">添加 FTP</string>
+    <string name="add_ftp_tile">FTP</string>
     <string name="add_smb">添加 SMB</string>
+    <string name="add_smb_tile">SMB</string>
     <string name="edit">编辑</string>
     <string name="delete">删除</string>
     <string name="save">保存</string>

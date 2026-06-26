@@ -52,14 +52,14 @@ class SettingsActivity : AppCompatActivity() {
         remotes.clear()
         remotes.addAll(store.readRemotesList())
 
-        findViewById<android.widget.Button>(R.id.pickLocalRootBtn).setOnClickListener { pickTree.launch(null) }
-        findViewById<android.widget.Button>(R.id.addWebDavBtn).setOnClickListener {
+        findViewById<MaterialButton>(R.id.pickLocalRootBtn).setOnClickListener { pickTree.launch(null) }
+        findViewById<MaterialButton>(R.id.addWebDavBtn).setOnClickListener {
             showRemoteDialog("webdav", null)
         }
-        findViewById<android.widget.Button>(R.id.addFtpBtn).setOnClickListener { showRemoteDialog("ftp", null) }
-        findViewById<android.widget.Button>(R.id.addSmbBtn).setOnClickListener { showRemoteDialog("smb", null) }
-        findViewById<android.widget.Button>(R.id.saveBtn).setOnClickListener { saveRemotes() }
-        findViewById<Button>(R.id.testWebDavBtn).setOnClickListener { testRemotePick() }
+        findViewById<MaterialButton>(R.id.addFtpBtn).setOnClickListener { showRemoteDialog("ftp", null) }
+        findViewById<MaterialButton>(R.id.addSmbBtn).setOnClickListener { showRemoteDialog("smb", null) }
+        findViewById<MaterialButton>(R.id.saveBtn).setOnClickListener { saveRemotes() }
+        findViewById<MaterialButton>(R.id.testWebDavBtn).setOnClickListener { testRemotePick() }
 
         refreshLocalList()
         refreshRemoteList()
