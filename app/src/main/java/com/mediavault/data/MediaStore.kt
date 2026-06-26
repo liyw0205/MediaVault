@@ -168,7 +168,7 @@ class MediaStore(private val context: Context) {
         scrapeRecordFile.appendText("$path\n", Charsets.UTF_8)
     }
 
-    fun clearScrapeRecord() {
+    fun clearAllScrapeRecords() {
         if (scrapeRecordFile.isFile) scrapeRecordFile.delete()
     }
 

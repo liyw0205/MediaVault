@@ -10,10 +10,6 @@
         android:title="@string/data_menu"
         app:showAsAction="ifRoom" />
     <item
-        android:id="@+id/action_import"
-        android:title="@string/import_library"
-        app:showAsAction="never" />
-    <item
         android:id="@+id/action_settings"
         android:title="@string/settings"
         app:showAsAction="never" />

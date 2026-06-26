@@ -74,7 +74,7 @@ class ScrapeForegroundService : Service() {
         val store = repository.store
         val fullRebuild = rebuild && rootUris.isNullOrEmpty() && remoteIds.isNullOrEmpty()
         if (fullRebuild) {
-            store.clearScrapeRecord()
+            store.clearAllScrapeRecords()
             repository.stripContentItems()
             repository.stripRemoteItems()
         }
@@ -120,6 +120,7 @@ class ScrapeForegroundService : Service() {
             }
             if (!cancelRequested && scanRemote) {
                 RemoteLibraryScanner.scanRemotesParallel(
+                    this,
                     store,
                     rebuild,
                     remoteIds,

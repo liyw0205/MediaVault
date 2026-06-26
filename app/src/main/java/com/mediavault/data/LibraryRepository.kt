@@ -87,12 +87,15 @@ class LibraryRepository(context: Context) {
         val covers = File(app.filesDir, "mediavault/covers")
         val scrape = store.scrapeRecordFile
         val videoCount = _library.value.items.size
+        val (remoteFiles, remoteBytes) = com.mediavault.remote.RemoteStreamCache.cacheStats(app)
         return DataSizes(
             libraryBytes = if (lib.isFile) lib.length() else 0L,
             coverBytes = dirSize(covers),
             coverCount = covers.listFiles()?.count { it.isFile } ?: 0,
             scrapeRecordBytes = if (scrape.isFile) scrape.length() else 0L,
             videoCount = videoCount,
+            remoteStreamFiles = remoteFiles,
+            remoteStreamBytes = remoteBytes,
         )
     }
 
@@ -110,10 +113,14 @@ class LibraryRepository(context: Context) {
         n
     }
 
-    fun clearScrapeRecord(): Boolean {
-        val f = store.scrapeRecordFile
-        return if (f.isFile) f.delete() else true
+    fun clearScrapeRecord(): Boolean = store.clearAllScrapeRecords().let { true }
+
+    fun clearLibraryJson(): Result<Unit> = runCatching {
+        store.writeLibraryJson(emptyList()).getOrThrow()
+        reload()
     }
+
+    fun clearRemoteStreamCache(): Int = com.mediavault.remote.RemoteStreamCache.clearAll(app)
 
     private fun readUpdatedFromJson(text: String): String? = runCatching {
         JSONObject(text).optString("updated", "").takeIf { it.isNotBlank() }
@@ -135,4 +142,6 @@ data class DataSizes(
     val coverCount: Int,
     val scrapeRecordBytes: Long,
     val videoCount: Int,
+    val remoteStreamFiles: Int = 0,
+    val remoteStreamBytes: Long = 0L,
 )

@@ -1,9 +1,9 @@
 package com.mediavault.data
 
+import android.content.Context
 import com.mediavault.remote.RemoteClients
 import com.mediavault.remote.RemoteConfig
 import com.mediavault.remote.RemoteMediaTypes
-import com.mediavault.remote.RemoteEntry
 import com.mediavault.remote.RemotePath
 import org.json.JSONArray
 import org.json.JSONObject
@@ -19,6 +19,7 @@ object RemoteLibraryScanner {
     private val VIDEO_EXT = RemoteMediaTypes.VIDEO_EXT
 
     fun scanRemotesParallel(
+        context: Context,
         store: MediaStore,
         rebuild: Boolean,
         remoteIdsFilter: List<String>?,
@@ -47,7 +48,7 @@ object RemoteLibraryScanner {
             onStatus("远程目录下没有新视频")
             return
         }
-        onStatus("待处理 $total 个远程视频，$workers 线程…")
+        onStatus("待处理 $total 个远程视频（含封面），$workers 线程…")
         val done = AtomicInteger(0)
         val pool = Executors.newFixedThreadPool(workers)
         try {
@@ -57,7 +58,8 @@ object RemoteLibraryScanner {
                         val w = queue.poll() ?: break
                         val libPath = RemotePath.encode(w.config.id, w.relPath)
                         if (!rebuild && store.hasScrapeRecord(libPath)) continue
-                        val item = buildItem(w)
+                        val client = RemoteClients.create(w.config)
+                        val item = buildItem(context, store, client, w)
                         synchronized(store) { store.recordScrapedPath(libPath) }
                         onFile(item)
                         val n = done.incrementAndGet()
@@ -118,15 +120,23 @@ object RemoteLibraryScanner {
         return p.replace('\\', '/')
     }
 
-    private fun buildItem(w: Work): MediaItem {
+    private fun buildItem(
+        context: Context,
+        store: MediaStore,
+        client: com.mediavault.remote.RemoteClient,
+        w: Work,
+    ): MediaItem {
         val clean = w.name.substringBeforeLast('.')
         val path = RemotePath.encode(w.config.id, w.relPath)
         val (season, episode) = SidecarScanner.seasonEpisodeFromName(w.name)
-        var year = SidecarScanner.yearFromName(w.name)
+        val year = SidecarScanner.yearFromName(w.name)
         val folder = w.folder.ifBlank { w.config.name }
         val harvested = TagHarvest.harvest(w.name, folder, JSONObject())
         val tags = TagPresetLibrary.mergeWithHarvested(w.name, harvested)
         val collection = CollectionNames.sanitize(folder.ifBlank { clean })
+        val (coverLocal, coverSource) = RemoteCoverHelper.coverForVideo(
+            context, store, w.config, client, w.relPath, path,
+        )
         val o = JSONObject()
         o.put("path", path)
         o.put("title", clean)
@@ -144,6 +154,10 @@ object RemoteLibraryScanner {
         o.put("remote_rel", w.relPath)
         o.put("tags", TagHarvest.toJsonArray(tags))
         o.put("genres", JSONArray())
+        if (coverLocal != null) {
+            o.put("cover_local", coverLocal)
+            o.put("cover_source", coverSource.ifBlank { "remote" })
+        }
         return MediaItem.fromJson(o)
     }
 

@@ -150,4 +150,28 @@ object RemoteStreamCache {
             f.delete()
         }
     }
+
+    /** 删除全部远程点播前缀缓存文件，返回删除个数 */
+    fun clearAll(context: Context): Int {
+        val dir = cacheDir(context)
+        if (!dir.isDirectory) return 0
+        var n = 0
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile && f.delete()) n++
+        }
+        return n
+    }
+
+    fun cacheStats(context: Context): Pair<Int, Long> {
+        val dir = cacheDir(context)
+        if (!dir.isDirectory) return 0 to 0L
+        var bytes = 0L
+        var n = 0
+        dir.listFiles()?.forEach { f ->
+            if (!f.isFile) return@forEach
+            n++
+            bytes += f.length()
+        }
+        return n to bytes
+    }
 }

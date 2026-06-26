@@ -82,8 +82,9 @@
     <string name="recommend_hint">推荐已持久化；无列表时自动随机一次；仅「重读」或「刷新推荐」会换一批</string>
     <string name="scrape_root_incremental">刮削</string>
     <string name="scrape_root_rescan">重新</string>
-    <string name="scrape_root_remove">移除</string>
-    <string name="scrape_root_remove_confirm">从媒体库移除该目录下已刮削的 %1$d 条？（不删除 SAF 配置）</string>
+    <string name="scrape_root_clear">清空</string>
+    <string name="scrape_root_clear_confirm">清空该媒体目录的刮削数据（库内 %1$d 条 + 刮削记录）？目录配置保留，可重新刮削。</string>
+    <string name="scrape_root_cleared_fmt">已清空 %1$d 条刮削数据</string>
     <string name="scrape_root_rescan_confirm">将清空该目录在库中的条目并重新刮削，继续？</string>
     <string name="local_roots_title">本地媒体根</string>
     <string name="remote_roots_title">远程目录</string>

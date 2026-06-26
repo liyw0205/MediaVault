@@ -6,7 +6,6 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -33,19 +32,6 @@ class MainActivity : AppCompatActivity() {
         get() = (application as MediaVaultApp).repository
     val scrapeManager
         get() = (application as MediaVaultApp).scrapeManager
-
-    private val importJson = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@registerForActivityResult
-        lifecycleScope.launch {
-            repository.importFromUri(uri)
-                .onSuccess { n ->
-                    Toast.makeText(this@MainActivity, "已导入 $n 条", Toast.LENGTH_SHORT).show()
-                }
-                .onFailure { e ->
-                    Toast.makeText(this@MainActivity, e.message ?: "导入失败", Toast.LENGTH_LONG).show()
-                }
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -167,10 +153,6 @@ class MainActivity : AppCompatActivity() {
             showDataDialog()
             true
         }
-        R.id.action_import -> {
-            importJson.launch(arrayOf("application/json", "text/*", "*/*"))
-            true
-        }
         R.id.action_settings -> {
             startActivity(Intent(this, SettingsActivity::class.java))
             true
@@ -196,20 +178,71 @@ class MainActivity : AppCompatActivity() {
 
     private fun showDataDialog() {
         val d = repository.dataSizes()
-        val libLine = "媒体库 JSON：${LibraryUi.formatBytes(d.libraryBytes)} · ${d.videoCount} 个视频"
-        val coverLine = "封面缓存：${LibraryUi.formatBytes(d.coverBytes)} · ${d.coverCount} 张"
-        val scrapeLine = "刮削记录：${LibraryUi.formatBytes(d.scrapeRecordBytes)}"
+        val msg = buildString {
+            append("媒体库 JSON：")
+            append(LibraryUi.formatBytes(d.libraryBytes))
+            append(" · ")
+            append(d.videoCount)
+            append(" 条\n")
+            append("封面缓存：")
+            append(LibraryUi.formatBytes(d.coverBytes))
+            append(" · ")
+            append(d.coverCount)
+            append(" 张\n")
+            append("刮削记录：")
+            append(LibraryUi.formatBytes(d.scrapeRecordBytes))
+            append("\n")
+            append("远程点播缓存：")
+            append(LibraryUi.formatBytes(d.remoteStreamBytes))
+            append(" · ")
+            append(d.remoteStreamFiles)
+            append(" 个文件")
+        }
+        val actions = arrayOf(
+            "清空封面缓存",
+            "清空刮削记录",
+            "清空远程点播缓存",
+            "清空媒体库 JSON",
+        )
         MvDialog.builder(this)
             .setTitle(R.string.data_title)
-            .setMessage("$libLine\n$coverLine\n$scrapeLine")
-            .setPositiveButton("清空封面") { _, _ ->
-                val n = repository.clearCovers()
-                Toast.makeText(this, "已删 $n 个封面文件", Toast.LENGTH_SHORT).show()
+            .setMessage(msg)
+            .setItems(actions) { _, which ->
+                when (which) {
+                    0 -> confirmDataAction("清空全部封面文件？") {
+                        val n = repository.clearCovers()
+                        Toast.makeText(this, "已删 $n 个封面", Toast.LENGTH_SHORT).show()
+                    }
+                    1 -> confirmDataAction("清空全部刮削记录？") {
+                        repository.clearScrapeRecord()
+                        Toast.makeText(this, "刮削记录已清空", Toast.LENGTH_SHORT).show()
+                    }
+                    2 -> confirmDataAction("清空远程边下边播前缀缓存？") {
+                        val n = repository.clearRemoteStreamCache()
+                        Toast.makeText(this, "已删 $n 个缓存文件", Toast.LENGTH_SHORT).show()
+                    }
+                    3 -> confirmDataAction("清空媒体库 JSON（保留目录与远程配置）？") {
+                        lifecycleScope.launch {
+                            repository.clearLibraryJson()
+                                .onSuccess {
+                                    Toast.makeText(this@MainActivity, "媒体库已清空", Toast.LENGTH_SHORT).show()
+                                    refreshHome(recommendPathsOnly = false)
+                                }
+                                .onFailure { e ->
+                                    Toast.makeText(this@MainActivity, e.message ?: "失败", Toast.LENGTH_LONG).show()
+                                }
+                        }
+                    }
+                }
             }
-            .setNeutralButton("清空刮削记录") { _, _ ->
-                repository.clearScrapeRecord()
-                Toast.makeText(this, "刮削记录已清空", Toast.LENGTH_SHORT).show()
-            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmDataAction(message: String, onOk: () -> Unit) {
+        MvDialog.builder(this)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok) { _, _ -> onOk() }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }

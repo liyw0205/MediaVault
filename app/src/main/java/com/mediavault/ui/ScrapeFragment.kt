@@ -102,13 +102,14 @@ class ScrapeFragment : Fragment() {
 
     private fun confirmRemoveLocal(uri: String, n: Int) {
         MvDialog.builder(requireContext())
-            .setMessage(getString(R.string.scrape_root_remove_confirm, n))
+            .setMessage(getString(R.string.scrape_root_clear_confirm, n))
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val act = activity as? MainActivity ?: return@setPositiveButton
+                act.repository.store.clearScrapeRecordsUnderRoot(uri)
                 act.repository.removeItemsUnderRoot(uri)
                     .onSuccess { removed ->
                         refreshRoots()
-                        Toast.makeText(requireContext(), "已移除 $removed 条", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), getString(R.string.scrape_root_cleared_fmt, removed), Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show() }
             }
@@ -118,13 +119,14 @@ class ScrapeFragment : Fragment() {
 
     private fun confirmRemoveRemote(remoteId: String, n: Int) {
         MvDialog.builder(requireContext())
-            .setMessage(getString(R.string.scrape_root_remove_confirm, n))
+            .setMessage(getString(R.string.scrape_root_clear_confirm, n))
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val act = activity as? MainActivity ?: return@setPositiveButton
+                act.repository.store.clearScrapeRecordsUnderRemote(remoteId)
                 act.repository.removeItemsUnderRemote(remoteId)
                     .onSuccess { removed ->
                         refreshRoots()
-                        Toast.makeText(requireContext(), "已移除 $removed 条", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), getString(R.string.scrape_root_cleared_fmt, removed), Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show() }
             }
