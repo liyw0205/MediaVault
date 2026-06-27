@@ -39,6 +39,7 @@ object LocalScanner {
         rebuild: Boolean,
         threadCount: Int,
         rootUrisFilter: List<String>? = null,
+        frameGate: RemoteFrameGate,
         shouldCancel: () -> Boolean,
         onFile: (MediaItem) -> Unit,
         onStatus: (String) -> Unit,
@@ -73,7 +74,7 @@ object LocalScanner {
                         val work = queue.poll() ?: break
                         if (!rebuild && scrapeSession.has(work.path)) continue
                         val item = runCatching {
-                            buildItem(context, store, work, cfg)
+                            buildItem(context, store, work, cfg, frameGate)
                         }.getOrNull() ?: continue
                         scrapeSession.record(store, work.path)
                         onFile(item)
@@ -117,7 +118,13 @@ object LocalScanner {
         }
     }
 
-    private fun buildItem(context: Context, store: MediaStore, work: VideoWork, cfg: ScrapeSettings): MediaItem {
+    private fun buildItem(
+        context: Context,
+        store: MediaStore,
+        work: VideoWork,
+        cfg: ScrapeSettings,
+        frameGate: RemoteFrameGate,
+    ): MediaItem {
         val name = work.name
         val path = work.path
         val dir = work.dir
@@ -196,6 +203,22 @@ object LocalScanner {
 
         val plot = if (cfg.metadataFromNfo) nfoObj.optString("plot", "").trim() else ""
 
+        var coverLocal = sidecar.coverLocal
+        var coverSource = if (coverLocal != null) "sidecar" else ""
+        if (coverLocal == null && cfg.coverFromVideoFrame) {
+            val framed = LocalFrameCoverExtractor.cacheFrameCover(
+                context,
+                child.uri,
+                path,
+                store.coversDir,
+                frameGate,
+            )
+            if (framed != null) {
+                coverLocal = framed
+                coverSource = "frame"
+            }
+        }
+
         val o = JSONObject()
         o.put("path", path)
         o.put("title", title)
@@ -213,9 +236,9 @@ object LocalScanner {
         o.put("genres", JSONArray().also { arr -> genres.forEach { arr.put(it) } })
         if (cfg.metadataFromNfo && nfoObj.length() > 0) o.put("nfo", nfoObj)
         if (sidecar.coverUri != null) o.put("cover_uri", sidecar.coverUri)
-        if (sidecar.coverLocal != null) {
-            o.put("cover_local", sidecar.coverLocal)
-            o.put("cover_source", "sidecar")
+        if (coverLocal != null) {
+            o.put("cover_local", coverLocal)
+            o.put("cover_source", coverSource)
         }
         if (sidecar.subtitles.isNotEmpty()) {
             o.put("subtitles", JSONArray().also { arr -> sidecar.subtitles.forEach { arr.put(it) } })

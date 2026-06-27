@@ -125,6 +125,7 @@ class ScrapeForegroundService : Service() {
                     rebuild,
                     threadCount = threads,
                     rootUrisFilter = rootUris,
+                    frameGate = frameGate,
                     shouldCancel = { cancelRequested },
                     onFile = { item -> persistOneBlocking(item) },
                     onStatus = { msg ->

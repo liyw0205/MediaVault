@@ -19,7 +19,7 @@ class CollectionDetailActivity : AppCompatActivity() {
 
         val key = intent.getStringExtra(EXTRA_KEY) ?: run { finish(); return }
         val repo = (application as MediaVaultApp).repository
-        val group = LibraryUi.collectionGroups(repo.library.value.items).find { it.key == key }
+        val group = LibraryUi.resolveCollectionGroup(repo.library.value.items, key)
             ?: run { finish(); return }
 
         findViewById<MaterialToolbar>(R.id.collectionToolbar).apply {

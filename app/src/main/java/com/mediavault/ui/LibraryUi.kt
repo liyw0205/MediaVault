@@ -56,12 +56,69 @@ object LibraryUi {
         val items: List<MediaItem>,
     )
 
+    const val TAG_COLLECTION_PREFIX = "tag:"
+    const val GENRE_COLLECTION_PREFIX = "genre:"
+
     fun collectionGroups(items: List<MediaItem>): List<CollectionGroup> {
         val map = items.groupBy { PlaylistBuilder.collectionKey(it) }
         return map.map { (key, list) ->
             val title = list.firstOrNull()?.let { collectionDisplayTitle(it, key) } ?: key
             CollectionGroup(key, title, PlaylistBuilder.sortEpisodes(list))
         }.sortedBy { it.title.lowercase() }
+    }
+
+    fun tagCollectionGroups(items: List<MediaItem>): List<CollectionGroup> {
+        val map = linkedMapOf<String, MutableList<MediaItem>>()
+        for (it in items) {
+            for (t in it.tags) {
+                val tag = t.trim()
+                if (tag.isBlank()) continue
+                map.getOrPut(tag) { mutableListOf() }.add(it)
+            }
+        }
+        return map.map { (tag, list) ->
+            CollectionGroup(
+                key = TAG_COLLECTION_PREFIX + tag,
+                title = tag,
+                items = list.distinctBy { it.path }.sortedBy { it.displayTitle().lowercase() },
+            )
+        }.sortedBy { it.title.lowercase() }
+    }
+
+    fun genreCollectionGroups(items: List<MediaItem>): List<CollectionGroup> {
+        val map = linkedMapOf<String, MutableList<MediaItem>>()
+        for (it in items) {
+            for (g in it.genres) {
+                val genre = g.trim()
+                if (genre.isBlank()) continue
+                map.getOrPut(genre) { mutableListOf() }.add(it)
+            }
+        }
+        return map.map { (genre, list) ->
+            CollectionGroup(
+                key = GENRE_COLLECTION_PREFIX + genre,
+                title = genre,
+                items = list.distinctBy { it.path }.sortedBy { it.displayTitle().lowercase() },
+            )
+        }.sortedBy { it.title.lowercase() }
+    }
+
+    fun resolveCollectionGroup(items: List<MediaItem>, key: String): CollectionGroup? {
+        when {
+            key.startsWith(TAG_COLLECTION_PREFIX) -> {
+                val tag = key.removePrefix(TAG_COLLECTION_PREFIX)
+                val list = items.filter { it.tags.any { t -> t.trim() == tag } }
+                if (list.isEmpty()) return null
+                return CollectionGroup(key, tag, list.sortedBy { it.displayTitle().lowercase() })
+            }
+            key.startsWith(GENRE_COLLECTION_PREFIX) -> {
+                val genre = key.removePrefix(GENRE_COLLECTION_PREFIX)
+                val list = items.filter { it.genres.any { g -> g.trim() == genre } }
+                if (list.isEmpty()) return null
+                return CollectionGroup(key, genre, list.sortedBy { it.displayTitle().lowercase() })
+            }
+            else -> return collectionGroups(items).find { it.key == key }
+        }
     }
 
     fun filterByRoot(items: List<MediaItem>, root: String?): List<MediaItem> {
@@ -83,7 +140,18 @@ object LibraryUi {
     fun search(items: List<MediaItem>, query: String): List<MediaItem> {
         val q = query.trim().lowercase()
         if (q.isBlank()) return items
-        return items.filter { it.searchBlob().contains(q) }
+        return items.filter { item ->
+            val blob = item.searchBlob()
+            if (blob.contains(q)) return@filter true
+            val initials = SearchPinyin.compactInitials(item.displayTitle())
+            if (initials.isNotBlank() && initials.contains(q)) return@filter true
+            val cn = item.raw.optString("title_cn", "").trim()
+            if (cn.isNotBlank()) {
+                val cnInit = SearchPinyin.compactInitials(cn)
+                if (cnInit.isNotBlank() && cnInit.contains(q)) return@filter true
+            }
+            false
+        }
     }
 
     fun matchedTags(items: List<MediaItem>, query: String): List<String> {

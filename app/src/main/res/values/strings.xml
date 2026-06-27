@@ -13,7 +13,7 @@
     <string name="scan_local">扫描本机根目录</string>
     <string name="reload">重读</string>
     <string name="data_menu">数据</string>
-    <string name="search_hint">搜标题、标签或简介</string>
+    <string name="search_hint">搜标题、简拼、标签或简介</string>
     <string name="no_items">还没有视频。请点「重读」，或到「刮削」页扫描目录。</string>
     <string name="items_count">共 %1$d 条</string>
     <string name="tab_home">主页</string>
@@ -21,6 +21,11 @@
     <string name="tab_scrape">刮削</string>
     <string name="tab_collections">合集</string>
     <string name="no_collections">暂无合集。刮削后会按 NFO 里的剧集/合集信息，或同文件夹自动分组。</string>
+    <string name="no_tag_collections">暂无按标签分组。刮削后视频带有标签时会出现在「标签」页。</string>
+    <string name="no_genre_collections">暂无按类型分组。NFO 或刮削写入类型后会出现在「类型」页。</string>
+    <string name="collections_tab_series">剧集</string>
+    <string name="collections_tab_tags">标签</string>
+    <string name="collections_tab_genres">类型</string>
     <string name="collection_count">%1$d 个视频</string>
     <string name="related_in_collection">同合集</string>
     <string name="no_plot">暂无简介</string>
@@ -164,7 +169,7 @@
     <string name="settings_scrape_mode_local">本地刮削（目录与旁挂文件）</string>
 
     <string name="settings_scrape_cover_files">从旁挂图片识别封面</string>
-    <string name="settings_scrape_cover_frame">远程视频抽帧作封面（需网络，较慢）</string>
+    <string name="settings_scrape_cover_frame">无同目录封面时从视频抽帧（本地与远程，较慢）</string>
     <string name="settings_scrape_nfo">从 NFO 读取元数据</string>
     <string name="settings_scrape_filename">从文件名解析标题/季集/年份/标签</string>
     <string name="settings_scrape_subtitles">扫描同目录字幕文件</string>
