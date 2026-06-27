@@ -14,9 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
-import com.google.android.material.slider.Slider
 import com.mediavault.R
-import com.mediavault.data.ScrapeConfig
 import com.mediavault.remote.RemotePath
 import com.mediavault.scrape.ScrapePhase
 import kotlinx.coroutines.launch
@@ -53,10 +51,40 @@ class ScrapeFragment : Fragment() {
         view.findViewById<MaterialButton>(R.id.stopScrapeBtn).setOnClickListener {
             act.scrapeManager.cancel()
         }
-        bindThreadSlider(view)
-        bindRemoteFrameSlider(view)
+        view.findViewById<MaterialButton>(R.id.collapseScrapeOverlayBtn).setOnClickListener {
+            setOverlayExpanded(false)
+            applyRunningOverlayLayout(view, true)
+        }
+        view.findViewById<MaterialButton>(R.id.expandScrapeOverlayBtn).setOnClickListener {
+            setOverlayExpanded(true)
+            applyRunningOverlayLayout(view, true)
+        }
         refreshRoots()
         bindScrapeState(view)
+    }
+
+    private fun setOverlayExpanded(expanded: Boolean) {
+        ScrapeUiPrefs.setProgressOverlayExpanded(requireContext(), expanded)
+    }
+
+    private fun isOverlayExpanded(): Boolean =
+        ScrapeUiPrefs.isProgressOverlayExpanded(requireContext())
+
+    private fun applyRunningOverlayLayout(view: View, running: Boolean) {
+        val overlay = view.findViewById<View>(R.id.scrapeProgressOverlay)
+        val collapsed = view.findViewById<View>(R.id.scrapeProgressCollapsed)
+        if (!running) {
+            overlay.visibility = View.GONE
+            collapsed.visibility = View.GONE
+            return
+        }
+        if (isOverlayExpanded()) {
+            overlay.visibility = View.VISIBLE
+            collapsed.visibility = View.GONE
+        } else {
+            overlay.visibility = View.GONE
+            collapsed.visibility = View.VISIBLE
+        }
     }
 
     private fun countItemsUnderLocal(act: MainActivity, rootUri: String): Int =
@@ -135,38 +163,6 @@ class ScrapeFragment : Fragment() {
             .show()
     }
 
-    private fun bindThreadSlider(view: View) {
-        val slider = view.findViewById<Slider>(R.id.scrapeThreadSlider)
-        val label = view.findViewById<TextView>(R.id.scrapeThreadValue)
-        val ctx = requireContext()
-        val cur = ScrapeConfig.readSettings(ctx).threadCount.toFloat()
-        slider.value = cur
-        label.text = getString(R.string.scrape_threads_fmt, cur.toInt())
-        slider.addOnChangeListener { _, value, fromUser ->
-            if (!fromUser) return@addOnChangeListener
-            val n = value.toInt().coerceIn(ScrapeConfig.MIN_THREADS, ScrapeConfig.MAX_THREADS)
-            val s = ScrapeConfig.readSettings(ctx).copy(threadCount = n).normalized()
-            ScrapeConfig.writeSettings(ctx, s)
-            label.text = getString(R.string.scrape_threads_fmt, n)
-        }
-    }
-
-    private fun bindRemoteFrameSlider(view: View) {
-        val slider = view.findViewById<Slider>(R.id.scrapeRemoteFrameSlider)
-        val label = view.findViewById<TextView>(R.id.scrapeRemoteFrameValue)
-        val ctx = requireContext()
-        val cur = ScrapeConfig.readSettings(ctx).remoteFrameConcurrency.toFloat()
-        slider.value = cur
-        label.text = getString(R.string.scrape_remote_frame_fmt, cur.toInt())
-        slider.addOnChangeListener { _, value, fromUser ->
-            if (!fromUser) return@addOnChangeListener
-            val n = value.toInt().coerceIn(ScrapeConfig.MIN_REMOTE_FRAME, ScrapeConfig.MAX_REMOTE_FRAME)
-            val s = ScrapeConfig.readSettings(ctx).copy(remoteFrameConcurrency = n).normalized()
-            ScrapeConfig.writeSettings(ctx, s)
-            label.text = getString(R.string.scrape_remote_frame_fmt, n)
-        }
-    }
-
     private fun startScrape(rebuild: Boolean, localRoots: List<String>?, remoteIds: List<String>?) {
         val act = activity as? MainActivity ?: return
         if (act.scrapeManager.isRunning()) {
@@ -196,33 +192,37 @@ class ScrapeFragment : Fragment() {
         val reb = view.findViewById<MaterialButton>(R.id.scanRebuildBtn)
         when (phase) {
             ScrapePhase.RUNNING -> {
-                overlay.visibility = View.VISIBLE
                 bar.visibility = View.VISIBLE
                 bar.isIndeterminate = true
                 inc.isEnabled = false
                 reb.isEnabled = false
-                status.text = message.ifBlank { getString(R.string.scrape_running_banner) }
+                val line = message.ifBlank { getString(R.string.scrape_running_banner) }
+                status.text = line
                 idleHint.text = ""
+                applyRunningOverlayLayout(view, true)
             }
             ScrapePhase.DONE -> {
+                view.findViewById<View>(R.id.scrapeProgressCollapsed).visibility = View.GONE
                 overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
                 idleHint.text = message
             }
             ScrapePhase.ERROR, ScrapePhase.CANCELLED -> {
+                view.findViewById<View>(R.id.scrapeProgressCollapsed).visibility = View.GONE
                 overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
                 idleHint.text = message
             }
             ScrapePhase.IDLE -> {
+                view.findViewById<View>(R.id.scrapeProgressCollapsed).visibility = View.GONE
                 overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
                 idleHint.text = when {
-                    canResume -> message.ifBlank { "可点「全部刮削」从刮削记录续扫" }
-                    else -> getString(R.string.scan_idle)
+                    canResume -> message.ifBlank { getString(R.string.scrape_resume_idle) }
+                    else -> ""
                 }
             }
         }
@@ -230,6 +230,10 @@ class ScrapeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        refreshRoots()
+    }
+
+    fun refreshRootsFromOutside() {
         refreshRoots()
     }
 

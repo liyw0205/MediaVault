@@ -2,12 +2,13 @@ package com.mediavault.ui
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -33,14 +34,51 @@ class MainActivity : AppCompatActivity() {
     val scrapeManager
         get() = (application as MediaVaultApp).scrapeManager
 
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var drawerPanel: View
+    private var currentTabTag: String = TAG_HOME
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        drawerLayout = findViewById(R.id.mainDrawer)
+        drawerPanel = findViewById(R.id.scrapeDrawerPanel)
+        val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+
+        ScrapeDrawerBinder.bind(
+            activity = this,
+            drawer = drawerLayout,
+            panelRoot = drawerContent,
+            repository = repository,
+            onOpenManageDirs = {
+                startActivity(Intent(this, ScrapeDirectoriesActivity::class.java))
+            },
+            onRootsMayHaveChanged = { refreshHome(recommendPathsOnly = false) },
+        )
+
+        drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
+        drawerLayout.setScrimColor(0x66000000)
+
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.title = getString(R.string.app_name)
-        toolbar.inflateMenu(R.menu.main_top)
+        toolbar.inflateMenu(R.menu.main_top_home)
         toolbar.setOnMenuItemClickListener { onTopMenu(it) }
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
+                        drawerLayout.closeDrawer(GravityCompat.END, false)
+                    } else {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                    }
+                }
+            },
+        )
 
         ensureAllTabFragments()
 
@@ -86,7 +124,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 一次创建四个 Tab，之后只 hide/show，避免主页 Fragment 反复销毁重建 */
+    override fun onResume() {
+        super.onResume()
+        if (currentTabTag == TAG_SCRAPE && ::drawerPanel.isInitialized) {
+            ScrapeDrawerBinder.reloadOptions(this, findViewById(R.id.scrapeDrawerContent))
+            scrapeFragment()?.refreshRootsFromOutside()
+        }
+    }
+
     private fun ensureAllTabFragments() {
         val fm = supportFragmentManager
         if (fm.findFragmentByTag(TAG_HOME) != null) return
@@ -107,6 +152,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showTab(tag: String, title: String): Boolean {
+        if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
+            drawerLayout.closeDrawer(GravityCompat.END, false)
+        }
+        currentTabTag = tag
         val fm = supportFragmentManager
         val tx = fm.beginTransaction()
         for (t in listOf(TAG_HOME, TAG_SEARCH, TAG_COLLECTIONS, TAG_SCRAPE)) {
@@ -114,8 +163,33 @@ class MainActivity : AppCompatActivity() {
             if (t == tag) tx.show(f) else tx.hide(f)
         }
         tx.commit()
-        findViewById<MaterialToolbar>(R.id.toolbar).title = title
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.title = title
+        toolbar.navigationIcon = null
+        toolbar.setNavigationOnClickListener(null)
+        toolbar.menu.clear()
+        val menuRes = when (tag) {
+            TAG_HOME -> R.menu.main_top_home
+            TAG_SCRAPE -> R.menu.main_top_scrape
+            else -> R.menu.main_top_other
+        }
+        toolbar.inflateMenu(menuRes)
+        if (tag == TAG_SCRAPE) {
+            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.END)
+        } else {
+            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
+        }
         return true
+    }
+
+    fun openScrapeDrawer() {
+        if (currentTabTag != TAG_SCRAPE) return
+        ScrapeDrawerBinder.reloadOptions(this, findViewById(R.id.scrapeDrawerContent))
+        drawerLayout.openDrawer(GravityCompat.END)
+    }
+
+    fun closeScrapeDrawer(animate: Boolean = false) {
+        drawerLayout.closeDrawer(GravityCompat.END, animate)
     }
 
     private fun onTopMenu(item: MenuItem): Boolean = when (item.itemId) {
@@ -135,12 +209,8 @@ class MainActivity : AppCompatActivity() {
             }
             true
         }
-        R.id.action_data -> {
-            showDataDialog()
-            true
-        }
-        R.id.action_settings -> {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        R.id.action_scrape_drawer -> {
+            openScrapeDrawer()
             true
         }
         else -> false
@@ -153,6 +223,9 @@ class MainActivity : AppCompatActivity() {
     private fun homeFragment(): HomeFragment? =
         supportFragmentManager.findFragmentByTag(TAG_HOME) as? HomeFragment
 
+    private fun scrapeFragment(): ScrapeFragment? =
+        supportFragmentManager.findFragmentByTag(TAG_SCRAPE) as? ScrapeFragment
+
     private fun refreshSearch() {
         val f = supportFragmentManager.findFragmentByTag(TAG_SEARCH) as? SearchFragment
         f?.refreshFromParent()
@@ -160,84 +233,5 @@ class MainActivity : AppCompatActivity() {
 
     fun playItem(item: MediaItem) {
         startActivity(PlayerActivity.intent(this, item.path, item.displayTitle()))
-    }
-
-    private fun showDataDialog() {
-        val d = repository.dataSizes()
-        val msg = buildString {
-            append(getString(R.string.data_library))
-            append("：")
-            append(LibraryUi.formatBytes(d.libraryBytes))
-            append(" · ")
-            append(d.videoCount)
-            append(" 条\n")
-            append(getString(R.string.data_covers))
-            append("：")
-            append(LibraryUi.formatBytes(d.coverBytes))
-            append(" · ")
-            append(d.coverCount)
-            append(" 张\n")
-            append(getString(R.string.data_scrape))
-            append("：")
-            append(LibraryUi.formatBytes(d.scrapeRecordBytes))
-            append("\n")
-            append(getString(R.string.data_remote_stream))
-            append("：")
-            append(LibraryUi.formatBytes(d.remoteStreamBytes))
-            append(" · ")
-            append(d.remoteStreamFiles)
-            append(" 个文件")
-        }
-        val root = LayoutInflater.from(this).inflate(R.layout.dialog_data, null)
-        root.findViewById<TextView>(R.id.dataDialogStats).text = msg
-        val builder = MvDialog.builder(this)
-            .setTitle(R.string.data_title)
-            .setView(root)
-            .setNegativeButton(android.R.string.cancel, null)
-        val dialog = MvDialog.showStyled(builder)
-        root.findViewById<View>(R.id.dataClearCovers).setOnClickListener {
-            confirmDataAction(getString(R.string.confirm_clear_covers)) {
-                val n = repository.clearCovers()
-                Toast.makeText(this, getString(R.string.data_cleared_covers_fmt, n), Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-        }
-        root.findViewById<View>(R.id.dataClearScrape).setOnClickListener {
-            confirmDataAction(getString(R.string.confirm_clear_scrape)) {
-                repository.clearScrapeRecord()
-                Toast.makeText(this, R.string.data_cleared_scrape, Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-        }
-        root.findViewById<View>(R.id.dataClearRemoteStream).setOnClickListener {
-            confirmDataAction(getString(R.string.confirm_clear_remote)) {
-                val n = repository.clearRemoteStreamCache()
-                Toast.makeText(this, getString(R.string.data_cleared_remote_fmt, n), Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-        }
-        root.findViewById<View>(R.id.dataClearLibrary).setOnClickListener {
-            confirmDataAction(getString(R.string.confirm_clear_library)) {
-                lifecycleScope.launch {
-                    repository.clearLibraryJson()
-                        .onSuccess {
-                            Toast.makeText(this@MainActivity, R.string.data_cleared_library, Toast.LENGTH_SHORT).show()
-                            refreshHome(recommendPathsOnly = false)
-                            dialog.dismiss()
-                        }
-                        .onFailure { e ->
-                            Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
-                        }
-                }
-            }
-        }
-    }
-
-    private fun confirmDataAction(message: String, onOk: () -> Unit) {
-        MvDialog.builder(this)
-            .setMessage(message)
-            .setPositiveButton(android.R.string.ok) { _, _ -> onOk() }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
     }
 }

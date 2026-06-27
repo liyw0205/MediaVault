@@ -49,8 +49,9 @@
     <!-- 设置页并排小按钮：去掉 Material 默认 inset，避免高度不一致 -->
     <style name="Widget.MediaVault.Button.SettingsTile" parent="Widget.MediaVault.Button">
         <item name="android:minHeight">0dp</item>
-        <item name="android:paddingTop">6dp</item>
-        <item name="android:paddingBottom">6dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
         <item name="android:gravity">center</item>
@@ -81,5 +82,25 @@
         <item name="android:textColor">@color/mv_text</item>
         <item name="android:textColorHint">@color/mv_hint</item>
         <item name="android:backgroundTint">@color/mv_line</item>
+    </style>
+
+    <style name="TextAppearance.MediaVault.Settings.Section" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/mv_text</item>
+    </style>
+    <style name="TextAppearance.MediaVault.Settings.Body" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/mv_text</item>
+    </style>
+    <style name="TextAppearance.MediaVault.Settings.Hint" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/mv_text_secondary</item>
+    </style>
+    <style name="Widget.MediaVault.Switch.Settings" parent="Widget.AppCompat.CompoundButton.Switch">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/mv_text</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
     </style>
 </resources>

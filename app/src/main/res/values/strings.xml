@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MediaVault</string>
-    <string name="settings">媒体目录与远程</string>
+    <string name="app_settings">设置</string>
+    <string name="settings_data_hint">封面、刮削记录、远程缓存与媒体库占用。</string>
+    <string name="scrape_options_title">刮削选项</string>
+    <string name="scrape_drawer_title">刮削设置</string>
+
+    <string name="scrape_dirs_open">管理媒体目录</string>
+    <string name="scrape_dirs_title">管理媒体目录</string>
+    <string name="scrape_roots_manage_hint">添加本机文件夹或远程。</string>
     <string name="add_local_root">添加本机文件夹</string>
     <string name="scan_local">扫描本机根目录</string>
     <string name="reload">重读</string>
@@ -37,8 +44,9 @@
     <string name="subtitle_embedded_fmt">内嵌：%1$s</string>
     <string name="screenshot_use_system">当前画面无法直接保存，请用系统截图</string>
     <string name="screenshot_saved">已保存：%1$s</string>
+    <string name="screenshot_saved_pictures">已保存到相册 Pictures/%1$s/%2$s</string>
     <string name="screenshot_failed">截图失败</string>
-    <string name="scrape_sidecar_hint">多线程扫描，扫完一条就写入库；已有刮削记录的路径会跳过。封面顺序：同名图片 → fanart → poster → 其他图。</string>
+
     <string name="scrape_threads_label">刮削线程数（1–32，默认 10）</string>
     <string name="scrape_threads_fmt">当前 %1$d 线程</string>
     <string name="scrape_remote_frame_label">远程抽帧并发（1–5，默认 2，与刮削线程分开）</string>
@@ -63,17 +71,20 @@
     <string name="search_tags_only_hint">点标签可搜索 · 共 %1$d 个标签</string>
     <string name="clear_search">清空</string>
     <string name="scrape_roots">已配置的媒体目录</string>
-    <string name="scrape_roots_readonly_hint">这里只显示目录，不能在这里增删。请到顶栏「设置」里管理本机文件夹和远程。</string>
+
     <string name="scrape_roots_empty">尚未配置媒体目录</string>
     <string name="scrape_notif_title">正在刮削</string>
     <string name="scrape_notif_channel">后台刮削</string>
     <string name="scrape_stop">停止</string>
-    <string name="scrape_running_banner">正在后台刮削；每完成一条会写入库。中断后下次会接着扫没记过的文件。</string>
+    <string name="scrape_running_banner">正在刮削…</string>
+    <string name="scrape_progress_expand">展开</string>
+    <string name="scrape_progress_collapse">收起</string>
+    <string name="scrape_progress_collapsed_label">刮削中</string>
     <string name="scrape_already_running">刮削任务已在运行</string>
     <string name="scrape_title">刮削</string>
     <string name="scan_incremental">全部刮削</string>
     <string name="scan_rebuild">全部重扫</string>
-    <string name="scan_idle">空闲</string>
+    <string name="scrape_resume_idle">可点「全部刮削」续扫未完成项</string>
     <string name="data_title">数据占用</string>
     <string name="data_library">媒体库</string>
     <string name="data_covers">封面缓存</string>
@@ -87,7 +98,7 @@
     <string name="detail">详情</string>
     <string name="player_title">播放</string>
     <string name="recommend_count_fmt">推荐 %1$d 条</string>
-    <string name="recommend_hint">推荐列表会保存；列表为空时会随机选一批。只有「重读」或「换一批推荐」会更换内容。</string>
+
     <string name="scrape_root_incremental">刮削</string>
     <string name="scrape_root_rescan">重扫</string>
     <string name="scrape_root_clear">清空</string>
@@ -150,8 +161,8 @@
     <string name="settings_test_sample">示例文件：%1$s</string>
 
     <string name="settings_scrape_section">刮削</string>
-    <string name="settings_scrape_mode_local">刮削模式：本地（扫描目录与旁挂文件）</string>
-    <string name="settings_scrape_mode_online_hint">在线刮削（API）尚未开放，当前固定为本地模式。</string>
+    <string name="settings_scrape_mode_local">本地刮削（目录与旁挂文件）</string>
+
     <string name="settings_scrape_cover_files">从旁挂图片识别封面</string>
     <string name="settings_scrape_cover_frame">远程视频抽帧作封面（需网络，较慢）</string>
     <string name="settings_scrape_nfo">从 NFO 读取元数据</string>

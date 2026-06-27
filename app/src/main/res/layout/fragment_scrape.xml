@@ -15,7 +15,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="12dp"
-            android:paddingBottom="88dp">
+            android:paddingBottom="24dp">
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -33,17 +33,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/scrape_roots"
-                        android:textColor="@color/mv_text"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="@string/scrape_roots_readonly_hint"
-                        android:textColor="@color/mv_text_secondary"
-                        android:textSize="12sp" />
+                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
 
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rootsRecycler"
@@ -58,8 +48,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:text="@string/scrape_roots_empty"
-                        android:textColor="@color/mv_muted"
-                        android:textSize="12sp"
+                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint"
                         android:visibility="gone" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -81,70 +70,12 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/scrape_title"
-                        android:textColor="@color/mv_text"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="@string/scrape_sidecar_hint"
-                        android:textColor="@color/mv_text_secondary"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/scrape_threads_label"
-                        android:textColor="@color/mv_text_secondary"
-                        android:textSize="13sp" />
-
-                    <com.google.android.material.slider.Slider
-                        android:id="@+id/scrapeThreadSlider"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:stepSize="1"
-                        android:valueFrom="1"
-                        android:valueTo="32"
-                        app:labelBehavior="gone" />
-
-                    <TextView
-                        android:id="@+id/scrapeThreadValue"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/mv_muted"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/scrape_remote_frame_label"
-                        android:textColor="@color/mv_text_secondary"
-                        android:textSize="13sp" />
-
-                    <com.google.android.material.slider.Slider
-                        android:id="@+id/scrapeRemoteFrameSlider"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:stepSize="1"
-                        android:valueFrom="1"
-                        android:valueTo="5"
-                        app:labelBehavior="gone" />
-
-                    <TextView
-                        android:id="@+id/scrapeRemoteFrameValue"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/mv_muted"
-                        android:textSize="12sp" />
+                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="12dp"
                         android:orientation="horizontal">
 
                         <com.google.android.material.button.MaterialButton
@@ -156,7 +87,7 @@
                             android:backgroundTint="@color/mv_green"
                             android:text="@string/scan_incremental"
                             android:textColor="@color/mv_green_on"
-                            android:textSize="12sp" />
+                            android:textSize="14sp" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/scanRebuildBtn"
@@ -166,7 +97,7 @@
                             android:backgroundTint="@color/mv_amber"
                             android:text="@string/scan_rebuild"
                             android:textColor="@color/mv_amber_on"
-                            android:textSize="12sp" />
+                            android:textSize="14sp" />
                     </LinearLayout>
 
                     <TextView
@@ -176,12 +107,63 @@
                         android:layout_marginTop="10dp"
                         android:ellipsize="end"
                         android:maxLines="2"
-                        android:textColor="@color/mv_text_secondary"
-                        android:textSize="12sp" />
+                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/scrapeProgressCollapsed"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="12dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/mv_surface"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="6dp"
+        app:strokeColor="@color/mv_primary_dark"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp">
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/scanProgressMini"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:indeterminate="true"
+                app:indicatorSize="24dp"
+                app:trackThickness="3dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/scrape_progress_collapsed_label"
+                android:textColor="@color/mv_text"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/expandScrapeOverlayBtn"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="8dp"
+                android:text="@string/scrape_progress_expand"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/scrapeProgressOverlay"
@@ -202,14 +184,38 @@
             android:orientation="vertical"
             android:padding="14dp">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/scrape_notif_title"
+                    android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/collapseScrapeOverlayBtn"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:text="@string/scrape_progress_collapse"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/scanStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:ellipsize="end"
-                android:maxLines="3"
-                android:textColor="@color/mv_text"
-                android:textSize="13sp" />
+                android:maxLines="2"
+                android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
 
             <com.google.android.material.progressindicator.LinearProgressIndicator
                 android:id="@+id/scanProgress"

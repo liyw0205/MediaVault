@@ -17,7 +17,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="@color/mv_text"
-            android:textSize="14sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <TextView
@@ -25,7 +25,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="@color/mv_text_secondary"
-            android:textSize="12sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 
     <com.google.android.material.button.MaterialButton
@@ -34,7 +34,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/edit"
-        android:textSize="11sp" />
+        android:textSize="13sp" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnDeleteRemote"
@@ -43,5 +43,5 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="4dp"
         android:text="@string/delete"
-        android:textSize="11sp" />
+        android:textSize="13sp" />
 </LinearLayout>

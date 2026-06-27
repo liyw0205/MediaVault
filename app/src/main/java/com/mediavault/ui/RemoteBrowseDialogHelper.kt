@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -21,7 +22,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class RemoteBrowseDialogHelper(
-    private val activity: SettingsActivity,
+    private val activity: AppCompatActivity,
+    private val draftConfigProvider: () -> com.mediavault.remote.RemoteConfig,
     private val onPathSelected: (String) -> Unit,
 ) {
     fun show(
@@ -47,9 +49,7 @@ class RemoteBrowseDialogHelper(
         var browseRelPath = ""
         val baseNorm = normalizeBaseForBrowse(type, initialBasePath)
 
-        fun draftConfig() = activity.buildDraftRemoteConfig(
-            type, host, port, user, password, baseNorm,
-        )
+        fun draftConfig() = draftConfigProvider()
 
         fun playConfigId(): String = savedConfigId?.takeIf { it.isNotBlank() }
             ?: RemotePlayUri.PREVIEW_CONFIG_ID

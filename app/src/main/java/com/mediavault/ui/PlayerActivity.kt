@@ -7,7 +7,6 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.view.PixelCopy
@@ -36,8 +35,8 @@ import com.mediavault.remote.RemotePath
 import com.mediavault.remote.RemotePlayUri
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.mediavault.util.ScreenshotSaver
 import java.io.File
-import java.io.FileOutputStream
 
 class PlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
@@ -328,18 +327,16 @@ class PlayerActivity : AppCompatActivity() {
         val w = pv.width.coerceAtLeast(1)
         val h = pv.height.coerceAtLeast(1)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val dir = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "shots").apply { mkdirs() }
-        val file = File(dir, "shot_${System.currentTimeMillis()}.png")
 
         fun saveBitmap() {
-            try {
-                FileOutputStream(file).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 92, out) }
-                Toast.makeText(this, getString(R.string.screenshot_saved, file.absolutePath), Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, e.message ?: getString(R.string.screenshot_failed), Toast.LENGTH_SHORT).show()
-            } finally {
-                bmp.recycle()
-            }
+            val result = ScreenshotSaver.savePng(this, bmp)
+            bmp.recycle()
+            result.fold(
+                onSuccess = { msg -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show() },
+                onFailure = { e ->
+                    Toast.makeText(this, e.message ?: getString(R.string.screenshot_failed), Toast.LENGTH_SHORT).show()
+                },
+            )
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
