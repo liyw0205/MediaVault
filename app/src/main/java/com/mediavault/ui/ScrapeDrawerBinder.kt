@@ -15,6 +15,40 @@ import com.mediavault.data.ScrapeConfig
 import com.mediavault.data.ScrapeSettings
 
 object ScrapeDrawerBinder {
+
+    private val totalCacheMbSteps = intArrayOf(256, 512, 1024, 2048, 3072, 4096, 6144, 8192)
+    private val perFileCacheMbSteps = intArrayOf(64, 128, 256, 512, 768, 1024, 2048, 4096)
+
+    private fun mbToTotalStep(mb: Int): Float {
+        val idx = totalCacheMbSteps.indexOfFirst { it >= mb }.let { if (it < 0) totalCacheMbSteps.lastIndex else it }
+        return (idx + 1).toFloat()
+    }
+
+    private fun totalStepToBytes(step: Int): Long {
+        val idx = (step - 1).coerceIn(0, totalCacheMbSteps.lastIndex)
+        return totalCacheMbSteps[idx].toLong() * 1024 * 1024
+    }
+
+    private fun mbToPerFileStep(mb: Int): Float {
+        val idx = perFileCacheMbSteps.indexOfFirst { it >= mb }.let { if (it < 0) perFileCacheMbSteps.lastIndex else it }
+        return (idx + 1).toFloat()
+    }
+
+    private fun perFileStepToBytes(step: Int): Long {
+        val idx = (step - 1).coerceIn(0, perFileCacheMbSteps.lastIndex)
+        return perFileCacheMbSteps[idx].toLong() * 1024 * 1024
+    }
+
+    private fun formatMbLabel(activity: AppCompatActivity, mb: Int, resId: Int): String {
+        val text = if (mb >= 1024) {
+            val g = mb / 1024f
+            if (g == g.toInt().toFloat()) "${g.toInt()} GB" else "%.1f GB".format(g)
+        } else {
+            "$mb MB"
+        }
+        return activity.getString(resId, text)
+    }
+
     fun bind(
         activity: AppCompatActivity,
         drawer: DrawerLayout,
@@ -32,9 +66,20 @@ object ScrapeDrawerBinder {
         val threadsLabel = panelRoot.findViewById<TextView>(R.id.drawerScrapeThreadsLabel)
         val remoteSlider = panelRoot.findViewById<Slider>(R.id.drawerScrapeRemoteFrameSlider)
         val remoteLabel = panelRoot.findViewById<TextView>(R.id.drawerScrapeRemoteFrameLabel)
+        val cacheTotalSlider = panelRoot.findViewById<Slider>(R.id.drawerRemoteCacheTotalSlider)
+        val cacheTotalLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCacheTotalLabel)
+        val cachePerSlider = panelRoot.findViewById<Slider>(R.id.drawerRemoteCachePerFileSlider)
+        val cachePerLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCachePerFileLabel)
         val saveBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerSaveScrapeSettingsBtn)
         val manageDirs = panelRoot.findViewById<MaterialButton>(R.id.drawerManageDirsBtn)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
+
+        fun updateCacheLabels(totalStep: Int, perStep: Int) {
+            val totalMb = totalCacheMbSteps[(totalStep - 1).coerceIn(0, totalCacheMbSteps.lastIndex)]
+            val perMb = perFileCacheMbSteps[(perStep - 1).coerceIn(0, perFileCacheMbSteps.lastIndex)]
+            cacheTotalLabel.text = formatMbLabel(activity, totalMb, R.string.settings_remote_cache_total_fmt)
+            cachePerLabel.text = formatMbLabel(activity, perMb, R.string.settings_remote_cache_per_file_fmt)
+        }
 
         fun loadUi(s: ScrapeSettings) {
             val cfg = s.normalized()
@@ -47,6 +92,11 @@ object ScrapeDrawerBinder {
             threadsLabel.text = activity.getString(R.string.settings_scrape_threads_fmt, cfg.threadCount)
             remoteSlider.value = cfg.remoteFrameConcurrency.toFloat()
             remoteLabel.text = activity.getString(R.string.settings_scrape_remote_frame_fmt, cfg.remoteFrameConcurrency)
+            val totalMb = (cfg.remoteCacheMaxTotalBytes / (1024 * 1024)).toInt()
+            val perMb = (cfg.remoteCacheMaxBytesPerFile / (1024 * 1024)).toInt()
+            cacheTotalSlider.value = mbToTotalStep(totalMb)
+            cachePerSlider.value = mbToPerFileStep(perMb)
+            updateCacheLabels(cacheTotalSlider.value.toInt(), cachePerSlider.value.toInt())
         }
 
         loadUi(ScrapeConfig.readSettings(activity))
@@ -56,6 +106,12 @@ object ScrapeDrawerBinder {
         }
         remoteSlider.addOnChangeListener { _, value, _ ->
             remoteLabel.text = activity.getString(R.string.settings_scrape_remote_frame_fmt, value.toInt())
+        }
+        cacheTotalSlider.addOnChangeListener { _, value, _ ->
+            updateCacheLabels(value.toInt(), cachePerSlider.value.toInt())
+        }
+        cachePerSlider.addOnChangeListener { _, value, _ ->
+            updateCacheLabels(cacheTotalSlider.value.toInt(), value.toInt())
         }
 
         saveBtn.setOnClickListener {
@@ -68,6 +124,8 @@ object ScrapeDrawerBinder {
                 metadataFromNfo = nfo.isChecked,
                 metadataFromFilename = filename.isChecked,
                 scanSidecarSubtitles = subs.isChecked,
+                remoteCacheMaxTotalBytes = totalStepToBytes(cacheTotalSlider.value.toInt()),
+                remoteCacheMaxBytesPerFile = perFileStepToBytes(cachePerSlider.value.toInt()),
             ).normalized()
             ScrapeConfig.writeSettings(activity, next)
             loadUi(next)
@@ -88,6 +146,8 @@ object ScrapeDrawerBinder {
     fun reloadOptions(activity: AppCompatActivity, panelRoot: View) {
         val threadsLabel = panelRoot.findViewById<TextView>(R.id.drawerScrapeThreadsLabel)
         val remoteLabel = panelRoot.findViewById<TextView>(R.id.drawerScrapeRemoteFrameLabel)
+        val cacheTotalLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCacheTotalLabel)
+        val cachePerLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCachePerFileLabel)
         val cfg = ScrapeConfig.readSettings(activity).normalized()
         panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFilesSwitch).isChecked = cfg.coverFromFiles
         panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFrameSwitch).isChecked = cfg.coverFromVideoFrame
@@ -98,5 +158,15 @@ object ScrapeDrawerBinder {
         threadsLabel.text = activity.getString(R.string.settings_scrape_threads_fmt, cfg.threadCount)
         panelRoot.findViewById<Slider>(R.id.drawerScrapeRemoteFrameSlider).value = cfg.remoteFrameConcurrency.toFloat()
         remoteLabel.text = activity.getString(R.string.settings_scrape_remote_frame_fmt, cfg.remoteFrameConcurrency)
+        val totalMb = (cfg.remoteCacheMaxTotalBytes / (1024 * 1024)).toInt()
+        val perMb = (cfg.remoteCacheMaxBytesPerFile / (1024 * 1024)).toInt()
+        panelRoot.findViewById<Slider>(R.id.drawerRemoteCacheTotalSlider).value = mbToTotalStep(totalMb)
+        panelRoot.findViewById<Slider>(R.id.drawerRemoteCachePerFileSlider).value = mbToPerFileStep(perMb)
+        val tStep = panelRoot.findViewById<Slider>(R.id.drawerRemoteCacheTotalSlider).value.toInt()
+        val pStep = panelRoot.findViewById<Slider>(R.id.drawerRemoteCachePerFileSlider).value.toInt()
+        val totalMb2 = totalCacheMbSteps[(tStep - 1).coerceIn(0, totalCacheMbSteps.lastIndex)]
+        val perMb2 = perFileCacheMbSteps[(pStep - 1).coerceIn(0, perFileCacheMbSteps.lastIndex)]
+        cacheTotalLabel.text = formatMbLabel(activity, totalMb2, R.string.settings_remote_cache_total_fmt)
+        cachePerLabel.text = formatMbLabel(activity, perMb2, R.string.settings_remote_cache_per_file_fmt)
     }
 }

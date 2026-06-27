@@ -18,6 +18,7 @@ import com.mediavault.R
 import com.mediavault.data.MediaStore
 import com.mediavault.remote.RemoteClients
 import com.mediavault.remote.RemoteConfig
+import com.mediavault.remote.RemoteErrorMessages
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -138,7 +139,7 @@ class ScrapeDirectoriesActivity : AppCompatActivity() {
             store.writeRemotesList(remotes)
             Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Toast.makeText(this, getString(R.string.settings_save_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.settings_save_failed, RemoteErrorMessages.userMessage(this, e)), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -163,7 +164,7 @@ class ScrapeDirectoriesActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val msg = withContext(Dispatchers.IO) {
                 runCatching { RemoteClients.create(cfg).testConnection() }
-                    .fold(onSuccess = { it }, onFailure = { getString(R.string.settings_test_failed, it.message ?: "") })
+                    .fold(onSuccess = { it }, onFailure = { getString(R.string.settings_test_failed, RemoteErrorMessages.userMessage(this@ScrapeDirectoriesActivity, it)) })
             }
             Toast.makeText(this@ScrapeDirectoriesActivity, msg, Toast.LENGTH_LONG).show()
         }

@@ -8,6 +8,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.mediavault.R
 import com.mediavault.data.LibraryRepository
+import com.mediavault.remote.RemoteStreamCache
+import com.mediavault.remote.RemoteErrorMessages
 import kotlinx.coroutines.launch
 
 object DataStorageDialog {
@@ -40,7 +42,8 @@ object DataStorageDialog {
                 append(LibraryUi.formatBytes(d.remoteStreamBytes))
                 append(" · ")
                 append(d.remoteStreamFiles)
-                append(" 个文件")
+                append(" 个文件 · ")
+                append(getString(R.string.data_remote_cache_limit_fmt, LibraryUi.formatBytes(RemoteStreamCache.configuredMaxTotalBytes(activity))))
             }
         }
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_data, null)
@@ -83,7 +86,7 @@ object DataStorageDialog {
                         .onFailure { e ->
                             Toast.makeText(
                                 activity,
-                                e.message ?: activity.getString(R.string.action_failed),
+                                RemoteErrorMessages.userMessage(activity, e),
                                 Toast.LENGTH_LONG,
                             ).show()
                         }

@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.exoplayer.ExoPlayer
@@ -31,6 +32,7 @@ import com.mediavault.data.HistoryStore
 import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.playback.PlaylistBuilder
 import com.mediavault.remote.RemoteDataSourceFactory
+import com.mediavault.remote.RemoteErrorMessages
 import com.mediavault.remote.RemotePath
 import com.mediavault.remote.RemotePlayUri
 import androidx.media3.datasource.DefaultDataSource
@@ -123,6 +125,15 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     updatePlayIcon()
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    val cause = error.cause ?: error
+                    Toast.makeText(
+                        this@PlayerActivity,
+                        getString(R.string.player_remote_error_fmt, RemoteErrorMessages.userMessage(this@PlayerActivity, cause)),
+                        Toast.LENGTH_LONG,
+                    ).show()
                 }
             })
         }

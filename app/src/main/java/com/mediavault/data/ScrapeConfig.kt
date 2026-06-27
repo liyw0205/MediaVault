@@ -39,6 +39,8 @@ object ScrapeConfig {
             metadataFromNfo = j.optBoolean("metadataFromNfo", true),
             metadataFromFilename = j.optBoolean("metadataFromFilename", true),
             scanSidecarSubtitles = j.optBoolean("scanSidecarSubtitles", true),
+            remoteCacheMaxBytesPerFile = j.optLong("remoteCacheMaxBytesPerFile", 512L * 1024 * 1024),
+            remoteCacheMaxTotalBytes = j.optLong("remoteCacheMaxTotalBytes", 2L * 1024 * 1024 * 1024),
         ).normalized()
     }
 
@@ -53,6 +55,8 @@ object ScrapeConfig {
         obj.put("metadataFromNfo", s.metadataFromNfo)
         obj.put("metadataFromFilename", s.metadataFromFilename)
         obj.put("scanSidecarSubtitles", s.scanSidecarSubtitles)
+        obj.put("remoteCacheMaxBytesPerFile", s.remoteCacheMaxBytesPerFile)
+        obj.put("remoteCacheMaxTotalBytes", s.remoteCacheMaxTotalBytes)
         writeJson(context, obj)
     }
 
@@ -79,6 +83,8 @@ data class ScrapeSettings(
     val metadataFromNfo: Boolean = true,
     val metadataFromFilename: Boolean = true,
     val scanSidecarSubtitles: Boolean = true,
+    val remoteCacheMaxBytesPerFile: Long = 512L * 1024 * 1024,
+    val remoteCacheMaxTotalBytes: Long = 2L * 1024 * 1024 * 1024,
 ) {
     fun normalized(): ScrapeSettings = copy(
         scrapeMode = if (scrapeMode == ScrapeConfig.MODE_LOCAL) ScrapeConfig.MODE_LOCAL else ScrapeConfig.MODE_LOCAL,
@@ -87,5 +93,13 @@ data class ScrapeSettings(
             ScrapeConfig.MIN_REMOTE_FRAME,
             ScrapeConfig.MAX_REMOTE_FRAME,
         ),
+        remoteCacheMaxBytesPerFile = remoteCacheMaxBytesPerFile.coerceIn(
+            64L * 1024 * 1024,
+            4L * 1024 * 1024 * 1024,
+        ),
+        remoteCacheMaxTotalBytes = remoteCacheMaxTotalBytes.coerceIn(
+            256L * 1024 * 1024,
+            16L * 1024 * 1024 * 1024,
+        ).coerceAtLeast(remoteCacheMaxBytesPerFile),
     )
 }

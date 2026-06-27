@@ -16,6 +16,7 @@ import com.mediavault.remote.RemoteBrowsePreviewHolder
 import com.mediavault.remote.RemoteClients
 import com.mediavault.remote.RemoteEntry
 import com.mediavault.remote.RemoteMediaTypes
+import com.mediavault.remote.RemoteErrorMessages
 import com.mediavault.remote.RemotePlayUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -98,7 +99,7 @@ class RemoteBrowseDialogHelper(
                         activity.runOnUiThread {
                             Toast.makeText(
                                 activity,
-                                activity.getString(R.string.remote_browse_failed, e.message ?: "?"),
+                                activity.getString(R.string.remote_browse_failed, RemoteErrorMessages.userMessage(activity, e)),
                                 Toast.LENGTH_LONG,
                             ).show()
                         }

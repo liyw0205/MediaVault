@@ -30,11 +30,14 @@ class RemoteDataSource(
         readerAlive.set(true)
         uri = dataSpec.uri
         val u = dataSpec.uri
-        if (u.scheme != "mediavault-remote") throw IOException("Unsupported URI: $u")
-        val configId = u.host ?: throw IOException("Missing remote id")
+        if (u.scheme != "mediavault-remote") {
+            throw IOException(RemoteErrorMessages.userMessage(context, IOException("bad scheme")))
+        }
+        val configId = u.host ?: throw IOException(RemoteErrorMessages.userMessage(context, IOException("no id")))
         val encPath = u.path?.trimStart('/') ?: ""
         val rel = Uri.decode(encPath)
-        val cfg = resolveConfig(configId) ?: throw IOException("Remote not configured: $configId")
+        val cfg = resolveConfig(configId)
+            ?: throw IOException(RemoteErrorMessages.userMessage(context, IOException("not configured")))
         val client = RemoteClients.create(cfg)
         val cacheKey = RemoteStreamCache.cacheKey(cfg, rel)
 
@@ -97,7 +100,7 @@ class RemoteDataSource(
 
         if (!alive.get()) return
         if (cursor < prefixLen) {
-            throw IOException("缓存缺口: need=$cursor prefix=$prefixLen")
+            throw IOException(RemoteErrorMessages.userMessage(context, IOException("缓存缺口")))
         }
 
         val netLen = if (need == Long.MAX_VALUE) C.LENGTH_UNSET.toLong() else need
@@ -105,7 +108,7 @@ class RemoteDataSource(
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-        val s = stream ?: throw IOException("Not opened")
+        val s = stream ?: throw IOException(RemoteErrorMessages.userMessage(context, IOException("not opened")))
         val n = s.read(buffer, offset, length)
         if (n == -1) return C.RESULT_END_OF_INPUT
         if (bytesRemaining != C.LENGTH_UNSET.toLong()) bytesRemaining -= n.toLong()

@@ -110,6 +110,42 @@
             app:trackColorActive="@color/mv_primary_dark"
             app:trackColorInactive="@color/mv_line" />
 
+        <TextView
+            android:id="@+id/drawerRemoteCacheTotalLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/drawerRemoteCacheTotalSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="8"
+            app:thumbColor="@color/mv_primary"
+            app:trackColorActive="@color/mv_primary_dark"
+            app:trackColorInactive="@color/mv_line" />
+
+        <TextView
+            android:id="@+id/drawerRemoteCachePerFileLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/drawerRemoteCachePerFileSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="8"
+            app:thumbColor="@color/mv_primary"
+            app:trackColorActive="@color/mv_primary_dark"
+            app:trackColorInactive="@color/mv_line" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/drawerSaveScrapeSettingsBtn"
             style="@style/Widget.MediaVault.Button"

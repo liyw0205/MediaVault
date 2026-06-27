@@ -2,6 +2,7 @@ package com.mediavault.remote
 
 import android.content.Context
 import androidx.media3.common.C
+import com.mediavault.data.ScrapeConfig
 import java.io.File
 import java.io.IOException
 import java.io.FileOutputStream
@@ -14,10 +15,19 @@ import java.util.concurrent.atomic.AtomicBoolean
  * 远程播放缓存：顺序下载到本地，拖动进度条时优先读已缓存部分。
  */
 object RemoteStreamCache {
-    private const val MAX_CACHE_BYTES = 512L * 1024 * 1024
+    private const val DEFAULT_MAX_CACHE_BYTES = 512L * 1024 * 1024
+    private const val DEFAULT_MAX_TOTAL_BYTES = 2L * 1024 * 1024 * 1024
     private const val MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
     private val lock = Any()
+
+    private fun maxPerFile(context: Context): Long =
+        ScrapeConfig.readSettings(context).remoteCacheMaxBytesPerFile
+
+    private fun maxTotal(context: Context): Long =
+        ScrapeConfig.readSettings(context).remoteCacheMaxTotalBytes
+
+    fun configuredMaxTotalBytes(context: Context): Long = maxTotal(context)
 
     fun cacheDir(context: Context): File =
         File(context.filesDir, "mediavault/remote_stream_cache").also { it.mkdirs() }
@@ -100,6 +110,10 @@ object RemoteStreamCache {
             if (netOffset < prefixLen) {
                 throw IOException("fetch offset $netOffset behind prefix $prefixLen")
             }
+            val cap = maxPerFile(context)
+            if (prefixLen >= cap) {
+                throw IOException("单文件缓存超过上限")
+            }
             client.openRead(relativePath, netOffset, length).use { input ->
                 val buf = ByteArray(64 * 1024)
                 val append = netOffset == prefixLen
@@ -111,6 +125,9 @@ object RemoteStreamCache {
                         Long.MAX_VALUE
                     }
                     while (remaining > 0 && alive.get()) {
+                        if (prefix.length() >= cap) {
+                            throw IOException("单文件缓存超过上限")
+                        }
                         val toRead = if (remaining == Long.MAX_VALUE) {
                             buf.size
                         } else {
@@ -135,6 +152,7 @@ object RemoteStreamCache {
     private fun cleanup(context: Context) {
         val dir = cacheDir(context)
         val now = System.currentTimeMillis()
+        val totalCap = maxTotal(context)
         var total = dir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
         val files = dir.listFiles()?.filter { it.isFile }?.toMutableList() ?: return
         for (f in files.toList()) {
@@ -145,13 +163,12 @@ object RemoteStreamCache {
         }
         for (f in files.sortedBy { it.lastModified() }) {
             if (!f.isFile) continue
-            if (total <= MAX_CACHE_BYTES) break
+            if (total <= totalCap) break
             total -= f.length()
             f.delete()
         }
     }
 
-    /** 删除全部远程播放缓存文件，返回删除个数 */
     fun clearAll(context: Context): Int {
         val dir = cacheDir(context)
         if (!dir.isDirectory) return 0
