@@ -17,6 +17,8 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.mediavault.R
 import com.mediavault.remote.RemotePath
 import com.mediavault.scrape.ScrapePhase
+import com.mediavault.scrape.ScrapeProgressFormat
+import com.mediavault.scrape.ScrapeUiState
 import kotlinx.coroutines.launch
 
 class ScrapeFragment : Fragment() {
@@ -177,27 +179,43 @@ class ScrapeFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 act.scrapeManager.state.collect { s ->
-                    applyState(view, s.phase, s.message, s.canResume)
+                    applyState(view, s)
                 }
             }
         }
     }
 
-    private fun applyState(view: View, phase: ScrapePhase, message: String, canResume: Boolean) {
+    private fun applyState(view: View, s: ScrapeUiState) {
         val overlay = view.findViewById<View>(R.id.scrapeProgressOverlay)
         val status = view.findViewById<TextView>(R.id.scanStatus)
+        val currentFile = view.findViewById<TextView>(R.id.scanCurrentFile)
+        val collapsedCount = view.findViewById<TextView>(R.id.scrapeProgressCollapsedCount)
         val bar = view.findViewById<LinearProgressIndicator>(R.id.scanProgress)
         val idleHint = view.findViewById<TextView>(R.id.scanIdleHint)
         val inc = view.findViewById<MaterialButton>(R.id.scanIncrementalBtn)
         val reb = view.findViewById<MaterialButton>(R.id.scanRebuildBtn)
-        when (phase) {
+        val ctx = requireContext()
+        val countLine = ScrapeProgressFormat.countLine(ctx, s.batchCount, s.totalInLibrary)
+        val prep = ScrapeProgressFormat.isPrepStatus(s.message)
+        when (s.phase) {
             ScrapePhase.RUNNING -> {
                 bar.visibility = View.VISIBLE
                 bar.isIndeterminate = true
                 inc.isEnabled = false
                 reb.isEnabled = false
-                val line = message.ifBlank { getString(R.string.scrape_running_banner) }
-                status.text = line
+                status.text = countLine
+                val file = s.currentFileLabel.trim()
+                if (prep && s.message.isNotBlank()) {
+                    currentFile.visibility = View.VISIBLE
+                    currentFile.text = ScrapeProgressFormat.ellipsizeFileName(s.message)
+                } else if (file.isNotEmpty()) {
+                    currentFile.visibility = View.VISIBLE
+                    currentFile.text = getString(R.string.scrape_progress_current_file, file)
+                } else {
+                    currentFile.visibility = View.GONE
+                    currentFile.text = ""
+                }
+                collapsedCount?.text = ScrapeProgressFormat.collapsedCompact(s.batchCount, s.totalInLibrary)
                 idleHint.text = ""
                 applyRunningOverlayLayout(view, true)
             }
@@ -206,14 +224,14 @@ class ScrapeFragment : Fragment() {
                 overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
-                idleHint.text = message
+                idleHint.text = s.message
             }
             ScrapePhase.ERROR, ScrapePhase.CANCELLED -> {
                 view.findViewById<View>(R.id.scrapeProgressCollapsed).visibility = View.GONE
                 overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
-                idleHint.text = message
+                idleHint.text = s.message
             }
             ScrapePhase.IDLE -> {
                 view.findViewById<View>(R.id.scrapeProgressCollapsed).visibility = View.GONE
@@ -221,7 +239,7 @@ class ScrapeFragment : Fragment() {
                 inc.isEnabled = true
                 reb.isEnabled = true
                 idleHint.text = when {
-                    canResume -> message.ifBlank { getString(R.string.scrape_resume_idle) }
+                    s.canResume -> s.message.ifBlank { getString(R.string.scrape_resume_idle) }
                     else -> ""
                 }
             }

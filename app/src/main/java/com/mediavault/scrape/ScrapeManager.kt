@@ -84,12 +84,18 @@ class ScrapeManager(
         app.stopService(Intent(app, ScrapeForegroundService::class.java))
     }
 
-    internal fun onProgress(message: String, batchCount: Int, totalInLibrary: Int) {
+    internal fun onProgress(
+        message: String,
+        batchCount: Int,
+        totalInLibrary: Int,
+        currentFileLabel: String = "",
+    ) {
         _state.value = _state.value.copy(
             phase = ScrapePhase.RUNNING,
             message = message,
             batchCount = batchCount,
             totalInLibrary = totalInLibrary,
+            currentFileLabel = currentFileLabel,
             lastBatchAt = now(),
             canResume = false,
         )

@@ -3,6 +3,7 @@ package com.mediavault.data
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import com.mediavault.scrape.ScrapeProgressFormat
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -80,7 +81,7 @@ object LocalScanner {
                         onFile(item)
                         val n = done.incrementAndGet()
                         if (n % 3 == 0 || n == total) {
-                            onStatus("已刮削 $n / $total · ${work.name}")
+                            onStatus(ScrapeProgressFormat.ellipsizeFileName(work.name))
                         }
                     }
                 }

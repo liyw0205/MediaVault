@@ -2,6 +2,7 @@ package com.mediavault.data
 
 import android.content.Context
 import com.mediavault.remote.RemoteClients
+import com.mediavault.scrape.ScrapeProgressFormat
 import com.mediavault.remote.RemoteConfig
 import com.mediavault.remote.RemoteMediaTypes
 import com.mediavault.remote.RemotePath
@@ -68,7 +69,7 @@ object RemoteLibraryScanner {
                         onFile(item)
                         val n = done.incrementAndGet()
                         if (n % 3 == 0 || n == total) {
-                            onStatus("已入库 $n / $total · ${w.name}")
+                            onStatus(ScrapeProgressFormat.ellipsizeFileName(w.name))
                         }
                     }
                 }

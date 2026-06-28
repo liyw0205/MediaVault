@@ -12,6 +12,7 @@ data class ScrapeUiState(
     val message: String = "",
     val batchCount: Int = 0,
     val totalInLibrary: Int = 0,
+    val currentFileLabel: String = "",
     val lastBatchAt: String = "",
     val canResume: Boolean = false,
 )

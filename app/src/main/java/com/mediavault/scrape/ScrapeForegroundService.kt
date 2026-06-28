@@ -90,6 +90,15 @@ class ScrapeForegroundService : Service() {
         var scannedThisRun = 0
         val notifEvery = AtomicInteger(0)
 
+        fun reportRunning(fileLabel: String) {
+            val total = batchAcc.currentLibrarySize()
+            val countLine = ScrapeProgressFormat.countLine(this@ScrapeForegroundService, scannedThisRun, total)
+            val file = ScrapeProgressFormat.ellipsizeFileName(fileLabel)
+            manager.onProgress(countLine, scannedThisRun, total, file)
+            val notifBody = if (file.isNotBlank()) "$countLine\n$file" else countLine
+            updateNotification(notifBody, scannedThisRun)
+        }
+
         fun persistOneBlocking(item: MediaItem) {
             kotlinx.coroutines.runBlocking {
                 persistMutex.withLock {
@@ -98,15 +107,9 @@ class ScrapeForegroundService : Service() {
                     scannedThisRun++
                     val n = notifEvery.incrementAndGet()
                     if (n % 5 == 0 || scannedThisRun == 1) {
-                        val msg = "已入库 $scannedThisRun 条（库 $total）· ${item.displayTitle()}"
-                        manager.onProgress(msg, scannedThisRun, total)
-                        updateNotification(msg, scannedThisRun)
+                        reportRunning(item.displayTitle())
                     } else {
-                        manager.onProgress(
-                            "已刮削 $scannedThisRun 条（库 $total）",
-                            scannedThisRun,
-                            total,
-                        )
+                        reportRunning("")
                     }
                 }
             }
@@ -129,9 +132,14 @@ class ScrapeForegroundService : Service() {
                     shouldCancel = { cancelRequested },
                     onFile = { item -> persistOneBlocking(item) },
                     onStatus = { msg ->
-                        val total = batchAcc.currentLibrarySize()
-                        manager.onProgress(msg, scannedThisRun, total)
-                        updateNotification(msg, scannedThisRun)
+                        if (ScrapeProgressFormat.isPrepStatus(msg)) {
+                            val total = batchAcc.currentLibrarySize()
+                            manager.onProgress(msg, scannedThisRun, total, "")
+                            updateNotification(msg, scannedThisRun)
+                        } else {
+                            val file = ScrapeProgressFormat.fileFromLegacyMessage(msg)
+                            reportRunning(file)
+                        }
                     },
                 )
             }
@@ -148,9 +156,14 @@ class ScrapeForegroundService : Service() {
                     shouldCancel = { cancelRequested },
                     onFile = { item -> persistOneBlocking(item) },
                     onStatus = { msg ->
-                        val total = batchAcc.currentLibrarySize()
-                        manager.onProgress(msg, scannedThisRun, total)
-                        updateNotification(msg, scannedThisRun)
+                        if (ScrapeProgressFormat.isPrepStatus(msg)) {
+                            val total = batchAcc.currentLibrarySize()
+                            manager.onProgress(msg, scannedThisRun, total, "")
+                            updateNotification(msg, scannedThisRun)
+                        } else {
+                            val file = ScrapeProgressFormat.fileFromLegacyMessage(msg)
+                            reportRunning(file)
+                        }
                     },
                 )
             }
