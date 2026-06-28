@@ -38,6 +38,17 @@
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/searchGoBtn"
+                style="@style/Widget.MediaVault.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:text="@string/search_go"
+                android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/clearSearchBtn"
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
@@ -48,6 +59,15 @@
                 android:text="@string/clear_search"
                 android:textSize="12sp" />
         </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/searchProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_marginTop="4dp"
+            android:indeterminate="true"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/searchCount"

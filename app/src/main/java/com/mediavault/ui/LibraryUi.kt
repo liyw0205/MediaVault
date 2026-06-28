@@ -178,6 +178,51 @@ object LibraryUi {
         }
     }
 
+    /**
+     * 分批扫描；每命中 [batch] 条调用一次 onBatch（含全部已命中），扫描结束再调一次。
+     * 调用方负责在 onBatch 内检查 isActive 决定是否继续，重型项目放后台线程。
+     */
+    inline fun searchStreaming(
+        items: List<MediaItem>,
+        query: String,
+        batch: Int = 24,
+        isCancelled: () -> Boolean = { false },
+        onBatch: (List<MediaItem>, /*finished*/ Boolean) -> Unit,
+    ) {
+        val q = query.trim().lowercase()
+        if (q.isBlank()) {
+            onBatch(emptyList(), true)
+            return
+        }
+        val acc = ArrayList<MediaItem>(64)
+        var sinceLast = 0
+        for (item in items) {
+            if (isCancelled()) return
+            val blob = item.searchBlob()
+            var hit = blob.contains(q)
+            if (!hit) {
+                val initials = SearchPinyin.compactInitials(item.displayTitle())
+                if (initials.isNotBlank() && initials.contains(q)) hit = true
+            }
+            if (!hit) {
+                val cn = item.raw.optString("title_cn", "").trim()
+                if (cn.isNotBlank()) {
+                    val cnInit = SearchPinyin.compactInitials(cn)
+                    if (cnInit.isNotBlank() && cnInit.contains(q)) hit = true
+                }
+            }
+            if (hit) {
+                acc.add(item)
+                sinceLast++
+                if (sinceLast >= batch) {
+                    onBatch(ArrayList(acc), false)
+                    sinceLast = 0
+                }
+            }
+        }
+        onBatch(ArrayList(acc), true)
+    }
+
     fun matchedTags(items: List<MediaItem>, query: String): List<String> {
         val q = query.trim().lowercase()
         if (q.isBlank()) return allTags(items)

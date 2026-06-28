@@ -1,11 +1,11 @@
 package com.mediavault.ui
 
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -18,17 +18,18 @@ import com.google.android.material.textfield.TextInputEditText
 import com.mediavault.R
 import com.mediavault.data.MediaItem
 import com.mediavault.data.PlaybackProgressStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SearchFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
     private lateinit var listPager: ListPagerBar
-    private var searchDebounce: Job? = null
+    private var searchJob: Job? = null
     private var lastQueryForTags: String? = null
     private var lastHits: List<MediaItem> = emptyList()
+    private var currentQuery: String = ""
     private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
 
     companion object {
@@ -67,67 +68,104 @@ class SearchFragment : Fragment() {
         grid.adapter = adapter
 
         val input = view.findViewById<TextInputEditText>(R.id.searchInput)
-        arguments?.getString(ARG_QUERY)?.let { input.setText(it) }
         view.findViewById<MaterialButton>(R.id.clearSearchBtn).setOnClickListener {
             input.text?.clear()
-            scheduleSearch(view, "")
+            runSearch(view, "")
         }
-        input.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                scheduleSearch(view, s?.toString() ?: "")
-            }
-        })
+        view.findViewById<MaterialButton>(R.id.searchGoBtn).setOnClickListener {
+            runSearch(view, input.text?.toString().orEmpty())
+        }
+        input.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                runSearch(view, input.text?.toString().orEmpty())
+                true
+            } else false
+        }
 
+        // 进入即展示标签云；如有 ARG_QUERY 立即跑搜索，UI 先到位
+        val initial = arguments?.getString(ARG_QUERY).orEmpty()
+        if (initial.isNotBlank()) input.setText(initial)
+        showInitialTagsOrRun(view, initial)
+    }
+
+    private fun showInitialTagsOrRun(view: View, query: String) {
         val act = activity as? MainActivity ?: return
-        viewLifecycleOwner.lifecycleScope.launch {
-            act.repository.library.collectLatest { lib ->
-                val q = input.text?.toString() ?: ""
-                applySearchResults(view, q, lib.items, refreshTags = lastQueryForTags != q)
-                lastQueryForTags = q
-            }
-        }
-    }
-
-    private fun scheduleSearch(view: View, query: String) {
-        searchDebounce?.cancel()
-        searchDebounce = viewLifecycleOwner.lifecycleScope.launch {
-            delay(280)
-            val act = activity as? MainActivity ?: return@launch
-            applySearchResults(view, query, act.repository.library.value.items, refreshTags = true)
-            lastQueryForTags = query
-        }
-    }
-
-    private fun applySearchResults(
-        view: View,
-        query: String,
-        all: List<MediaItem>,
-        refreshTags: Boolean,
-    ) {
-        val q = query.trim()
-        val hits = if (q.isBlank()) emptyList() else LibraryUi.search(all, query)
-        if (refreshTags) listPager.resetPage()
-        lastHits = hits
-
+        val all = act.repository.library.value.items
         val tagGroup = view.findViewById<ChipGroup>(R.id.matchedTags)
-        val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
         val countTv = view.findViewById<TextView>(R.id.searchCount)
-
-        if (q.isBlank()) {
+        val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
+        // 标签面板立即可见，不卡跳转
+        bindTagChips(view, tagGroup, LibraryUi.allTags(all))
+        tagGroup.visibility = View.VISIBLE
+        if (query.isBlank()) {
             grid.visibility = View.GONE
-            tagGroup.visibility = View.VISIBLE
+            listPager.resetPage()
             listPager.update(0, enabled = false)
             adapter.submitList(emptyList())
             countTv.text = getString(R.string.search_tags_only_hint, LibraryUi.allTags(all).size)
-            if (refreshTags) bindTagChips(view, tagGroup, LibraryUi.allTags(all))
+            currentQuery = ""
+            lastQueryForTags = ""
+            lastHits = emptyList()
         } else {
-            grid.visibility = View.VISIBLE
-            tagGroup.visibility = View.VISIBLE
-            countTv.text = getString(R.string.search_count, hits.size)
-            if (refreshTags) bindTagChips(view, tagGroup, LibraryUi.matchedTags(all, query))
-            submitSearchPage(view)
+            runSearch(view, query)
+        }
+    }
+
+    private fun runSearch(view: View, query: String) {
+        searchJob?.cancel()
+        currentQuery = query
+        val act = activity as? MainActivity ?: return
+        val all = act.repository.library.value.items
+        val tagGroup = view.findViewById<ChipGroup>(R.id.matchedTags)
+        val countTv = view.findViewById<TextView>(R.id.searchCount)
+        val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
+        val progress = view.findViewById<ProgressBar>(R.id.searchProgress)
+
+        if (query.isBlank()) {
+            progress.visibility = View.GONE
+            grid.visibility = View.GONE
+            listPager.resetPage()
+            listPager.update(0, enabled = false)
+            adapter.submitList(emptyList())
+            countTv.text = getString(R.string.search_tags_only_hint, LibraryUi.allTags(all).size)
+            bindTagChips(view, tagGroup, LibraryUi.allTags(all))
+            lastQueryForTags = ""
+            lastHits = emptyList()
+            return
+        }
+
+        // 立即显示：清空列表 → 显示 loading + 标签先用同步轻量计算（仅按 contains）
+        progress.visibility = View.VISIBLE
+        grid.visibility = View.VISIBLE
+        listPager.resetPage()
+        lastHits = emptyList()
+        adapter.submitList(emptyList())
+        countTv.text = getString(R.string.search_running_fmt, 0)
+        bindTagChips(view, tagGroup, LibraryUi.matchedTags(all, query))
+        lastQueryForTags = query
+
+        searchJob = viewLifecycleOwner.lifecycleScope.launch {
+            withContext(Dispatchers.Default) {
+                LibraryUi.searchStreaming(
+                    items = all,
+                    query = query,
+                    batch = 24,
+                    isCancelled = { currentQuery != query || !isAdded },
+                ) { hits, finished ->
+                    val snapshot = hits
+                    viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
+                        if (currentQuery != query || !isAdded) return@launch
+                        lastHits = snapshot
+                        if (finished) {
+                            progress.visibility = View.GONE
+                            countTv.text = getString(R.string.search_count, snapshot.size)
+                        } else {
+                            countTv.text = getString(R.string.search_running_fmt, snapshot.size)
+                        }
+                        submitSearchPage(view)
+                    }
+                }
+            }
         }
     }
 
@@ -135,7 +173,8 @@ class SearchFragment : Fragment() {
         listPager.update(lastHits.size, enabled = lastHits.isNotEmpty())
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
         adapter.submitList(listPager.slice(lastHits)) {
-            grid.scrollToPosition(0)
+            // 流式追加时若已不在第一页，避免每批都滚回顶部
+            if (listPager.page == 0) grid.scrollToPosition(0)
         }
     }
 
@@ -147,6 +186,7 @@ class SearchFragment : Fragment() {
             chip.isClickable = true
             chip.setOnClickListener {
                 view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
+                runSearch(view, t)
             }
             tagGroup.addView(chip)
         }
@@ -162,9 +202,8 @@ class SearchFragment : Fragment() {
     }
 
     fun refreshFromParent() {
-        view ?: return
-        val input = view!!.findViewById<TextInputEditText>(R.id.searchInput)
-        val act = activity as? MainActivity ?: return
-        applySearchResults(view!!, input.text?.toString() ?: "", act.repository.library.value.items, refreshTags = true)
+        val v = view ?: return
+        val input = v.findViewById<TextInputEditText>(R.id.searchInput)
+        runSearch(v, input.text?.toString().orEmpty())
     }
 }

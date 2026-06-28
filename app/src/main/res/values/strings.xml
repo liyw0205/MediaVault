@@ -83,6 +83,8 @@
     <string name="search_count">%1$d 个视频</string>
     <string name="search_tags_only_hint">点标签可搜索 · 共 %1$d 个标签</string>
     <string name="clear_search">清空</string>
+    <string name="search_go">搜索</string>
+    <string name="search_running_fmt">搜索中… 已命中 %1$d</string>
     <string name="scrape_roots">已配置的媒体目录</string>
 
     <string name="scrape_roots_empty">尚未配置媒体目录</string>
