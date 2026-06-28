@@ -41,10 +41,15 @@ class PlayerGestureController(
                 val x = e.x
                 val p = playerProvider() ?: return true
                 chrome.onUserGesture()
-                val dur = p.duration.coerceAtLeast(0L)
+                val rawDur = p.duration
+                val hasDur = rawDur > 0
                 when {
                     x < w / 3f -> {
-                        val target = (p.currentPosition - 10_000).coerceIn(0L, dur)
+                        val target = if (hasDur) {
+                            (p.currentPosition - 10_000).coerceIn(0L, rawDur)
+                        } else {
+                            (p.currentPosition - 10_000).coerceAtLeast(0L)
+                        }
                         p.seekTo(target)
                         onSeekCommitted?.invoke(target)
                         val t = PlayerTimeFormat.formatMs(target)
@@ -52,7 +57,11 @@ class PlayerGestureController(
                         root.postDelayed({ chrome.hideSeekOverlay() }, 600)
                     }
                     x > w * 2f / 3f -> {
-                        val target = (p.currentPosition + 10_000).coerceIn(0L, dur)
+                        val target = if (hasDur) {
+                            (p.currentPosition + 10_000).coerceIn(0L, rawDur)
+                        } else {
+                            (p.currentPosition + 10_000).coerceAtLeast(0L)
+                        }
                         p.seekTo(target)
                         onSeekCommitted?.invoke(target)
                         val t = PlayerTimeFormat.formatMs(target)
@@ -165,7 +174,11 @@ class PlayerGestureController(
     }
 
     private fun previewScrub(x: Float, w: Int) {
-        val dur = playerProvider()?.duration?.coerceAtLeast(1L) ?: return
+        val dur = playerProvider()?.duration ?: return
+        if (dur <= 0) {
+            chrome.showCenterHint("时长未知，不可拖动")
+            return
+        }
         val delta = ((x - dragStartX) / w * dur * 0.4f).toLong()
         dragPreviewPos = (dragStartPos + delta).coerceIn(0L, dur)
         chrome.previewGestureSeek(dragPreviewPos)

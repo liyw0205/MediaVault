@@ -233,8 +233,12 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun seekRel(ms: Long) {
         val p = player ?: return
-        val dur = p.duration.coerceAtLeast(0L)
-        val pos = (p.currentPosition + ms).coerceIn(0L, dur)
+        val rawDur = p.duration
+        val pos = if (rawDur > 0) {
+            (p.currentPosition + ms).coerceIn(0L, rawDur)
+        } else {
+            (p.currentPosition + ms).coerceAtLeast(0L)
+        }
         p.seekTo(pos)
         persistPlaybackProgress(pos)
     }

@@ -51,10 +51,17 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
             ftp.setRestartOffset(offset)
         }
         val raw = ftp.retrieveFileStream(path)
-            ?: run {
-                runCatching { ftp.logout(); ftp.disconnect() }
-                throw IOException("FTP 无法打开: $path")
+        if (raw == null) {
+            val code = ftp.replyCode
+            val reply = ftp.replyString?.trim().orEmpty()
+            runCatching { ftp.logout(); ftp.disconnect() }
+            if (offset > 0 && (code == 501 || code == 502 || code == 550 ||
+                    reply.contains("REST", ignoreCase = true) && reply.contains("not", ignoreCase = true))
+            ) {
+                throw IOException("FTP 不支持断点续传（拖动到未缓存位置）：服务端拒绝 REST $offset")
             }
+            throw IOException("FTP 无法打开: $path")
+        }
         val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
             RemoteLimitedInputStream(raw, length)
         } else {

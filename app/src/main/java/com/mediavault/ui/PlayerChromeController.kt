@@ -221,7 +221,10 @@ class PlayerChromeController(
         val pos = p.currentPosition
         timeTotal.text = PlayerTimeFormat.formatMs(dur)
         timeCurrent.text = PlayerTimeFormat.formatMs(pos)
-        if (dur > 0) {
+        val durKnown = dur > 0
+        seekExpanded.isEnabled = durKnown
+        seekImmersive.isEnabled = durKnown
+        if (durKnown) {
             val prog = (pos * 1000.0 / dur).toInt().coerceIn(0, 1000)
             seekExpanded.progress = prog
             seekImmersive.progress = prog
