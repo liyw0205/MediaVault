@@ -24,6 +24,7 @@ class ScrapeManager(
     private val _state = MutableStateFlow(ScrapeUiState())
     val state: StateFlow<ScrapeUiState> = _state.asStateFlow()
     private var lastJobPersistedBatch = 0
+    private var lastUiEmitAtMs = 0L
 
     fun restoreJobHint() {
         val hint = readJob()
@@ -70,6 +71,7 @@ class ScrapeManager(
             totalInLibrary = repository.library.value.items.size,
         )
         lastJobPersistedBatch = 0
+        lastUiEmitAtMs = 0L
         val intent = Intent(app, ScrapeForegroundService::class.java).apply {
             putExtra(ScrapeForegroundService.EXTRA_REBUILD, rebuild)
             if (!localRootUris.isNullOrEmpty()) {
@@ -93,15 +95,18 @@ class ScrapeManager(
         currentFileLabel: String = "",
         forceJobWrite: Boolean = false,
     ) {
-        _state.value = _state.value.copy(
-            phase = ScrapePhase.RUNNING,
-            message = message,
-            batchCount = batchCount,
-            totalInLibrary = totalInLibrary,
-            currentFileLabel = currentFileLabel.ifBlank { _state.value.currentFileLabel },
-            lastBatchAt = now(),
-            canResume = false,
-        )
+        if (ScrapeProgressThrottle.shouldEmitUi(batchCount, lastUiEmitAtMs, force = forceJobWrite)) {
+            _state.value = _state.value.copy(
+                phase = ScrapePhase.RUNNING,
+                message = message,
+                batchCount = batchCount,
+                totalInLibrary = totalInLibrary,
+                currentFileLabel = currentFileLabel.ifBlank { _state.value.currentFileLabel },
+                lastBatchAt = now(),
+                canResume = false,
+            )
+            lastUiEmitAtMs = System.currentTimeMillis()
+        }
         if (!forceJobWrite && !ScrapeProgressThrottle.shouldPersistJob(batchCount, lastJobPersistedBatch)) {
             return
         }
