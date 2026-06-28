@@ -38,7 +38,7 @@ object TagHarvest {
         if (name.contains("ハーレム") || lower.contains("harem")) add("后宫")
 
         val folder = parentFolder.trim()
-        if (folder.isNotBlank() && folder != "." && folder != "root") add(folder)
+        FolderTagSanitizer.folderAsTag(folder)?.let { add(it) }
 
         return seen.toList()
     }

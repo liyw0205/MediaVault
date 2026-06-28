@@ -27,7 +27,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicInteger
 
 class ScrapeForegroundService : Service() {
     companion object {
@@ -88,29 +87,35 @@ class ScrapeForegroundService : Service() {
         val frameGate = RemoteFrameGate(remoteFrame)
         val batchAcc = ScrapeBatchAccumulator(repository)
         var scannedThisRun = 0
-        val notifEvery = AtomicInteger(0)
+        var lastNotifAtMs = 0L
 
-        fun reportRunning(fileLabel: String) {
+        fun pushUiAndMaybeNotif(fileLabel: String, refreshNotif: Boolean) {
             val total = batchAcc.currentLibrarySize()
             val countLine = ScrapeProgressFormat.countLine(this@ScrapeForegroundService, scannedThisRun, total)
             val file = ScrapeProgressFormat.ellipsizeFileName(fileLabel)
-            manager.onProgress(countLine, scannedThisRun, total, file)
-            val notifBody = if (file.isNotBlank()) "$countLine\n$file" else countLine
+            val forceJob = refreshNotif
+            manager.onProgress(countLine, scannedThisRun, total, file, forceJobWrite = forceJob)
+            if (!refreshNotif) return
+            val compact = ScrapeProgressFormat.collapsedCompact(scannedThisRun, total)
+            val notifBody = if (file.isNotBlank()) "$compact\n$file" else compact
             updateNotification(notifBody, scannedThisRun)
+            lastNotifAtMs = System.currentTimeMillis()
         }
 
         fun persistOneBlocking(item: MediaItem) {
             kotlinx.coroutines.runBlocking {
                 persistMutex.withLock {
                     batchAcc.offer(item)
-                    val total = batchAcc.afterOffer()
+                    batchAcc.afterOffer()
                     scannedThisRun++
-                    val n = notifEvery.incrementAndGet()
-                    if (n % 5 == 0 || scannedThisRun == 1) {
-                        reportRunning(item.displayTitle())
-                    } else {
-                        reportRunning("")
-                    }
+                    val refreshNotif = ScrapeProgressThrottle.shouldRefreshNotification(
+                        scannedThisRun,
+                        lastNotifAtMs,
+                    )
+                    val showFile = refreshNotif ||
+                        scannedThisRun % ScrapeProgressThrottle.UI_TITLE_EVERY_ITEMS == 0
+                    val label = if (showFile) item.displayTitle() else ""
+                    pushUiAndMaybeNotif(label, refreshNotif)
                 }
             }
         }
@@ -134,11 +139,16 @@ class ScrapeForegroundService : Service() {
                     onStatus = { msg ->
                         if (ScrapeProgressFormat.isPrepStatus(msg)) {
                             val total = batchAcc.currentLibrarySize()
-                            manager.onProgress(msg, scannedThisRun, total, "")
-                            updateNotification(msg, scannedThisRun)
+                            val refreshNotif = lastNotifAtMs == 0L ||
+                                System.currentTimeMillis() - lastNotifAtMs >= ScrapeProgressThrottle.NOTIF_MIN_INTERVAL_MS
+                            manager.onProgress(msg, scannedThisRun, total, "", forceJobWrite = refreshNotif)
+                            if (refreshNotif) {
+                                updateNotification(msg, scannedThisRun)
+                                lastNotifAtMs = System.currentTimeMillis()
+                            }
                         } else {
                             val file = ScrapeProgressFormat.fileFromLegacyMessage(msg)
-                            reportRunning(file)
+                            pushUiAndMaybeNotif(file, refreshNotif = true)
                         }
                     },
                 )
@@ -158,11 +168,16 @@ class ScrapeForegroundService : Service() {
                     onStatus = { msg ->
                         if (ScrapeProgressFormat.isPrepStatus(msg)) {
                             val total = batchAcc.currentLibrarySize()
-                            manager.onProgress(msg, scannedThisRun, total, "")
-                            updateNotification(msg, scannedThisRun)
+                            val refreshNotif = lastNotifAtMs == 0L ||
+                                System.currentTimeMillis() - lastNotifAtMs >= ScrapeProgressThrottle.NOTIF_MIN_INTERVAL_MS
+                            manager.onProgress(msg, scannedThisRun, total, "", forceJobWrite = refreshNotif)
+                            if (refreshNotif) {
+                                updateNotification(msg, scannedThisRun)
+                                lastNotifAtMs = System.currentTimeMillis()
+                            }
                         } else {
                             val file = ScrapeProgressFormat.fileFromLegacyMessage(msg)
-                            reportRunning(file)
+                            pushUiAndMaybeNotif(file, refreshNotif = true)
                         }
                     },
                 )
@@ -170,6 +185,20 @@ class ScrapeForegroundService : Service() {
             persistMutex.withLock {
                 val total = batchAcc.flushAll()
                 repository.reload()
+                if (scannedThisRun > 0) {
+                    val countLine = ScrapeProgressFormat.countLine(
+                        this@ScrapeForegroundService,
+                        scannedThisRun,
+                        total,
+                    )
+                    manager.onProgress(
+                        countLine,
+                        scannedThisRun,
+                        total,
+                        "",
+                        forceJobWrite = true,
+                    )
+                }
                 if (cancelRequested) {
                     manager.onCancelled(scannedThisRun, total)
                 } else {

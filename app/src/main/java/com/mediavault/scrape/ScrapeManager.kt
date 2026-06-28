@@ -23,6 +23,7 @@ class ScrapeManager(
 
     private val _state = MutableStateFlow(ScrapeUiState())
     val state: StateFlow<ScrapeUiState> = _state.asStateFlow()
+    private var lastJobPersistedBatch = 0
 
     fun restoreJobHint() {
         val hint = readJob()
@@ -68,6 +69,7 @@ class ScrapeManager(
             message = scopeHint?.let { "正在刮削$it" } ?: "正在启动后台刮削…",
             totalInLibrary = repository.library.value.items.size,
         )
+        lastJobPersistedBatch = 0
         val intent = Intent(app, ScrapeForegroundService::class.java).apply {
             putExtra(ScrapeForegroundService.EXTRA_REBUILD, rebuild)
             if (!localRootUris.isNullOrEmpty()) {
@@ -89,16 +91,21 @@ class ScrapeManager(
         batchCount: Int,
         totalInLibrary: Int,
         currentFileLabel: String = "",
+        forceJobWrite: Boolean = false,
     ) {
         _state.value = _state.value.copy(
             phase = ScrapePhase.RUNNING,
             message = message,
             batchCount = batchCount,
             totalInLibrary = totalInLibrary,
-            currentFileLabel = currentFileLabel,
+            currentFileLabel = currentFileLabel.ifBlank { _state.value.currentFileLabel },
             lastBatchAt = now(),
             canResume = false,
         )
+        if (!forceJobWrite && !ScrapeProgressThrottle.shouldPersistJob(batchCount, lastJobPersistedBatch)) {
+            return
+        }
+        lastJobPersistedBatch = batchCount
         val job = readJob() ?: JSONObject()
         job.put("running", true)
         job.put("batchCount", batchCount)
