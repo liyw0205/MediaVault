@@ -50,6 +50,7 @@
     <string name="player_toast_speed_left">左侧 %1$.1f 倍速</string>
     <string name="player_toast_speed_right">右侧 %1$.1f 倍速</string>
     <string name="subtitle_pick">字幕</string>
+    <string name="subtitle_auto">自动（内嵌优先，否则外挂）</string>
     <string name="subtitle_off">关闭字幕</string>
     <string name="subtitle_external_fmt">外挂：%1$s</string>
     <string name="subtitle_embedded_fmt">内嵌：%1$s</string>

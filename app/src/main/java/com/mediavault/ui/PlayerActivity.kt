@@ -23,6 +23,8 @@ import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.Tracks
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -45,7 +47,14 @@ class PlayerActivity : AppCompatActivity() {
     private var playlist: List<PlaylistBuilder.Episode> = emptyList()
     private var playlistIndex = 0
     private var externalSubtitles: List<String> = emptyList()
-    private var selectedSubIndex = -1 // -1 off, 0+ external, Int.MAX embedded handled separately
+    private sealed class SubSelection {
+        object Auto : SubSelection()
+        object Off : SubSelection()
+        data class External(val index: Int) : SubSelection()
+        data class Embedded(val groupIndex: Int, val trackIndex: Int) : SubSelection()
+    }
+    private var subSelection: SubSelection = SubSelection.Auto
+    private var autoResolved = false
 
     private lateinit var chromeController: PlayerChromeController
 
@@ -123,6 +132,10 @@ class PlayerActivity : AppCompatActivity() {
                     updatePlayIcon()
                 }
 
+                override fun onTracksChanged(tracks: Tracks) {
+                    applyAutoSubtitleIfNeeded(exo, tracks)
+                }
+
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     updatePlayIcon()
                 }
@@ -159,19 +172,23 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun loadEpisode(exo: ExoPlayer, uri: Uri, title: String, mediaPath: String) {
         currentMediaPath = mediaPath
+        autoResolved = false
         val builder = ExoMediaItem.Builder().setUri(uri)
-        if (externalSubtitles.isNotEmpty() && selectedSubIndex in externalSubtitles.indices) {
-            val subUri = Uri.parse(externalSubtitles[selectedSubIndex])
+        if (externalSubtitles.isNotEmpty()) {
             builder.setSubtitleConfigurations(
-                listOf(
+                externalSubtitles.map { sub ->
+                    val subUri = Uri.parse(sub)
                     ExoMediaItem.SubtitleConfiguration.Builder(subUri)
                         .setMimeType(guessSubMime(subUri))
                         .setLanguage("und")
-                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                        .build(),
-                ),
+                        .build()
+                },
             )
         }
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .build()
         exo.setMediaItem(builder.build())
         exo.prepare()
         exo.playWhenReady = true
@@ -312,39 +329,96 @@ class PlayerActivity : AppCompatActivity() {
         val p = player ?: return
         val options = mutableListOf<String>()
         val actions = mutableListOf<() -> Unit>()
-        options.add(getString(R.string.subtitle_off))
+
+        val autoMark = if (subSelection is SubSelection.Auto) "● " else "○ "
+        options.add("$autoMark${getString(R.string.subtitle_auto)}")
         actions.add {
-            selectedSubIndex = -1
+            subSelection = SubSelection.Auto
+            autoResolved = false
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .build()
+            applyAutoSubtitleIfNeeded(p, p.currentTracks)
+        }
+
+        val offMark = if (subSelection is SubSelection.Off) "● " else "○ "
+        options.add("$offMark${getString(R.string.subtitle_off)}")
+        actions.add {
+            subSelection = SubSelection.Off
             disableTextTracks(p)
-            reloadCurrentMedia()
         }
-        externalSubtitles.forEachIndexed { i, uri ->
-            options.add(getString(R.string.subtitle_external_fmt, File(uri).name))
-            actions.add {
-                selectedSubIndex = i
-                reloadCurrentMedia()
-            }
-        }
-        val tracks = p.currentTracks
-        for (group in tracks.groups) {
-            if (group.type != C.TRACK_TYPE_TEXT) continue
+
+        val (embeddedGroups, externalGroups) = classifyTextGroups(p.currentTracks)
+        embeddedGroups.forEach { (gi, group) ->
             for (i in 0 until group.length) {
                 if (!group.isTrackSupported(i)) continue
                 val label = group.getTrackFormat(i).language ?: "内嵌 #$i"
-                options.add(getString(R.string.subtitle_embedded_fmt, label))
-                val gi = group.mediaTrackGroup
+                val current = subSelection
+                val mark = if (current is SubSelection.Embedded && current.groupIndex == gi && current.trackIndex == i) "● " else "○ "
+                options.add("$mark${getString(R.string.subtitle_embedded_fmt, label)}")
+                val tg: TrackGroup = group.mediaTrackGroup
                 actions.add {
-                    selectedSubIndex = -1
+                    subSelection = SubSelection.Embedded(gi, i)
                     p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                        .setOverrideForType(TrackSelectionOverride(gi, i))
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        .setOverrideForType(TrackSelectionOverride(tg, i))
                         .build()
                 }
             }
         }
+        externalGroups.forEachIndexed { extIdx, pair ->
+            val (_, group) = pair
+            if (extIdx !in externalSubtitles.indices) return@forEachIndexed
+            val current = subSelection
+            val mark = if (current is SubSelection.External && current.index == extIdx) "● " else "○ "
+            options.add("$mark${getString(R.string.subtitle_external_fmt, File(externalSubtitles[extIdx]).name)}")
+            val tg: TrackGroup = group.mediaTrackGroup
+            actions.add {
+                subSelection = SubSelection.External(extIdx)
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .setOverrideForType(TrackSelectionOverride(tg, 0))
+                    .build()
+            }
+        }
+
         MvDialog.builder(this)
             .setTitle(R.string.subtitle_pick)
             .setItems(options.toTypedArray()) { _, which -> actions[which]() }
             .show()
+    }
+
+    /**
+     * 外挂字幕通过 MediaItem.SubtitleConfiguration 由 Merging 源追加，
+     * 故按出现顺序：先内嵌（容器内）后外挂；外挂条目数等于 externalSubtitles.size。
+     */
+    private fun classifyTextGroups(tracks: Tracks): Pair<List<Pair<Int, Tracks.Group>>, List<Pair<Int, Tracks.Group>>> {
+        val textGroups = mutableListOf<Pair<Int, Tracks.Group>>()
+        tracks.groups.forEachIndexed { gi, g ->
+            if (g.type == C.TRACK_TYPE_TEXT) textGroups.add(gi to g)
+        }
+        val externalCount = externalSubtitles.size.coerceAtMost(textGroups.size)
+        val embedded = textGroups.dropLast(externalCount)
+        val external = textGroups.takeLast(externalCount)
+        return embedded to external
+    }
+
+    private fun applyAutoSubtitleIfNeeded(exo: ExoPlayer, tracks: Tracks) {
+        if (subSelection !is SubSelection.Auto) return
+        if (autoResolved) return
+        val (embedded, external) = classifyTextGroups(tracks)
+        if (embedded.isEmpty() && external.isEmpty()) return
+        autoResolved = true
+        if (embedded.isNotEmpty()) {
+            return
+        }
+        val first = external.firstOrNull() ?: return
+        val tg: TrackGroup = first.second.mediaTrackGroup
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .setOverrideForType(TrackSelectionOverride(tg, 0))
+            .build()
     }
 
     private fun disableTextTracks(p: ExoPlayer) {
@@ -371,9 +445,7 @@ class PlayerActivity : AppCompatActivity() {
             loadEpisode(it, uri, title, currentMediaPath)
             it.seekTo(pos)
         }
-    }
-
-    private fun resolveStartUri(startPath: String, store: com.mediavault.data.MediaStore): Uri {
+    }    private fun resolveStartUri(startPath: String, store: com.mediavault.data.MediaStore): Uri {
         if (startPath.startsWith("content://") || startPath.startsWith("file://")) {
             return Uri.parse(startPath)
         }
