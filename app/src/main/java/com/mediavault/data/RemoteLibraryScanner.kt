@@ -179,7 +179,11 @@ object RemoteLibraryScanner {
             o.put("cover_local", coverLocal)
             o.put("cover_source", coverSource.ifBlank { "remote" })
         }
-        return MediaItem.fromJson(o)
+        val coverForOnline = coverLocal
+        val enriched = OnlineMetadataEnricher.enrichIfEnabled(
+            context, store, cfg, w.name, path, o, coverForOnline,
+        )
+        return MediaItem.fromJson(enriched)
     }
 
     private fun fmtNow(): String =

@@ -1,6 +1,8 @@
 package com.mediavault.ui
 
 import android.view.View
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -9,6 +11,8 @@ import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.slider.Slider
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.mediavault.R
 import com.mediavault.data.LibraryRepository
 import com.mediavault.data.ScrapeConfig
@@ -60,6 +64,10 @@ object ScrapeDrawerBinder {
         onRootsMayHaveChanged: () -> Unit,
     ) {
         onRootsCallback = onRootsMayHaveChanged
+        val modeLocal = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeLocal)
+        val modeOnline = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeOnline)
+        val tmdbKeyLayout = panelRoot.findViewById<TextInputLayout>(R.id.drawerTmdbKeyLayout)
+        val tmdbKeyInput = panelRoot.findViewById<TextInputEditText>(R.id.drawerTmdbApiKeyInput)
         val coverFiles = panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFilesSwitch)
         val coverFrame = panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFrameSwitch)
         val nfo = panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeNfoSwitch)
@@ -86,6 +94,9 @@ object ScrapeDrawerBinder {
 
         fun loadUi(s: ScrapeSettings) {
             val cfg = s.normalized()
+            if (cfg.isOnlineMode()) modeOnline.isChecked = true else modeLocal.isChecked = true
+            tmdbKeyLayout.visibility = if (cfg.isOnlineMode()) View.VISIBLE else View.GONE
+            tmdbKeyInput.setText(cfg.tmdbApiKey)
             coverFiles.isChecked = cfg.coverFromFiles
             coverFrame.isChecked = cfg.coverFromVideoFrame
             nfo.isChecked = cfg.metadataFromNfo
@@ -104,6 +115,12 @@ object ScrapeDrawerBinder {
 
         loadUi(ScrapeConfig.readSettings(activity))
 
+        panelRoot.findViewById<RadioGroup>(R.id.drawerScrapeModeGroup)
+            .setOnCheckedChangeListener { _, checkedId ->
+                tmdbKeyLayout.visibility =
+                    if (checkedId == R.id.drawerScrapeModeOnline) View.VISIBLE else View.GONE
+            }
+
         threadsSlider.addOnChangeListener { _, value, _ ->
             threadsLabel.text = activity.getString(R.string.settings_scrape_threads_fmt, value.toInt())
         }
@@ -118,8 +135,9 @@ object ScrapeDrawerBinder {
         }
 
         saveBtn.setOnClickListener {
+            val mode = if (modeOnline.isChecked) ScrapeConfig.MODE_ONLINE else ScrapeConfig.MODE_LOCAL
             val next = ScrapeSettings(
-                scrapeMode = ScrapeConfig.MODE_LOCAL,
+                scrapeMode = mode,
                 threadCount = threadsSlider.value.toInt(),
                 remoteFrameConcurrency = remoteSlider.value.toInt(),
                 coverFromFiles = coverFiles.isChecked,
@@ -129,6 +147,7 @@ object ScrapeDrawerBinder {
                 scanSidecarSubtitles = subs.isChecked,
                 remoteCacheMaxTotalBytes = totalStepToBytes(cacheTotalSlider.value.toInt()),
                 remoteCacheMaxBytesPerFile = perFileStepToBytes(cachePerSlider.value.toInt()),
+                tmdbApiKey = tmdbKeyInput.text?.toString().orEmpty(),
             ).normalized()
             ScrapeConfig.writeSettings(activity, next)
             loadUi(next)
@@ -153,11 +172,18 @@ object ScrapeDrawerBinder {
     }
 
     fun reloadOptions(activity: AppCompatActivity, panelRoot: View) {
+        val modeLocal = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeLocal)
+        val modeOnline = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeOnline)
+        val tmdbKeyLayout = panelRoot.findViewById<TextInputLayout>(R.id.drawerTmdbKeyLayout)
+        val tmdbKeyInput = panelRoot.findViewById<TextInputEditText>(R.id.drawerTmdbApiKeyInput)
         val threadsLabel = panelRoot.findViewById<TextView>(R.id.drawerScrapeThreadsLabel)
         val remoteLabel = panelRoot.findViewById<TextView>(R.id.drawerScrapeRemoteFrameLabel)
         val cacheTotalLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCacheTotalLabel)
         val cachePerLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCachePerFileLabel)
         val cfg = ScrapeConfig.readSettings(activity).normalized()
+        if (cfg.isOnlineMode()) modeOnline.isChecked = true else modeLocal.isChecked = true
+        tmdbKeyLayout.visibility = if (cfg.isOnlineMode()) View.VISIBLE else View.GONE
+        tmdbKeyInput.setText(cfg.tmdbApiKey)
         panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFilesSwitch).isChecked = cfg.coverFromFiles
         panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFrameSwitch).isChecked = cfg.coverFromVideoFrame
         panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeNfoSwitch).isChecked = cfg.metadataFromNfo

@@ -259,7 +259,11 @@ object LocalScanner {
             if (v.isNotBlank()) o.put(key, v)
         }
 
-        return MediaItem.fromJson(o)
+        val coverForOnline = o.optString("cover_local", "").trim().takeIf { it.isNotBlank() }
+        val enriched = OnlineMetadataEnricher.enrichIfEnabled(
+            context, store, cfg, name, path, o, coverForOnline,
+        )
+        return MediaItem.fromJson(enriched)
     }
 
     private fun cleanFolderName(dirUri: String): String =

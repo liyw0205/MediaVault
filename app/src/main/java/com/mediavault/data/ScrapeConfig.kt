@@ -6,6 +6,7 @@ import java.io.File
 
 object ScrapeConfig {
     const val MODE_LOCAL = "local"
+    const val MODE_ONLINE = "online"
     const val DEFAULT_THREADS = 10
     const val MIN_THREADS = 1
     const val MAX_THREADS = 32
@@ -41,6 +42,7 @@ object ScrapeConfig {
             scanSidecarSubtitles = j.optBoolean("scanSidecarSubtitles", true),
             remoteCacheMaxBytesPerFile = j.optLong("remoteCacheMaxBytesPerFile", 512L * 1024 * 1024),
             remoteCacheMaxTotalBytes = j.optLong("remoteCacheMaxTotalBytes", 2L * 1024 * 1024 * 1024),
+            tmdbApiKey = j.optString("tmdbApiKey", ""),
         ).normalized()
     }
 
@@ -57,6 +59,7 @@ object ScrapeConfig {
         obj.put("scanSidecarSubtitles", s.scanSidecarSubtitles)
         obj.put("remoteCacheMaxBytesPerFile", s.remoteCacheMaxBytesPerFile)
         obj.put("remoteCacheMaxTotalBytes", s.remoteCacheMaxTotalBytes)
+        obj.put("tmdbApiKey", s.tmdbApiKey)
         writeJson(context, obj)
     }
 
@@ -85,9 +88,16 @@ data class ScrapeSettings(
     val scanSidecarSubtitles: Boolean = true,
     val remoteCacheMaxBytesPerFile: Long = 512L * 1024 * 1024,
     val remoteCacheMaxTotalBytes: Long = 2L * 1024 * 1024 * 1024,
+    val tmdbApiKey: String = "",
 ) {
+    fun isOnlineMode(): Boolean = scrapeMode == ScrapeConfig.MODE_ONLINE
+
     fun normalized(): ScrapeSettings = copy(
-        scrapeMode = if (scrapeMode == ScrapeConfig.MODE_LOCAL) ScrapeConfig.MODE_LOCAL else ScrapeConfig.MODE_LOCAL,
+        scrapeMode = when (scrapeMode) {
+            ScrapeConfig.MODE_ONLINE -> ScrapeConfig.MODE_ONLINE
+            else -> ScrapeConfig.MODE_LOCAL
+        },
+        tmdbApiKey = tmdbApiKey.trim(),
         threadCount = threadCount.coerceIn(ScrapeConfig.MIN_THREADS, ScrapeConfig.MAX_THREADS),
         remoteFrameConcurrency = remoteFrameConcurrency.coerceIn(
             ScrapeConfig.MIN_REMOTE_FRAME,

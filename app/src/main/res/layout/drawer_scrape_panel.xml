@@ -33,6 +33,49 @@
             android:text="@string/settings_scrape_mode_local"
             android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
 
+        <RadioGroup
+            android:id="@+id/drawerScrapeModeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/drawerScrapeModeLocal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_scrape_mode_local_option" />
+
+            <RadioButton
+                android:id="@+id/drawerScrapeModeOnline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_scrape_mode_online_option" />
+        </RadioGroup>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/drawerTmdbKeyLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/settings_tmdb_api_key_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/drawerTmdbApiKeyInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/settings_scrape_local_sources"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/drawerScrapeCoverFilesSwitch"
             style="@style/Widget.MediaVault.Switch.Settings"

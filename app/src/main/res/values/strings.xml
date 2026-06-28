@@ -169,7 +169,11 @@
     <string name="settings_test_sample">示例文件：%1$s</string>
 
     <string name="settings_scrape_section">刮削</string>
-    <string name="settings_scrape_mode_local">本地刮削（目录与旁挂文件）</string>
+    <string name="settings_scrape_mode_local">元数据来源</string>
+    <string name="settings_scrape_mode_local_option">本地（NFO / 文件名 / 旁挂）</string>
+    <string name="settings_scrape_mode_online_option">在线（TMDB，需 API Key）</string>
+    <string name="settings_tmdb_api_key_hint">TMDB API Key（themoviedb.org 申请）</string>
+    <string name="settings_scrape_local_sources">本地来源（可与在线叠加）</string>
 
     <string name="settings_scrape_cover_files">从旁挂图片识别封面</string>
     <string name="settings_scrape_cover_frame">无同目录封面时从视频抽帧（本地与远程，较慢）</string>
