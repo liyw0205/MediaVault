@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
@@ -30,11 +31,18 @@ class SearchFragment : Fragment() {
     private var lastQueryForTags: String? = null
     private var lastHits: List<MediaItem> = emptyList()
     private var currentQuery: String = ""
+    private var sort: SearchOptions.Sort = SearchOptions.Sort.Relevance
+    private var source: SearchOptions.Source = SearchOptions.Source.All
+    private var typeFilter: SearchOptions.Type = SearchOptions.Type.All
     private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
 
     companion object {
         private const val ARG_QUERY = "q"
         private const val STATE_PAGE = "search_page"
+        private const val STATE_QUERY = "search_q"
+        private const val STATE_SORT = "search_sort"
+        private const val STATE_SOURCE = "search_source"
+        private const val STATE_TYPE = "search_type"
         fun newInstance(query: String) = SearchFragment().apply {
             arguments = Bundle().apply { putString(ARG_QUERY, query) }
         }
@@ -43,6 +51,10 @@ class SearchFragment : Fragment() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         if (::listPager.isInitialized) outState.putInt(STATE_PAGE, listPager.page)
+        outState.putString(STATE_QUERY, currentQuery)
+        outState.putString(STATE_SORT, sort.name)
+        outState.putString(STATE_SOURCE, source.name)
+        outState.putString(STATE_TYPE, typeFilter.name)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
@@ -53,6 +65,12 @@ class SearchFragment : Fragment() {
         listPager.bindHost(this)
         savedInstanceState?.getInt(STATE_PAGE)?.let { listPager.restorePage(it) }
         listPager.setOnPageChanged { submitSearchPage(view) }
+
+        savedInstanceState?.let {
+            sort = runCatching { SearchOptions.Sort.valueOf(it.getString(STATE_SORT) ?: "") }.getOrDefault(sort)
+            source = runCatching { SearchOptions.Source.valueOf(it.getString(STATE_SOURCE) ?: "") }.getOrDefault(source)
+            typeFilter = runCatching { SearchOptions.Type.valueOf(it.getString(STATE_TYPE) ?: "") }.getOrDefault(typeFilter)
+        }
 
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
         val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
@@ -82,8 +100,17 @@ class SearchFragment : Fragment() {
             } else false
         }
 
-        // 进入即展示标签云；如有 ARG_QUERY 立即跑搜索，UI 先到位
-        val initial = arguments?.getString(ARG_QUERY).orEmpty()
+        val sortBtn = view.findViewById<MaterialButton>(R.id.searchSortBtn)
+        val sourceBtn = view.findViewById<MaterialButton>(R.id.searchSourceBtn)
+        val typeBtn = view.findViewById<MaterialButton>(R.id.searchTypeBtn)
+        sortBtn.setOnClickListener { showSortMenu(view) }
+        sourceBtn.setOnClickListener { showSourceMenu(view) }
+        typeBtn.setOnClickListener { showTypeMenu(view) }
+        refreshFilterLabels(view)
+
+        // 恢复 query 优先于 ARG_QUERY；新建时用 ARG_QUERY
+        val restoredQuery = savedInstanceState?.getString(STATE_QUERY)
+        val initial = restoredQuery ?: arguments?.getString(ARG_QUERY).orEmpty()
         if (initial.isNotBlank()) input.setText(initial)
         showInitialTagsOrRun(view, initial)
     }
@@ -94,7 +121,6 @@ class SearchFragment : Fragment() {
         val tagGroup = view.findViewById<ChipGroup>(R.id.matchedTags)
         val countTv = view.findViewById<TextView>(R.id.searchCount)
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
-        // 标签面板立即可见，不卡跳转
         bindTagChips(view, tagGroup, LibraryUi.allTags(all))
         tagGroup.visibility = View.VISIBLE
         if (query.isBlank()) {
@@ -134,7 +160,6 @@ class SearchFragment : Fragment() {
             return
         }
 
-        // 立即显示：清空列表 → 显示 loading + 标签先用同步轻量计算（仅按 contains）
         progress.visibility = View.VISIBLE
         grid.visibility = View.VISIBLE
         listPager.resetPage()
@@ -144,6 +169,10 @@ class SearchFragment : Fragment() {
         bindTagChips(view, tagGroup, LibraryUi.matchedTags(all, query))
         lastQueryForTags = query
 
+        val curSort = sort
+        val curSource = source
+        val curType = typeFilter
+
         searchJob = viewLifecycleOwner.lifecycleScope.launch {
             withContext(Dispatchers.Default) {
                 LibraryUi.searchStreaming(
@@ -152,7 +181,12 @@ class SearchFragment : Fragment() {
                     batch = 24,
                     isCancelled = { currentQuery != query || !isAdded },
                 ) { hits, finished ->
-                    val snapshot = hits
+                    val filtered = hits.filter {
+                        SearchOptions.matchesSource(it, curSource) &&
+                            SearchOptions.matchesType(it, curType)
+                    }.toMutableList()
+                    SearchOptions.sortInPlace(filtered, curSort)
+                    val snapshot: List<MediaItem> = filtered
                     viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
                         if (currentQuery != query || !isAdded) return@launch
                         lastHits = snapshot
@@ -173,9 +207,110 @@ class SearchFragment : Fragment() {
         listPager.update(lastHits.size, enabled = lastHits.isNotEmpty())
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
         adapter.submitList(listPager.slice(lastHits)) {
-            // 流式追加时若已不在第一页，避免每批都滚回顶部
             if (listPager.page == 0) grid.scrollToPosition(0)
         }
+    }
+
+    private fun showSortMenu(view: View) {
+        val labels = arrayOf(
+            getString(R.string.search_sort_relevance),
+            getString(R.string.search_sort_title_az),
+            getString(R.string.search_sort_year_desc),
+            getString(R.string.search_sort_year_asc),
+            getString(R.string.search_sort_modified),
+        )
+        val values = arrayOf(
+            SearchOptions.Sort.Relevance,
+            SearchOptions.Sort.TitleAZ,
+            SearchOptions.Sort.YearDesc,
+            SearchOptions.Sort.YearAsc,
+            SearchOptions.Sort.Modified,
+        )
+        val checked = values.indexOf(sort).coerceAtLeast(0)
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.search_sort_title)
+            .setSingleChoiceItems(labels, checked) { d, which ->
+                sort = values[which]
+                d.dismiss()
+                refreshFilterLabels(view)
+                runSearchKeepQuery(view)
+            }
+            .show()
+    }
+
+    private fun showSourceMenu(view: View) {
+        val labels = arrayOf(
+            getString(R.string.search_source_all),
+            getString(R.string.search_source_local),
+            getString(R.string.search_source_remote),
+        )
+        val values = arrayOf(
+            SearchOptions.Source.All,
+            SearchOptions.Source.Local,
+            SearchOptions.Source.Remote,
+        )
+        val checked = values.indexOf(source).coerceAtLeast(0)
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.search_source_title)
+            .setSingleChoiceItems(labels, checked) { d, which ->
+                source = values[which]
+                d.dismiss()
+                refreshFilterLabels(view)
+                runSearchKeepQuery(view)
+            }
+            .show()
+    }
+
+    private fun showTypeMenu(view: View) {
+        val labels = arrayOf(
+            getString(R.string.search_type_all),
+            getString(R.string.search_type_tv),
+            getString(R.string.search_type_movie),
+        )
+        val values = arrayOf(
+            SearchOptions.Type.All,
+            SearchOptions.Type.Tv,
+            SearchOptions.Type.Movie,
+        )
+        val checked = values.indexOf(typeFilter).coerceAtLeast(0)
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.search_type_title)
+            .setSingleChoiceItems(labels, checked) { d, which ->
+                typeFilter = values[which]
+                d.dismiss()
+                refreshFilterLabels(view)
+                runSearchKeepQuery(view)
+            }
+            .show()
+    }
+
+    private fun runSearchKeepQuery(view: View) {
+        val input = view.findViewById<TextInputEditText>(R.id.searchInput)
+        val q = input.text?.toString().orEmpty()
+        runSearch(view, q)
+    }
+
+    private fun refreshFilterLabels(view: View) {
+        val sortLabel = when (sort) {
+            SearchOptions.Sort.Relevance -> getString(R.string.search_sort_relevance)
+            SearchOptions.Sort.TitleAZ -> getString(R.string.search_sort_title_az)
+            SearchOptions.Sort.YearDesc -> getString(R.string.search_sort_year_desc)
+            SearchOptions.Sort.YearAsc -> getString(R.string.search_sort_year_asc)
+            SearchOptions.Sort.Modified -> getString(R.string.search_sort_modified)
+        }
+        val sourceLabel = when (source) {
+            SearchOptions.Source.All -> getString(R.string.search_source_all)
+            SearchOptions.Source.Local -> getString(R.string.search_source_local)
+            SearchOptions.Source.Remote -> getString(R.string.search_source_remote)
+        }
+        val typeLabel = when (typeFilter) {
+            SearchOptions.Type.All -> getString(R.string.search_type_all)
+            SearchOptions.Type.Tv -> getString(R.string.search_type_tv)
+            SearchOptions.Type.Movie -> getString(R.string.search_type_movie)
+        }
+        view.findViewById<MaterialButton>(R.id.searchSortBtn).text = "排序 · $sortLabel"
+        view.findViewById<MaterialButton>(R.id.searchSourceBtn).text = "来源 · $sourceLabel"
+        view.findViewById<MaterialButton>(R.id.searchTypeBtn).text = "类型 · $typeLabel"
     }
 
     private fun bindTagChips(view: View, tagGroup: ChipGroup, tags: List<String>) {

@@ -85,6 +85,24 @@
     <string name="clear_search">清空</string>
     <string name="search_go">搜索</string>
     <string name="search_running_fmt">搜索中… 已命中 %1$d</string>
+    <string name="search_sort_default_label">排序 ▾</string>
+    <string name="search_source_default_label">来源 ▾</string>
+    <string name="search_type_default_label">类型 ▾</string>
+    <string name="search_sort_title">按 · 排序</string>
+    <string name="search_source_title">按 · 来源</string>
+    <string name="search_type_title">按 · 类型</string>
+    <string name="search_sort_relevance">入库顺序</string>
+    <string name="search_sort_title_az">标题</string>
+    <string name="search_sort_year_desc">年份新→旧</string>
+    <string name="search_sort_year_asc">年份旧→新</string>
+    <string name="search_sort_modified">最近入库</string>
+    <string name="search_source_all">全部</string>
+    <string name="search_source_local">本机/本地</string>
+    <string name="search_source_remote">远程</string>
+    <string name="search_type_all">全部</string>
+    <string name="search_type_tv">剧集</string>
+    <string name="search_type_movie">电影</string>
+    <string name="search_pick_fmt">%1$s · %2$s</string>
     <string name="scrape_roots">已配置的媒体目录</string>
 
     <string name="scrape_roots_empty">尚未配置媒体目录</string>
