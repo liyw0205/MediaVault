@@ -67,6 +67,7 @@
     <string name="prev_page">上一页</string>
     <string name="next_page">下一页</string>
     <string name="page_fmt">第 %1$d/%2$d 页</string>
+    <string name="related_page_fmt">第 %1$d/%2$d 页 · 共 %3$d 条</string>
     <string name="page_jump_title">跳到某一页</string>
     <string name="page_jump_hint">共 %1$d 页，输入页码</string>
     <string name="refresh_recommend">换一批推荐</string>

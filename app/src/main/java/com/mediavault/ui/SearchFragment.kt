@@ -25,21 +25,34 @@ import kotlinx.coroutines.launch
 
 class SearchFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
+    private lateinit var listPager: ListPagerBar
     private var searchDebounce: Job? = null
     private var lastQueryForTags: String? = null
+    private var lastHits: List<MediaItem> = emptyList()
     private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
 
     companion object {
         private const val ARG_QUERY = "q"
+        private const val STATE_PAGE = "search_page"
         fun newInstance(query: String) = SearchFragment().apply {
             arguments = Bundle().apply { putString(ARG_QUERY, query) }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::listPager.isInitialized) outState.putInt(STATE_PAGE, listPager.page)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
         inflater.inflate(R.layout.fragment_search, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        listPager = ListPagerBar(view)
+        listPager.bindHost(this)
+        savedInstanceState?.getInt(STATE_PAGE)?.let { listPager.restorePage(it) }
+        listPager.setOnPageChanged { submitSearchPage(view) }
+
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
         val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
         grid.layoutManager = GridLayoutManager(requireContext(), span)
@@ -95,7 +108,8 @@ class SearchFragment : Fragment() {
     ) {
         val q = query.trim()
         val hits = if (q.isBlank()) emptyList() else LibraryUi.search(all, query)
-        adapter.submitList(hits)
+        if (refreshTags) listPager.resetPage()
+        lastHits = hits
 
         val tagGroup = view.findViewById<ChipGroup>(R.id.matchedTags)
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
@@ -104,6 +118,8 @@ class SearchFragment : Fragment() {
         if (q.isBlank()) {
             grid.visibility = View.GONE
             tagGroup.visibility = View.VISIBLE
+            listPager.update(0, enabled = false)
+            adapter.submitList(emptyList())
             countTv.text = getString(R.string.search_tags_only_hint, LibraryUi.allTags(all).size)
             if (refreshTags) bindTagChips(view, tagGroup, LibraryUi.allTags(all))
         } else {
@@ -111,6 +127,15 @@ class SearchFragment : Fragment() {
             tagGroup.visibility = View.VISIBLE
             countTv.text = getString(R.string.search_count, hits.size)
             if (refreshTags) bindTagChips(view, tagGroup, LibraryUi.matchedTags(all, query))
+            submitSearchPage(view)
+        }
+    }
+
+    private fun submitSearchPage(view: View) {
+        listPager.update(lastHits.size, enabled = lastHits.isNotEmpty())
+        val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
+        adapter.submitList(listPager.slice(lastHits)) {
+            grid.scrollToPosition(0)
         }
     }
 

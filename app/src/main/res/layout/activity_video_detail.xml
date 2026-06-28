@@ -107,6 +107,7 @@
             </LinearLayout>
 
             <TextView
+                android:id="@+id/relatedSectionTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -114,6 +115,43 @@
                 android:textColor="@color/mv_text"
                 android:textSize="16sp"
                 android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/relatedPager"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/relatedPrevPageBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/prev_page"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/relatedNextPageBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/next_page"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/relatedPageInfo"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:textColor="@color/mv_primary"
+                    android:textSize="13sp" />
+            </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/relatedRecycler"

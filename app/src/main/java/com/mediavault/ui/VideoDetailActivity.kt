@@ -2,42 +2,61 @@ package com.mediavault.ui
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.NestedScrollView
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
-import java.io.File
+import com.mediavault.playback.PlaylistBuilder
 
 class VideoDetailActivity : AppCompatActivity() {
     private val historyStore by lazy { HistoryStore(this) }
+
+    private var relatedAll: List<MediaItem> = emptyList()
+    private var relatedPage = 1
+    private var relatedAdapter: MediaRowAdapter? = null
+    private var collectionGroupKey: String? = null
+    private var collectionGroupTitle: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_detail)
 
         val path = intent.getStringExtra(EXTRA_PATH) ?: run { finish(); return }
+        if (savedInstanceState != null) {
+            relatedPage = savedInstanceState.getInt(STATE_RELATED_PAGE, 1).coerceAtLeast(1)
+        }
         bind(path)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(STATE_RELATED_PAGE, relatedPage)
     }
 
     private fun bind(path: String) {
         val repo = (application as MediaVaultApp).repository
-        val item = repo.library.value.items.find { it.path == path } ?: run {
+        val all = repo.library.value.items
+        val item = all.find { it.path == path } ?: run {
             finish()
             return
         }
-        val group = LibraryUi.collectionGroups(repo.library.value.items)
-            .find { g -> g.items.any { it.path == path } }
+
+        val sameCollection = LibraryUi.itemsInSameCollection(all, item)
+        val key = PlaylistBuilder.collectionKey(item)
+        collectionGroupKey = key
+        collectionGroupTitle = LibraryUi.collectionDisplayTitle(item, key)
 
         val toolbar = findViewById<MaterialToolbar>(R.id.detailToolbar)
         toolbar.title = item.displayTitle()
@@ -54,13 +73,12 @@ class VideoDetailActivity : AppCompatActivity() {
         }
 
         val collectionChip = findViewById<Chip>(R.id.chipCollection)
-        val collTitle = group?.title ?: LibraryUi.sanitizeCollectionName(
-            item.collection.ifBlank { item.collectionKey() },
-        )
+        val collTitle = collectionGroupTitle.orEmpty()
         collectionChip.text = collTitle
         collectionChip.setOnClickListener {
-            if (group != null) {
-                startActivity(CollectionDetailActivity.intent(this, group.key))
+            val k = collectionGroupKey
+            if (!k.isNullOrBlank() && sameCollection.size > 1) {
+                startActivity(CollectionDetailActivity.intent(this, k))
             }
         }
 
@@ -88,23 +106,96 @@ class VideoDetailActivity : AppCompatActivity() {
 
         val coverPath = item.coverLocalPath()
         val coverView = findViewById<android.widget.ImageView>(R.id.detailCover)
-        if (coverPath != null && File(coverPath).isFile) {
-            coverView.setImageBitmap(BitmapFactory.decodeFile(coverPath))
-        } else {
-            coverView.setImageDrawable(null)
-        }
+        val dm = resources.displayMetrics
+        val cw = (160 * dm.density).toInt().coerceAtLeast(120)
+        val ch = (240 * dm.density).toInt().coerceAtLeast(180)
+        CoverThumbnailLoader.load(lifecycleScope, coverView, coverPath, cw, ch)
 
         findViewById<View>(R.id.btnPlay).setOnClickListener { play(item) }
         coverView.setOnClickListener { play(item) }
 
+        bindRelatedList(path, sameCollection)
+    }
+
+    private fun bindRelatedList(currentPath: String, sameCollection: List<MediaItem>) {
         val related = findViewById<RecyclerView>(R.id.relatedRecycler)
-        related.layoutManager = LinearLayoutManager(this)
-        val adapter = MediaRowAdapter(
-            onCoverClick = { switchTo(it.path) },
-            onInfoClick = { switchTo(it.path) },
+        val pager = findViewById<View>(R.id.relatedPager)
+        val prev = findViewById<MaterialButton>(R.id.relatedPrevPageBtn)
+        val next = findViewById<MaterialButton>(R.id.relatedNextPageBtn)
+        val pageInfo = findViewById<TextView>(R.id.relatedPageInfo)
+        val sectionTitle = findViewById<TextView>(R.id.relatedSectionTitle)
+
+        if (relatedAdapter == null) {
+            related.layoutManager = LinearLayoutManager(this)
+            related.setHasFixedSize(true)
+            related.setItemViewCacheSize(12)
+            relatedAdapter = MediaRowAdapter(
+                scope = lifecycleScope,
+                onCoverClick = { switchTo(it.path) },
+                onInfoClick = { switchTo(it.path) },
+            )
+            related.adapter = relatedAdapter
+            prev.setOnClickListener { changeRelatedPage(-1) }
+            next.setOnClickListener { changeRelatedPage(1) }
+        }
+
+        relatedAll = sameCollection
+        val pageSize = LibraryUi.RELATED_PAGE_SIZE
+        val pages = LibraryUi.pageCount(relatedAll.size, pageSize)
+        relatedPage = relatedPage.coerceIn(1, pages)
+
+        if (relatedAll.size <= 1) {
+            pager.visibility = View.GONE
+            sectionTitle.visibility = if (relatedAll.size == 1) View.VISIBLE else View.GONE
+            related.visibility = if (relatedAll.size == 1) View.VISIBLE else View.GONE
+            relatedAdapter?.submitList(relatedAll)
+            return
+        }
+
+        sectionTitle.visibility = View.VISIBLE
+        related.visibility = View.VISIBLE
+        pager.visibility = View.VISIBLE
+        pageInfo.text = getString(
+            R.string.related_page_fmt,
+            relatedPage,
+            pages,
+            relatedAll.size,
         )
-        related.adapter = adapter
-        adapter.submitList(group?.items ?: listOf(item))
+        prev.isEnabled = relatedPage > 1
+        next.isEnabled = relatedPage < pages
+
+        val slice = LibraryUi.paginateItems(relatedAll, relatedPage, pageSize)
+        relatedAdapter?.submitList(slice)
+
+        ensureCurrentInRelatedPage(currentPath, pageSize)
+    }
+
+    /** 切换条目后若当前视频不在本页，自动跳到所在页 */
+    private fun ensureCurrentInRelatedPage(currentPath: String, pageSize: Int) {
+        val idx = relatedAll.indexOfFirst { it.path == currentPath }
+        if (idx < 0) return
+        val wantPage = idx / pageSize + 1
+        if (wantPage != relatedPage) {
+            relatedPage = wantPage
+            val pages = LibraryUi.pageCount(relatedAll.size, pageSize)
+            findViewById<TextView>(R.id.relatedPageInfo).text = getString(
+                R.string.related_page_fmt,
+                relatedPage,
+                pages,
+                relatedAll.size,
+            )
+            findViewById<MaterialButton>(R.id.relatedPrevPageBtn).isEnabled = relatedPage > 1
+            findViewById<MaterialButton>(R.id.relatedNextPageBtn).isEnabled = relatedPage < pages
+            relatedAdapter?.submitList(LibraryUi.paginateItems(relatedAll, relatedPage, pageSize))
+        }
+    }
+
+    private fun changeRelatedPage(delta: Int) {
+        val pageSize = LibraryUi.RELATED_PAGE_SIZE
+        val pages = LibraryUi.pageCount(relatedAll.size, pageSize)
+        relatedPage = (relatedPage + delta).coerceIn(1, pages)
+        val path = intent.getStringExtra(EXTRA_PATH) ?: return
+        bindRelatedList(path, relatedAll)
     }
 
     private fun bindNfoFields(item: MediaItem) {
@@ -156,6 +247,7 @@ class VideoDetailActivity : AppCompatActivity() {
 
     companion object {
         private const val EXTRA_PATH = "path"
+        private const val STATE_RELATED_PAGE = "related_page"
 
         fun intent(ctx: Context, path: String): Intent =
             Intent(ctx, VideoDetailActivity::class.java).putExtra(EXTRA_PATH, path)

@@ -7,6 +7,8 @@ import kotlin.random.Random
 
 object LibraryUi {
     const val PAGE_SIZE = 20
+    /** 详情页「同合集」每页条数，减轻嵌套列表一次性绑定导致的掉帧 */
+    const val RELATED_PAGE_SIZE = 10
 
     /** 行列表副标题：时长 + 简介（过长省略） */
     fun rowSubtitle(item: MediaItem, plotMaxChars: Int = 80): String {
@@ -65,6 +67,28 @@ object LibraryUi {
             val title = list.firstOrNull()?.let { collectionDisplayTitle(it, key) } ?: key
             CollectionGroup(key, title, PlaylistBuilder.sortEpisodes(list))
         }.sortedBy { it.title.lowercase() }
+    }
+
+    /** 与 [item] 同合集的全部条目（已按集数排序），不扫描整库分组表 */
+    fun itemsInSameCollection(all: List<MediaItem>, item: MediaItem): List<MediaItem> {
+        val key = PlaylistBuilder.collectionKey(item)
+        val peers = all.filter { PlaylistBuilder.collectionKey(it) == key }
+        return PlaylistBuilder.sortEpisodes(peers)
+    }
+
+    fun paginateItems(list: List<MediaItem>, page: Int, pageSize: Int): List<MediaItem> {
+        val start = (page - 1) * pageSize
+        if (start >= list.size) return emptyList()
+        return list.subList(start, minOf(start + pageSize, list.size))
+    }
+
+    fun pageCount(listSize: Int, pageSize: Int): Int =
+        if (listSize <= 0) 1 else (listSize + pageSize - 1) / pageSize
+
+    fun paginateGroups(list: List<CollectionGroup>, page: Int, pageSize: Int): List<CollectionGroup> {
+        val start = (page - 1) * pageSize
+        if (start >= list.size) return emptyList()
+        return list.subList(start, minOf(start + pageSize, list.size))
     }
 
     fun tagCollectionGroups(items: List<MediaItem>): List<CollectionGroup> {

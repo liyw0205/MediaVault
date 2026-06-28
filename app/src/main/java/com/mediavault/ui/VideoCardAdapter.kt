@@ -109,6 +109,9 @@ class VideoCardAdapter(
 
     private object Diff : DiffUtil.ItemCallback<MediaItem>() {
         override fun areItemsTheSame(a: MediaItem, b: MediaItem) = a.path == b.path
-        override fun areContentsTheSame(a: MediaItem, b: MediaItem) = a.raw.toString() == b.raw.toString()
+        override fun areContentsTheSame(a: MediaItem, b: MediaItem) =
+            a.displayTitle() == b.displayTitle() &&
+                a.coverLocalPath() == b.coverLocalPath() &&
+                a.episodeLabel() == b.episodeLabel()
     }
 }

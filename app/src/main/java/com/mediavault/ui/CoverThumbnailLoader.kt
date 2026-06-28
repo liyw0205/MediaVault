@@ -35,6 +35,7 @@ object CoverThumbnailLoader {
 
         if (localPath.isNullOrBlank() || !File(localPath).isFile) {
             imageView.setImageDrawable(null)
+            imageView.setTag(R.id.cover_load_path, null)
             return
         }
 

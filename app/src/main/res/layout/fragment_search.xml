@@ -65,6 +65,8 @@
             app:chipSpacingHorizontal="4dp"
             app:chipSpacingVertical="4dp"
             app:singleLine="false" />
+
+        <include layout="@layout/include_list_pager" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

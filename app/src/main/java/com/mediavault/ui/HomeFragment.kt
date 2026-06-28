@@ -95,7 +95,9 @@ class HomeFragment : Fragment() {
         rebuildFilterChipsIfNeeded(view, items)
         val list = currentList(items)
         val slice = displaySlice(list)
-        adapter.submitList(slice)
+        adapter.submitList(slice) {
+            view.findViewById<RecyclerView>(R.id.gridRecycler).scrollToPosition(0)
+        }
         view.findViewById<TextView>(R.id.emptyText).visibility =
             if (slice.isEmpty()) View.VISIBLE else View.GONE
 
