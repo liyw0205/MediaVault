@@ -51,10 +51,10 @@ class MainActivity : AppCompatActivity() {
             drawer = drawerLayout,
             panelRoot = drawerContent,
             repository = repository,
-            onOpenManageDirs = {
-                startActivity(Intent(this, ScrapeDirectoriesActivity::class.java))
+            onRootsMayHaveChanged = {
+                refreshHome(recommendPathsOnly = false)
+                scrapeFragment()?.refreshRootsFromOutside()
             },
-            onRootsMayHaveChanged = { refreshHome(recommendPathsOnly = false) },
         )
 
         drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
@@ -127,7 +127,9 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (currentTabTag == TAG_SCRAPE && ::drawerPanel.isInitialized) {
-            ScrapeDrawerBinder.reloadOptions(this, findViewById(R.id.scrapeDrawerContent))
+            val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+            ScrapeDrawerBinder.reloadOptions(this, drawerContent)
+            ScrapeDrawerBinder.reloadDirectories(this, drawerContent)
             scrapeFragment()?.refreshRootsFromOutside()
         }
     }
@@ -184,7 +186,9 @@ class MainActivity : AppCompatActivity() {
 
     fun openScrapeDrawer() {
         if (currentTabTag != TAG_SCRAPE) return
-        ScrapeDrawerBinder.reloadOptions(this, findViewById(R.id.scrapeDrawerContent))
+        val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+        ScrapeDrawerBinder.reloadOptions(this, drawerContent)
+        ScrapeDrawerBinder.reloadDirectories(this, drawerContent)
         drawerLayout.openDrawer(GravityCompat.END)
     }
 

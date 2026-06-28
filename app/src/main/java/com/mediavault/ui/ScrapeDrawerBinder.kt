@@ -49,14 +49,17 @@ object ScrapeDrawerBinder {
         return activity.getString(resId, text)
     }
 
+    private var directoriesPanel: ScrapeDirectoriesPanelController? = null
+    private var onRootsCallback: (() -> Unit)? = null
+
     fun bind(
         activity: AppCompatActivity,
         drawer: DrawerLayout,
         panelRoot: View,
         repository: LibraryRepository,
-        onOpenManageDirs: () -> Unit,
         onRootsMayHaveChanged: () -> Unit,
     ) {
+        onRootsCallback = onRootsMayHaveChanged
         val coverFiles = panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFilesSwitch)
         val coverFrame = panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeCoverFrameSwitch)
         val nfo = panelRoot.findViewById<SwitchCompat>(R.id.drawerScrapeNfoSwitch)
@@ -71,8 +74,8 @@ object ScrapeDrawerBinder {
         val cachePerSlider = panelRoot.findViewById<Slider>(R.id.drawerRemoteCachePerFileSlider)
         val cachePerLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCachePerFileLabel)
         val saveBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerSaveScrapeSettingsBtn)
-        val manageDirs = panelRoot.findViewById<MaterialButton>(R.id.drawerManageDirsBtn)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
+        val dirsSection = panelRoot.findViewById<View>(R.id.drawerDirsSection)
 
         fun updateCacheLabels(totalStep: Int, perStep: Int) {
             val totalMb = totalCacheMbSteps[(totalStep - 1).coerceIn(0, totalCacheMbSteps.lastIndex)]
@@ -132,15 +135,21 @@ object ScrapeDrawerBinder {
             Toast.makeText(activity, R.string.settings_saved, Toast.LENGTH_SHORT).show()
         }
 
-        manageDirs.setOnClickListener {
-            drawer.closeDrawer(GravityCompat.END, false)
-            onOpenManageDirs()
-        }
+        directoriesPanel = ScrapeDirectoriesPanelController(activity, dirsSection, onRootsMayHaveChanged).also { it.bind() }
 
         dataBtn.setOnClickListener {
             drawer.closeDrawer(GravityCompat.END, false)
             DataStorageDialog.show(activity, repository) { onRootsMayHaveChanged() }
         }
+    }
+
+    fun reloadDirectories(activity: AppCompatActivity, panelRoot: View) {
+        val dirsSection = panelRoot.findViewById<View>(R.id.drawerDirsSection)
+        val cb = onRootsCallback ?: {}
+        directoriesPanel?.reload()
+            ?: run {
+                directoriesPanel = ScrapeDirectoriesPanelController(activity, dirsSection, cb).also { it.bind() }
+            }
     }
 
     fun reloadOptions(activity: AppCompatActivity, panelRoot: View) {

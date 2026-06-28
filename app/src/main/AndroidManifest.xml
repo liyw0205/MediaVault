@@ -18,10 +18,6 @@
         android:theme="@style/Theme.MediaVault"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".ui.ScrapeDirectoriesActivity"
-            android:exported="false"
-            android:label="@string/scrape_dirs_title" />
-        <activity
             android:name=".ui.PlayerActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"

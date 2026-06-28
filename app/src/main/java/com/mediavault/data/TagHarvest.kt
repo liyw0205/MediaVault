@@ -2,9 +2,11 @@ package com.mediavault.data
 
 import org.json.JSONArray
 
-/** 从 NFO 和文件名里收集标签（常用规则） */
+/** 从 NFO 和文件名里收集标签（常用规则；不含父目录名、不含文件名首段［厂商］） */
 object TagHarvest {
     fun harvest(fileName: String, parentFolder: String, nfo: org.json.JSONObject): List<String> {
+        @Suppress("UNUSED_PARAMETER")
+        val _folderUnused = parentFolder // 保留参数以兼容 LocalScanner / RemoteLibraryScanner 调用
         val seen = linkedSetOf<String>()
         fun add(t: String) {
             val x = t.trim()
@@ -21,7 +23,7 @@ object TagHarvest {
         }
 
         val base = fileName.substringBeforeLast('.')
-        Regex("^\\[([^]]+)\\]").find(base)?.groupValues?.get(1)?.trim()?.let { add(it) }
+        // 勿将文件名首段 ［厂商］ / [Studio] 写入标签（仅作发行商标识，非内容标签）
 
         val name = base
         val lower = name.lowercase()
@@ -37,8 +39,7 @@ object TagHarvest {
         if (name.contains("巨乳")) add("巨乳")
         if (name.contains("ハーレム") || lower.contains("harem")) add("后宫")
 
-        val folder = parentFolder.trim()
-        FolderTagSanitizer.folderAsTag(folder)?.let { add(it) }
+        // 勿把视频所在父文件夹名写入 tags（避免同目录整批共用一个 tag: 合集键）
 
         return seen.toList()
     }

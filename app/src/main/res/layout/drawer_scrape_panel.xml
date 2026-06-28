@@ -168,14 +168,9 @@
             android:text="@string/scrape_dirs_title"
             android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/drawerManageDirsBtn"
-            style="@style/Widget.MediaVault.Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/scrape_dirs_open"
-            android:textSize="15sp" />
+        <include
+            android:id="@+id/drawerDirsSection"
+            layout="@layout/drawer_scrape_directories_section" />
 
         <View
             android:layout_width="match_parent"
