@@ -114,7 +114,7 @@ object RemoteStreamCache {
             if (prefixLen >= cap) {
                 throw IOException("单文件缓存超过上限")
             }
-            client.openRead(relativePath, netOffset, length).use { input ->
+            RemoteReadRetry.openWithRetry(client, relativePath, netOffset, length).use { input ->
                 val buf = ByteArray(64 * 1024)
                 val append = netOffset == prefixLen
                 val fos = if (append) FileOutputStream(prefix, true) else null
@@ -147,6 +147,28 @@ object RemoteStreamCache {
             }
             if (alive.get()) prefix.setLastModified(System.currentTimeMillis())
         }
+    }
+
+    /**
+     * seek 到 prefix 未覆盖的字节：只拉网写入播放器，不写顺序 prefix（对齐 Neribox range 思路）。
+     */
+    fun fetchDirect(
+        context: Context,
+        key: String,
+        client: RemoteClient,
+        relativePath: String,
+        netOffset: Long,
+        length: Long,
+        out: OutputStream,
+        alive: AtomicBoolean,
+    ) {
+        if (!alive.get()) return
+        cleanup(context)
+        RemoteReadRetry.openWithRetry(client, relativePath, netOffset, length).use { input ->
+            RemoteReadRetry.readLoopToOut(input, out, length, alive)
+        }
+        val f = prefixFile(context, key)
+        if (f.isFile && alive.get()) f.setLastModified(System.currentTimeMillis())
     }
 
     private fun cleanup(context: Context) {

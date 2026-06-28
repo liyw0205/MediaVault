@@ -68,7 +68,8 @@ object RemoteErrorMessages {
                 context.getString(R.string.remote_err_not_opened)
             msg.startsWith("WebDAV GET") || msg.startsWith("WebDAV ") ->
                 context.getString(R.string.remote_err_webdav_fmt, msg.removePrefix("WebDAV ").take(80))
-            msg.startsWith("FTP 登录失败") || msg.startsWith("FTP 无法打开") -> msg
+            msg.startsWith("FTP 登录失败") || msg.startsWith("FTP 无法打开") ||
+                msg.contains("FTP 不支持从指定位置") -> msg
             else -> null
         }
     }

@@ -89,7 +89,14 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
             null,
         )
         val raw = file.inputStream
-        if (offset > 0) raw.skip(offset)
+        if (offset > 0) {
+            var left = offset
+            while (left > 0) {
+                val skipped = raw.skip(left)
+                if (skipped <= 0) break
+                left -= skipped
+            }
+        }
         val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
             RemoteLimitedInputStream(raw, length)
         } else {

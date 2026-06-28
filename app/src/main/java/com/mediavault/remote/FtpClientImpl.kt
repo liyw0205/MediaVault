@@ -47,12 +47,14 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         val ftp = connect()
         var path = relativePath.trim().replace('\\', '/')
         if (!path.startsWith("/")) path = "/$path"
+        if (offset > 0) {
+            ftp.setRestartOffset(offset)
+        }
         val raw = ftp.retrieveFileStream(path)
             ?: run {
                 runCatching { ftp.logout(); ftp.disconnect() }
                 throw IOException("FTP 无法打开: $path")
             }
-        if (offset > 0) raw.skip(offset)
         val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
             RemoteLimitedInputStream(raw, length)
         } else {

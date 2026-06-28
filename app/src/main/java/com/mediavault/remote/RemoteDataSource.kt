@@ -99,12 +99,15 @@ class RemoteDataSource(
         }
 
         if (!alive.get()) return
-        if (cursor < prefixLen) {
-            throw IOException(RemoteErrorMessages.userMessage(context, IOException("缓存缺口")))
-        }
 
         val netLen = if (need == Long.MAX_VALUE) C.LENGTH_UNSET.toLong() else need
-        RemoteStreamCache.fetchAndAppend(context, cacheKey, client, rel, cursor, netLen, out, alive)
+        val prefixLenNow = RemoteStreamCache.prefixLength(context, cacheKey)
+        if (cursor == prefixLenNow) {
+            RemoteStreamCache.fetchAndAppend(context, cacheKey, client, rel, cursor, netLen, out, alive)
+        } else {
+            // seek 到未顺序缓存区间：直接 Range/REST，不抛「缓存缺口」
+            RemoteStreamCache.fetchDirect(context, cacheKey, client, rel, cursor, netLen, out, alive)
+        }
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
