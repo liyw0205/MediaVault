@@ -100,12 +100,23 @@ class RemoteDataSource(
 
         if (!alive.get()) return
 
+        if (need > 0L) {
+            val rangeNeed = if (need == Long.MAX_VALUE) Long.MAX_VALUE else need
+            val fromRange = RemoteStreamCache.readRangeHit(
+                context, cacheKey, cursor, rangeNeed, out, alive,
+            )
+            cursor += fromRange
+            if (need != Long.MAX_VALUE) need -= fromRange
+            if (need <= 0L || !alive.get()) return
+        }
+
+        if (!alive.get()) return
+
         val netLen = if (need == Long.MAX_VALUE) C.LENGTH_UNSET.toLong() else need
         val prefixLenNow = RemoteStreamCache.prefixLength(context, cacheKey)
         if (cursor == prefixLenNow) {
             RemoteStreamCache.fetchAndAppend(context, cacheKey, client, rel, cursor, netLen, out, alive)
         } else {
-            // seek 到未顺序缓存区间：直接 Range/REST，不抛「缓存缺口」
             RemoteStreamCache.fetchDirect(context, cacheKey, client, rel, cursor, netLen, out, alive)
         }
     }
