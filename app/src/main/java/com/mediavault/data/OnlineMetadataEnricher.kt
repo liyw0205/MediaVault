@@ -30,20 +30,30 @@ object OnlineMetadataEnricher {
 
         val o = JSONObject(draft.toString())
 
+        val isTvEpisode = match.mediaType == "tv" && match.episodeTitle.isNotBlank()
+        val displayTitle = if (isTvEpisode) match.episodeTitle else match.title
+        val displayPlot = if (isTvEpisode && match.episodePlot.isNotBlank()) match.episodePlot else match.plot
+
         if (o.optString("title", "").isBlank() || looksLikeFilename(o.optString("title", ""), fileName)) {
-            if (match.title.isNotBlank()) o.put("title", match.title)
+            if (displayTitle.isNotBlank()) o.put("title", displayTitle)
         }
-        if (o.optString("title_cn", "").isBlank() && match.title.isNotBlank()) {
-            o.put("title_cn", match.title)
+        if (o.optString("title_cn", "").isBlank() && displayTitle.isNotBlank()) {
+            o.put("title_cn", displayTitle)
         }
         if (o.optString("originaltitle", "").isBlank() && match.originalTitle.isNotBlank()) {
             o.put("originaltitle", match.originalTitle)
         }
+        if (o.optString("show_title", "").isBlank() && match.title.isNotBlank() && isTvEpisode) {
+            o.put("show_title", match.title)
+        }
         if (o.optString("year", "").isBlank() && match.year.isNotBlank()) {
             o.put("year", match.year)
         }
-        if (o.optString("plot", "").isBlank() && match.plot.isNotBlank()) {
-            o.put("plot", match.plot)
+        if (o.optString("plot", "").isBlank() && displayPlot.isNotBlank()) {
+            o.put("plot", displayPlot)
+        }
+        if (isTvEpisode && match.episodeAirDate.isNotBlank() && o.optString("aired", "").isBlank()) {
+            o.put("aired", match.episodeAirDate)
         }
         if (match.season.isNotBlank() && o.optString("season", "").isBlank()) {
             o.put("season", match.season)
@@ -71,14 +81,17 @@ object OnlineMetadataEnricher {
         o.put("tmdb_type", match.mediaType)
         o.put("metadata_source", "tmdb")
 
-        if (existingCoverLocal.isNullOrBlank() && !match.posterUrl.isNullOrBlank()) {
-            val dest = File(store.coversDir, "tmdb_${sha1(path)}.jpg")
-            if (!dest.isFile || dest.length() < 512) {
-                TmdbClient.downloadPoster(match.posterUrl, dest)
-            }
-            if (dest.isFile && dest.length() >= 512) {
-                o.put("cover_local", dest.absolutePath)
-                o.put("cover_source", "tmdb")
+        if (existingCoverLocal.isNullOrBlank()) {
+            val artUrl = match.episodeStillUrl?.takeIf { it.isNotBlank() } ?: match.posterUrl
+            if (!artUrl.isNullOrBlank()) {
+                val dest = File(store.coversDir, "tmdb_${sha1(path)}.jpg")
+                if (!dest.isFile || dest.length() < 512) {
+                    TmdbClient.downloadPoster(artUrl, dest)
+                }
+                if (dest.isFile && dest.length() >= 512) {
+                    o.put("cover_local", dest.absolutePath)
+                    o.put("cover_source", "tmdb")
+                }
             }
         }
 
