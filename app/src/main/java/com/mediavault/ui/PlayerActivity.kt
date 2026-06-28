@@ -410,15 +410,39 @@ class PlayerActivity : AppCompatActivity() {
         val (embedded, external) = classifyTextGroups(tracks)
         if (embedded.isEmpty() && external.isEmpty()) return
         autoResolved = true
-        if (embedded.isNotEmpty()) {
-            return
-        }
-        val first = external.firstOrNull() ?: return
-        val tg: TrackGroup = first.second.mediaTrackGroup
+        val pick = pickPreferredTextTrack(embedded) ?: pickPreferredTextTrack(external) ?: return
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-            .setOverrideForType(TrackSelectionOverride(tg, 0))
+            .setOverrideForType(TrackSelectionOverride(pick.first, pick.second))
             .build()
+    }
+
+    /** 在一组文本轨里挑：简中 > 中文 > 第一条可支持轨。返回 (TrackGroup, trackIndex) */
+    private fun pickPreferredTextTrack(groups: List<Pair<Int, Tracks.Group>>): Pair<TrackGroup, Int>? {
+        if (groups.isEmpty()) return null
+        val candidates = mutableListOf<Triple<TrackGroup, Int, String>>()
+        for ((_, g) in groups) {
+            val tg = g.mediaTrackGroup
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val fmt = g.getTrackFormat(i)
+                val lang = (fmt.language ?: "").lowercase()
+                val labelTokens = listOf(fmt.label ?: "", fmt.id ?: "").joinToString(" ").lowercase()
+                val token = "$lang $labelTokens"
+                candidates.add(Triple(tg, i, token))
+            }
+        }
+        if (candidates.isEmpty()) return null
+        fun rank(token: String): Int = when {
+            token.contains("zh-hans") || token.contains("zh-cn") || token.contains("zhs") ||
+                token.contains("简体") || token.contains("简中") || token.contains("chs") -> 0
+            token.contains("zh-hant") || token.contains("zh-tw") || token.contains("zh-hk") || token.contains("zht") ||
+                token.contains("繁体") || token.contains("繁中") || token.contains("cht") -> 1
+            token.startsWith("zh") || token.contains("chinese") || token.contains("中文") -> 2
+            else -> 3
+        }
+        val best = candidates.minByOrNull { rank(it.third) } ?: return null
+        return best.first to best.second
     }
 
     private fun disableTextTracks(p: ExoPlayer) {
