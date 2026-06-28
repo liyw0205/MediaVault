@@ -36,6 +36,12 @@
     <string name="player_forward">快进 10 秒</string>
     <string name="player_pause">暂停</string>
     <string name="player_playlist">选集</string>
+    <string name="player_autoplay_title">连播策略</string>
+    <string name="player_autoplay_current_fmt">当前：%1$s</string>
+    <string name="player_autoplay_sequential">顺序连播（默认）</string>
+    <string name="player_autoplay_repeat_one">单集循环</string>
+    <string name="player_autoplay_loop_collection">整集循环</string>
+    <string name="player_autoplay_off">不连播（播完停）</string>
     <string name="player_screenshot">截图</string>
     <string name="player_toast_rewind">快退 10 秒</string>
     <string name="player_toast_forward">快进 10 秒</string>

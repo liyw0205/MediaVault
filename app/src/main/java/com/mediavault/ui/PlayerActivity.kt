@@ -117,8 +117,8 @@ class PlayerActivity : AppCompatActivity() {
                         pendingResumeMs = 0L
                         exo.seekTo(seek)
                     }
-                    if (state == Player.STATE_ENDED && playlistIndex < playlist.size - 1) {
-                        playIndex(playlistIndex + 1)
+                    if (state == Player.STATE_ENDED) {
+                        handleEndOfMedia()
                     }
                     updatePlayIcon()
                 }
@@ -243,14 +243,69 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun showPlaylist() {
         if (playlist.isEmpty()) return
-        val labels = playlist.mapIndexed { i, ep ->
+        val autoplayLabel = getString(
+            R.string.player_autoplay_current_fmt,
+            autoplayModeLabel(PlaybackPrefs.getAutoplayMode(this)),
+        )
+        val header = "⚙ ${getString(R.string.player_autoplay_title)} · $autoplayLabel"
+        val labels = (listOf(header) + playlist.mapIndexed { i, ep ->
             val mark = if (i == playlistIndex) "▶ " else ""
             "$mark${ep.title}"
-        }.toTypedArray()
+        }).toTypedArray()
         MvDialog.builder(this)
             .setTitle(R.string.player_playlist)
-            .setItems(labels) { _, which -> playIndex(which) }
+            .setItems(labels) { _, which ->
+                if (which == 0) showAutoplayMenu()
+                else playIndex(which - 1)
+            }
             .show()
+    }
+
+    private fun showAutoplayMenu() {
+        val modes = listOf(
+            PlaybackPrefs.AutoplayMode.SEQUENTIAL,
+            PlaybackPrefs.AutoplayMode.REPEAT_ONE,
+            PlaybackPrefs.AutoplayMode.LOOP_COLLECTION,
+            PlaybackPrefs.AutoplayMode.OFF,
+        )
+        val current = PlaybackPrefs.getAutoplayMode(this)
+        val labels = modes.map { m ->
+            val mark = if (m == current) "● " else "○ "
+            "$mark${autoplayModeLabel(m)}"
+        }.toTypedArray()
+        MvDialog.builder(this)
+            .setTitle(R.string.player_autoplay_title)
+            .setItems(labels) { _, which ->
+                PlaybackPrefs.setAutoplayMode(this, modes[which])
+            }
+            .show()
+    }
+
+    private fun autoplayModeLabel(mode: PlaybackPrefs.AutoplayMode): String = when (mode) {
+        PlaybackPrefs.AutoplayMode.SEQUENTIAL -> getString(R.string.player_autoplay_sequential)
+        PlaybackPrefs.AutoplayMode.REPEAT_ONE -> getString(R.string.player_autoplay_repeat_one)
+        PlaybackPrefs.AutoplayMode.LOOP_COLLECTION -> getString(R.string.player_autoplay_loop_collection)
+        PlaybackPrefs.AutoplayMode.OFF -> getString(R.string.player_autoplay_off)
+    }
+
+    private fun handleEndOfMedia() {
+        val mode = PlaybackPrefs.getAutoplayMode(this)
+        when (mode) {
+            PlaybackPrefs.AutoplayMode.OFF -> Unit
+            PlaybackPrefs.AutoplayMode.REPEAT_ONE -> {
+                val p = player ?: return
+                p.seekTo(0L)
+                p.playWhenReady = true
+            }
+            PlaybackPrefs.AutoplayMode.SEQUENTIAL -> {
+                if (playlistIndex < playlist.size - 1) playIndex(playlistIndex + 1)
+            }
+            PlaybackPrefs.AutoplayMode.LOOP_COLLECTION -> {
+                if (playlist.isEmpty()) return
+                val next = if (playlistIndex < playlist.size - 1) playlistIndex + 1 else 0
+                playIndex(next)
+            }
+        }
     }
 
     private fun showSubtitleMenu() {
