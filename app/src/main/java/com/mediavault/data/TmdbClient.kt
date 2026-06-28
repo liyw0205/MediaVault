@@ -31,24 +31,50 @@ object TmdbClient {
         val episodePlot: String = "",
         val episodeStillUrl: String? = null,
         val episodeAirDate: String = "",
+        val confidence: String = "",
     )
+
+    private data class CacheKey(
+        val apiKey: String,
+        val fileName: String,
+        val season: String,
+        val episode: String,
+        val year: String,
+    )
+
+    private val cache = java.util.concurrent.ConcurrentHashMap<CacheKey, Pair<Long, Match?>>()
+    private const val CACHE_TTL_MS = 30L * 60_000L
 
     fun lookup(apiKey: String, fileName: String, seasonHint: String, episodeHint: String, yearHint: String): Match? {
         val key = apiKey.trim()
         if (key.isBlank()) return null
+        val ck = CacheKey(key, fileName, seasonHint, episodeHint, yearHint)
+        val now = System.currentTimeMillis()
+        cache[ck]?.let { (ts, m) ->
+            if (now - ts < CACHE_TTL_MS) return m
+            cache.remove(ck)
+        }
         val clean = fileName.substringBeforeLast('.')
         val query = queryFromFilename(clean)
-        if (query.length < 2) return null
+        if (query.length < 2) {
+            cache[ck] = now to null
+            return null
+        }
         val isTv = seasonHint.isNotBlank() || episodeHint.isNotBlank() ||
             Regex("(?i)s\\d{1,2}e\\d{1,3}").containsMatchIn(clean)
-        return if (isTv) {
+        val match = if (isTv) {
             searchTv(key, query, seasonHint, episodeHint, yearHint)
                 ?: searchMovie(key, query, yearHint)
         } else {
             searchMovie(key, query, yearHint)
                 ?: searchTv(key, query, seasonHint, episodeHint, yearHint)
         }
+        cache[ck] = now to match
+        return match
     }
+
+    /** 清空内存中的 TMDB 响应缓存（重建扫描前可主动调一次） */
+    fun clearCache() = cache.clear()
 
     private fun queryFromFilename(clean: String): String {
         var q = clean
@@ -86,11 +112,12 @@ object TmdbClient {
             if (yearHint.isNotBlank()) append("&year=").append(yearHint)
         }
         val arr = getResults(url) ?: return null
-        val hit = pickBest(arr, query, yearHint, isTv = false) ?: return null
+        val picked = pickBestWithReason(arr, query, yearHint, isTv = false) ?: return null
+        val (hit, reason) = picked
         val id = hit.optInt("id", 0)
         if (id <= 0) return null
         val detail = getJson("$BASE/movie/$id?api_key=$apiKey&language=zh-CN") ?: return null
-        return movieToMatch(detail, hit)
+        return movieToMatch(detail, hit).copy(confidence = reason)
     }
 
     private fun searchTv(apiKey: String, query: String, season: String, episode: String, yearHint: String): Match? {
@@ -101,11 +128,12 @@ object TmdbClient {
             if (yearHint.isNotBlank()) append("&first_air_date_year=").append(yearHint)
         }
         val arr = getResults(url) ?: return null
-        val hit = pickBest(arr, query, yearHint, isTv = true) ?: return null
+        val picked = pickBestWithReason(arr, query, yearHint, isTv = true) ?: return null
+        val (hit, reason) = picked
         val id = hit.optInt("id", 0)
         if (id <= 0) return null
         val detail = getJson("$BASE/tv/$id?api_key=$apiKey&language=zh-CN") ?: return null
-        val base = tvToMatch(detail, hit, season, episode)
+        val base = tvToMatch(detail, hit, season, episode).copy(confidence = reason)
         if (season.isBlank() || episode.isBlank()) return base
         val sNum = season.toIntOrNull() ?: return base
         val eNum = episode.toIntOrNull() ?: return base
@@ -118,13 +146,14 @@ object TmdbClient {
         )
     }
 
-    /** 在搜索结果中按年份接近 → 标题完全匹配 → popularity 排序选最优。 */
-    private fun pickBest(arr: JSONArray, query: String, yearHint: String, isTv: Boolean): JSONObject? {
+    /** 在搜索结果中按年份接近 → 标题完全匹配 → popularity 排序选最优，并返回命中原因。 */
+    private fun pickBestWithReason(arr: JSONArray, query: String, yearHint: String, isTv: Boolean): Pair<JSONObject, String>? {
         if (arr.length() == 0) return null
         val qNorm = normalizeForCompare(query)
         val yearTarget = yearHint.toIntOrNull()
         var best: JSONObject? = null
         var bestScore = Double.NEGATIVE_INFINITY
+        var bestReason = "popularity"
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             val title = if (isTv) o.optString("name", "") else o.optString("title", "")
@@ -133,8 +162,10 @@ object TmdbClient {
             val popularity = o.optDouble("popularity", 0.0)
             val voteCount = o.optInt("vote_count", 0)
             val yr = date.take(4).toIntOrNull()
+            val titleExact = qNorm.isNotEmpty() && (normalizeForCompare(title) == qNorm || normalizeForCompare(origTitle) == qNorm)
+            val yearMatch = yearTarget != null && yr != null && yearTarget == yr
             var score = 0.0
-            score += if (qNorm.isNotEmpty() && (normalizeForCompare(title) == qNorm || normalizeForCompare(origTitle) == qNorm)) 50.0 else 0.0
+            score += if (titleExact) 50.0 else 0.0
             score += if (yearTarget != null && yr != null) (10.0 - kotlin.math.abs(yearTarget - yr).coerceAtMost(10)) else 0.0
             score += kotlin.math.ln(1.0 + popularity)
             score += kotlin.math.ln(1.0 + voteCount) * 0.5
@@ -142,9 +173,16 @@ object TmdbClient {
             if (score > bestScore) {
                 bestScore = score
                 best = o
+                bestReason = when {
+                    titleExact && yearMatch -> "title_exact+year_match"
+                    titleExact -> "title_exact"
+                    yearMatch -> "year_match"
+                    else -> "popularity"
+                }
             }
         }
-        return best ?: arr.optJSONObject(0)
+        val pick = best ?: arr.optJSONObject(0) ?: return null
+        return pick to bestReason
     }
 
     private fun normalizeForCompare(s: String): String =

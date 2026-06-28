@@ -25,6 +25,9 @@ class ScrapeManager(
     val state: StateFlow<ScrapeUiState> = _state.asStateFlow()
     private var lastJobPersistedBatch = 0
     private var lastUiEmitAtMs = 0L
+    @Volatile var tmdbHits: Int = 0
+    @Volatile var tmdbMisses: Int = 0
+    @Volatile var coverAdded: Int = 0
 
     fun restoreJobHint() {
         val hint = readJob()
@@ -72,6 +75,9 @@ class ScrapeManager(
         )
         lastJobPersistedBatch = 0
         lastUiEmitAtMs = 0L
+        tmdbHits = 0
+        tmdbMisses = 0
+        coverAdded = 0
         val intent = Intent(app, ScrapeForegroundService::class.java).apply {
             putExtra(ScrapeForegroundService.EXTRA_REBUILD, rebuild)
             if (!localRootUris.isNullOrEmpty()) {
@@ -124,10 +130,25 @@ class ScrapeManager(
             put("interrupted", false)
             put("finishedAt", now())
             put("scannedThisRun", scannedThisRun)
+            put("tmdbHits", tmdbHits)
+            put("tmdbMisses", tmdbMisses)
+            put("coverAdded", coverAdded)
         })
+        val reportSuffix = buildString {
+            if (tmdbHits + tmdbMisses > 0) {
+                append("，TMDB 命中 ")
+                append(tmdbHits)
+                append("、未命中 ")
+                append(tmdbMisses)
+            }
+            if (coverAdded > 0) {
+                append("，新封面 ")
+                append(coverAdded)
+            }
+        }
         _state.value = ScrapeUiState(
             phase = ScrapePhase.DONE,
-            message = "完成：本轮 $scannedThisRun 条，库中共 $totalInLibrary 条",
+            message = "完成：本轮 $scannedThisRun 条，库中共 $totalInLibrary 条$reportSuffix",
             totalInLibrary = totalInLibrary,
             batchCount = scannedThisRun,
             lastBatchAt = now(),

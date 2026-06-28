@@ -215,6 +215,9 @@
     <string name="settings_remote_cache_per_file_fmt">单文件缓存上限 %1$s</string>
     <string name="data_remote_cache_limit_fmt">上限 %1$s</string>
     <string name="remote_err_unknown">远程操作失败</string>
+    <string name="remote_err_auth">认证失败：用户名/密码错误或权限不足</string>
+    <string name="remote_err_not_found">远程路径不存在或已被移动</string>
+    <string name="remote_err_range_unsupported">远程不支持断点续传/Range（拖动到未缓存位置会失败）</string>
     <string name="remote_err_host">无法解析主机地址，请检查地址与网络</string>
     <string name="remote_err_connect">无法连接服务器，请检查地址、端口与网络</string>
     <string name="remote_err_timeout">连接超时，请稍后重试</string>

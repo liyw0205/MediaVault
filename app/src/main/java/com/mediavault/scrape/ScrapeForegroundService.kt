@@ -78,6 +78,7 @@ class ScrapeForegroundService : Service() {
             store.clearAllScrapeRecords()
             repository.stripContentItems()
             repository.stripRemoteItems()
+            com.mediavault.data.TmdbClient.clearCache()
         }
 
         val scrapeSettings = ScrapeConfig.readSettings(this)

@@ -44,6 +44,17 @@ object DataStorageDialog {
                 append(d.remoteStreamFiles)
                 append(" 个文件 · ")
                 append(getString(R.string.data_remote_cache_limit_fmt, LibraryUi.formatBytes(RemoteStreamCache.configuredMaxTotalBytes(activity))))
+                val br = RemoteStreamCache.cacheBreakdown(activity)
+                append("\n  · prefix ")
+                append(br.prefixFiles)
+                append(" 个 / ")
+                append(LibraryUi.formatBytes(br.prefixBytes))
+                append("，range ")
+                append(br.rangeFiles)
+                append(" 个 / ")
+                append(LibraryUi.formatBytes(br.rangeBytes))
+                append("\n  · 单文件上限 ")
+                append(LibraryUi.formatBytes(br.maxPerFileBytes))
             }
         }
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_data, null)

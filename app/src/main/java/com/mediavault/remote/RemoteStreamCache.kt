@@ -359,4 +359,44 @@ object RemoteStreamCache {
         }
         return n to bytes
     }
+
+    data class CacheBreakdown(
+        val prefixFiles: Int,
+        val prefixBytes: Long,
+        val rangeFiles: Int,
+        val rangeBytes: Long,
+        val maxPerFileBytes: Long,
+        val maxTotalBytes: Long,
+    )
+
+    fun cacheBreakdown(context: Context): CacheBreakdown {
+        val dir = cacheDir(context)
+        var prefixCount = 0
+        var prefixBytes = 0L
+        var rangeCount = 0
+        var rangeBytes = 0L
+        if (dir.isDirectory) {
+            dir.listFiles()?.forEach { f ->
+                if (!f.isFile || f.name.endsWith(".part")) return@forEach
+                when {
+                    f.name.startsWith("prefix_") -> {
+                        prefixCount++
+                        prefixBytes += f.length()
+                    }
+                    f.name.startsWith("range_") -> {
+                        rangeCount++
+                        rangeBytes += f.length()
+                    }
+                }
+            }
+        }
+        return CacheBreakdown(
+            prefixFiles = prefixCount,
+            prefixBytes = prefixBytes,
+            rangeFiles = rangeCount,
+            rangeBytes = rangeBytes,
+            maxPerFileBytes = maxPerFile(context),
+            maxTotalBytes = maxTotal(context),
+        )
+    }
 }

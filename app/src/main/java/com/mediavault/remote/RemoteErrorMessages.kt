@@ -66,6 +66,16 @@ object RemoteErrorMessages {
                 context.getString(R.string.remote_err_bad_uri)
             msg.contains("Not opened") ->
                 context.getString(R.string.remote_err_not_opened)
+            msg.contains("401") || msg.contains("403") ||
+                msg.contains("Unauthorized", ignoreCase = true) || msg.contains("Forbidden", ignoreCase = true) ->
+                context.getString(R.string.remote_err_auth)
+            msg.contains("404") || msg.contains("Not Found", ignoreCase = true) ||
+                (msg.startsWith("FTP") && msg.contains("550")) ||
+                msg.contains("No such file", ignoreCase = true) ->
+                context.getString(R.string.remote_err_not_found)
+            msg.contains("416") || msg.contains("Range Not Satisfiable", ignoreCase = true) ||
+                msg.contains("Requested Range", ignoreCase = true) ->
+                context.getString(R.string.remote_err_range_unsupported)
             msg.startsWith("WebDAV GET") || msg.startsWith("WebDAV ") ->
                 context.getString(R.string.remote_err_webdav_fmt, msg.removePrefix("WebDAV ").take(80))
             msg.startsWith("FTP 登录失败") || msg.startsWith("FTP 无法打开") ||

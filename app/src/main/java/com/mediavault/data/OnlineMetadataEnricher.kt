@@ -26,7 +26,13 @@ object OnlineMetadataEnricher {
         val year = draft.optString("year", "").trim()
         val match = runCatching {
             TmdbClient.lookup(key, fileName, season, episode, year)
-        }.getOrNull() ?: return draft
+        }.getOrNull()
+        val mgr = (context.applicationContext as? com.mediavault.MediaVaultApp)?.scrapeManager
+        if (match == null) {
+            mgr?.tmdbMisses = (mgr?.tmdbMisses ?: 0) + 1
+            return draft
+        }
+        mgr?.tmdbHits = (mgr?.tmdbHits ?: 0) + 1
 
         val o = JSONObject(draft.toString())
 
@@ -80,17 +86,24 @@ object OnlineMetadataEnricher {
         o.put("tmdb_id", match.tmdbId)
         o.put("tmdb_type", match.mediaType)
         o.put("metadata_source", "tmdb")
+        if (match.confidence.isNotBlank()) o.put("tmdb_match_confidence", match.confidence)
+        o.put("tmdb_match_title", match.title)
+        if (match.year.isNotBlank()) o.put("tmdb_match_year", match.year)
 
         if (existingCoverLocal.isNullOrBlank()) {
             val artUrl = match.episodeStillUrl?.takeIf { it.isNotBlank() } ?: match.posterUrl
             if (!artUrl.isNullOrBlank()) {
                 val dest = File(store.coversDir, "tmdb_${sha1(path)}.jpg")
-                if (!dest.isFile || dest.length() < 512) {
+                val wasMissing = !dest.isFile || dest.length() < 512
+                if (wasMissing) {
                     TmdbClient.downloadPoster(artUrl, dest)
                 }
                 if (dest.isFile && dest.length() >= 512) {
                     o.put("cover_local", dest.absolutePath)
                     o.put("cover_source", "tmdb")
+                    if (wasMissing) {
+                        mgr?.coverAdded = (mgr?.coverAdded ?: 0) + 1
+                    }
                 }
             }
         }
