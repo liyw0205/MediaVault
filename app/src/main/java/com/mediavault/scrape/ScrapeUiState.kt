@@ -15,4 +15,6 @@ data class ScrapeUiState(
     val currentFileLabel: String = "",
     val lastBatchAt: String = "",
     val canResume: Boolean = false,
+    /** 本轮刮削完成时库内 TMDB「仅热度」匹配条数（T1-c） */
+    val weakTmdbCount: Int = 0,
 )

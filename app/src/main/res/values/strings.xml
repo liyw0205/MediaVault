@@ -122,6 +122,11 @@
     <string name="tmdb_rematch_kind_tv">剧集</string>
     <string name="tmdb_rematch_pick_fmt">%1$s · %2$s (%3$s)</string>
     <string name="tmdb_rematch_applying">正在写入…</string>
+    <string name="weak_tmdb_list_title">TMDB 弱匹配（%1$d 条）</string>
+    <string name="weak_tmdb_list_btn_fmt">查看 TMDB 弱匹配（%1$d）</string>
+    <string name="weak_tmdb_list_btn">查看 TMDB 弱匹配</string>
+    <string name="weak_tmdb_list_empty">当前没有 TMDB 弱匹配条目</string>
+    <string name="scrape_done_weak_hint">其中库内 %1$d 条为 TMDB 仅按热度匹配，建议点下方按钮逐条纠正。</string>
     <string name="scrape_roots">已配置的媒体目录</string>
 
     <string name="scrape_roots_empty">尚未配置媒体目录</string>

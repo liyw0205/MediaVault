@@ -18,6 +18,7 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
+import com.mediavault.data.TmdbMatchHeuristics
 import com.mediavault.playback.PlaylistBuilder
 import kotlinx.coroutines.launch
 
@@ -221,7 +222,7 @@ class VideoDetailActivity : AppCompatActivity() {
                 getString(R.string.tmdb_match_year_fmt, tmdbTitle.ifBlank { "?" }, tmdbYear)
             } else tmdbTitle
             val base = getString(R.string.tmdb_match_summary_fmt, titleYear)
-            val weak = confidence == "popularity"
+            val weak = TmdbMatchHeuristics.isWeakTmdbMatch(item)
             summary.text = if (weak) base + getString(R.string.tmdb_match_weak_suffix) else base
             summary.alpha = if (weak) 0.7f else 1.0f
         }

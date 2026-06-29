@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.mediavault.R
+import com.mediavault.data.TmdbMatchHeuristics
 import com.mediavault.remote.RemotePath
 import com.mediavault.scrape.ScrapePhase
 import com.mediavault.scrape.ScrapeProgressFormat
@@ -60,6 +61,15 @@ class ScrapeFragment : Fragment() {
         view.findViewById<MaterialButton>(R.id.expandScrapeOverlayBtn).setOnClickListener {
             setOverlayExpanded(true)
             applyRunningOverlayLayout(view, true)
+        }
+        view.findViewById<MaterialButton>(R.id.weakTmdbListBtn).setOnClickListener {
+            val act = activity as? MainActivity ?: return@setOnClickListener
+            val weak = TmdbMatchHeuristics.weakTmdbItems(act.repository.library.value.items)
+            if (weak.isEmpty()) {
+                Toast.makeText(requireContext(), R.string.weak_tmdb_list_empty, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            WeakTmdbListDialog.show(act, weak)
         }
         refreshRoots()
         bindScrapeState(view)
@@ -192,9 +202,20 @@ class ScrapeFragment : Fragment() {
         val collapsedCount = view.findViewById<TextView>(R.id.scrapeProgressCollapsedCount)
         val bar = view.findViewById<LinearProgressIndicator>(R.id.scanProgress)
         val idleHint = view.findViewById<TextView>(R.id.scanIdleHint)
+        val weakBtn = view.findViewById<MaterialButton>(R.id.weakTmdbListBtn)
         val inc = view.findViewById<MaterialButton>(R.id.scanIncrementalBtn)
         val reb = view.findViewById<MaterialButton>(R.id.scanRebuildBtn)
         val ctx = requireContext()
+        val act = activity as? MainActivity
+        val weakCount = act?.let {
+            TmdbMatchHeuristics.weakTmdbItems(it.repository.library.value.items).size
+        } ?: 0
+        if (weakCount > 0) {
+            weakBtn.visibility = View.VISIBLE
+            weakBtn.text = getString(R.string.weak_tmdb_list_btn_fmt, weakCount)
+        } else {
+            weakBtn.visibility = View.GONE
+        }
         val countLine = ScrapeProgressFormat.countLine(ctx, s.batchCount, s.totalInLibrary)
         val prep = ScrapeProgressFormat.isPrepStatus(s.message)
         when (s.phase) {
@@ -224,7 +245,10 @@ class ScrapeFragment : Fragment() {
                 overlay.visibility = View.GONE
                 inc.isEnabled = true
                 reb.isEnabled = true
-                idleHint.text = s.message
+                val extra = if (s.weakTmdbCount > 0) {
+                    "\n" + getString(R.string.scrape_done_weak_hint, s.weakTmdbCount)
+                } else ""
+                idleHint.text = s.message + extra
             }
             ScrapePhase.ERROR, ScrapePhase.CANCELLED -> {
                 view.findViewById<View>(R.id.scrapeProgressCollapsed).visibility = View.GONE

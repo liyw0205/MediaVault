@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.TmdbMatchHeuristics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -146,12 +147,14 @@ class ScrapeManager(
                 append(coverAdded)
             }
         }
+        val weakCount = TmdbMatchHeuristics.weakTmdbItems(repository.library.value.items).size
         _state.value = ScrapeUiState(
             phase = ScrapePhase.DONE,
             message = "完成：本轮 $scannedThisRun 条，库中共 $totalInLibrary 条$reportSuffix",
             totalInLibrary = totalInLibrary,
             batchCount = scannedThisRun,
             lastBatchAt = now(),
+            weakTmdbCount = weakCount,
         )
     }
 
