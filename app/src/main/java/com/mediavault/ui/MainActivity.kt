@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_SEARCH_TAG = "search_tag"
+        /** 从设置 Tab 跳转：打开刮削 Tab 并展开右侧刮削侧栏 */
+        const val EXTRA_OPEN_SCRAPE_DRAWER = "open_scrape_drawer"
         private const val TAG_HOME = "tab_home"
         private const val TAG_SEARCH = "tab_search"
         private const val TAG_COLLECTIONS = "tab_collections"
@@ -100,12 +102,21 @@ class MainActivity : AppCompatActivity() {
 
         if (savedInstanceState == null) {
             val tag = intent.getStringExtra(EXTRA_SEARCH_TAG)
-            if (!tag.isNullOrBlank()) {
-                bottom.selectedItemId = R.id.nav_search
-                showTab(TAG_SEARCH, getString(R.string.tab_search))
-            } else {
-                bottom.selectedItemId = R.id.nav_home
-                showTab(TAG_HOME, getString(R.string.tab_home))
+            val openScrapeDrawer = intent.getBooleanExtra(EXTRA_OPEN_SCRAPE_DRAWER, false)
+            when {
+                openScrapeDrawer -> {
+                    bottom.selectedItemId = R.id.nav_scrape
+                    showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+                    drawerContent.post { openScrapeDrawer() }
+                }
+                !tag.isNullOrBlank() -> {
+                    bottom.selectedItemId = R.id.nav_search
+                    showTab(TAG_SEARCH, getString(R.string.tab_search))
+                }
+                else -> {
+                    bottom.selectedItemId = R.id.nav_home
+                    showTab(TAG_HOME, getString(R.string.tab_home))
+                }
             }
         } else {
             when (bottom.selectedItemId) {
@@ -197,6 +208,13 @@ class MainActivity : AppCompatActivity() {
         ScrapeDrawerBinder.reloadOptions(this, drawerContent)
         ScrapeDrawerBinder.reloadDirectories(this, drawerContent)
         drawerLayout.openDrawer(GravityCompat.END)
+    }
+
+    /** 设置 Tab：刮削选项、管理目录、TMDB/字幕等均在刮削侧栏 */
+    fun openScrapeSettingsFromSettingsTab() {
+        findViewById<BottomNavigationView>(R.id.bottomNav).selectedItemId = R.id.nav_scrape
+        showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+        findViewById<View>(R.id.scrapeDrawerContent).post { openScrapeDrawer() }
     }
 
     fun closeScrapeDrawer(animate: Boolean = false) {

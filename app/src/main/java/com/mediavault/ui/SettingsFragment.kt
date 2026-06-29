@@ -33,6 +33,10 @@ class SettingsFragment : Fragment() {
             }
         }
 
+        view.findViewById<View>(R.id.settingsOpenScrapeDrawer).setOnClickListener {
+            (act as? MainActivity)?.openScrapeSettingsFromSettingsTab()
+        }
+
         val hint = view.findViewById<TextView>(R.id.settingsDataHint)
         hint.setText(R.string.settings_data_hint)
 

@@ -22,8 +22,8 @@ trap restore_props EXIT
 if [[ -f "$ZIP" ]]; then
   PROPS_BAK="$(mktemp)"
   cp "$PROPS" "$PROPS_BAK"
-  FILE_URL="distributionUrl=file\\:///$(echo "$ZIP" | sed 's| |%20|g')"
-  sed -i "s|^distributionUrl=.*|$FILE_URL|" "$PROPS"
+  FILE_URI="$(python3 -c "from pathlib import Path; print(Path('$ZIP').resolve().as_uri())")"
+  sed -i "s|^distributionUrl=.*|distributionUrl=${FILE_URI//\//\\/}|" "$PROPS"
   sed -i 's/^validateDistributionUrl=.*/validateDistributionUrl=false/' "$PROPS"
 fi
 
