@@ -40,7 +40,9 @@ object SidecarScanner {
         val xml = if (includeNfo) pickNfoXml(context, byName, parent, dir.name ?: "", videoName) else null
         val coverUri = if (includeCover) pickCoverUri(byName, videoName) else null
         val coverLocal = coverUri?.let { cacheCoverFromUri(context, it, videoPath, coversDir) }
-        val subs = if (includeSubtitles) pickSubtitles(byName, videoName) else emptyList()
+        val subs = if (includeSubtitles) {
+            pickSubtitles(byName, videoName, context)
+        } else emptyList()
         val siblings = children.mapNotNull { it.name }.filter { name ->
             val ext = name.substringAfterLast('.', "").lowercase()
             ext !in VIDEO_EXT
@@ -132,7 +134,7 @@ object SidecarScanner {
         return null
     }
 
-    private fun pickSubtitles(byName: Map<String, IndexedChild>, videoName: String): List<String> {
+    private fun pickSubtitles(byName: Map<String, IndexedChild>, videoName: String, context: Context): List<String> {
         val base = videoName.substringBeforeLast('.')
         val out = mutableListOf<String>()
         for ((name, ic) in byName) {
@@ -141,7 +143,7 @@ object SidecarScanner {
                 out.add(ic.file.uri.toString())
             }
         }
-        return out.sorted()
+        return SubtitlePrefs.sortSubtitlePaths(context, out)
     }
 
     fun cacheCoverFromUri(context: Context, coverUri: Uri, videoPath: String, coversDir: File): String? {

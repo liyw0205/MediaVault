@@ -227,6 +227,11 @@
     <string name="settings_tmdb_cache_hint_fmt">TMDB 响应磁盘缓存：%1$d 条（7 天有效，重复刮削可省流量）</string>
     <string name="settings_clear_tmdb_cache">清空 TMDB 缓存</string>
     <string name="settings_tmdb_cache_cleared">已清空 TMDB 内存与磁盘缓存</string>
+    <string name="settings_subtitle_lang_title">字幕语言偏好（播放自动选轨与侧车排序）</string>
+    <string name="settings_subtitle_lang_hans">优先简体中文</string>
+    <string name="settings_subtitle_lang_hant">优先繁体中文</string>
+    <string name="settings_subtitle_lang_en">优先英语</string>
+    <string name="settings_subtitle_lang_neutral">不偏向（按文件名自然顺序）</string>
     <string name="settings_scrape_local_sources">本地来源（可与在线叠加）</string>
 
     <string name="settings_scrape_cover_files">从旁挂图片识别封面</string>

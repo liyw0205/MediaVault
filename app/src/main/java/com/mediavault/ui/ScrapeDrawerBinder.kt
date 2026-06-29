@@ -19,6 +19,7 @@ import com.mediavault.data.ScrapeConfig
 import com.mediavault.data.ScrapeSettings
 import com.mediavault.data.TmdbClient
 import com.mediavault.data.TmdbDiskCache
+import com.mediavault.data.SubtitlePrefs
 
 object ScrapeDrawerBinder {
 
@@ -55,6 +56,16 @@ object ScrapeDrawerBinder {
         return activity.getString(resId, text)
     }
 
+    private fun bindSubtitleLangRadio(group: RadioGroup, lang: SubtitlePrefs.PrimaryLang) {
+        val id = when (lang) {
+            SubtitlePrefs.PrimaryLang.HANT_FIRST -> R.id.drawerSubtitleLangHant
+            SubtitlePrefs.PrimaryLang.EN_FIRST -> R.id.drawerSubtitleLangEn
+            SubtitlePrefs.PrimaryLang.NEUTRAL -> R.id.drawerSubtitleLangNeutral
+            SubtitlePrefs.PrimaryLang.HANS_FIRST -> R.id.drawerSubtitleLangHans
+        }
+        group.check(id)
+    }
+
     private var directoriesPanel: ScrapeDirectoriesPanelController? = null
     private var onRootsCallback: (() -> Unit)? = null
 
@@ -86,6 +97,7 @@ object ScrapeDrawerBinder {
         val saveBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerSaveScrapeSettingsBtn)
         val tmdbCacheHint = panelRoot.findViewById<TextView>(R.id.drawerTmdbCacheHint)
         val clearTmdbCacheBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerClearTmdbCacheBtn)
+        val subtitleLangGroup = panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
         val dirsSection = panelRoot.findViewById<View>(R.id.drawerDirsSection)
 
@@ -133,6 +145,17 @@ object ScrapeDrawerBinder {
             cachePerSlider.value = mbToPerFileStep(perMb)
             updateCacheLabels(cacheTotalSlider.value.toInt(), cachePerSlider.value.toInt())
             refreshTmdbCacheUi(activity, tmdbCacheHint, clearTmdbCacheBtn, cfg.isOnlineMode())
+            bindSubtitleLangRadio(subtitleLangGroup, SubtitlePrefs.getPrimary(activity))
+        }
+
+        subtitleLangGroup.setOnCheckedChangeListener { _, checkedId ->
+            val lang = when (checkedId) {
+                R.id.drawerSubtitleLangHant -> SubtitlePrefs.PrimaryLang.HANT_FIRST
+                R.id.drawerSubtitleLangEn -> SubtitlePrefs.PrimaryLang.EN_FIRST
+                R.id.drawerSubtitleLangNeutral -> SubtitlePrefs.PrimaryLang.NEUTRAL
+                else -> SubtitlePrefs.PrimaryLang.HANS_FIRST
+            }
+            SubtitlePrefs.setPrimary(activity, lang)
         }
 
         loadUi(ScrapeConfig.readSettings(activity))
@@ -242,6 +265,9 @@ object ScrapeDrawerBinder {
         } else {
             tmdbCacheHint.visibility = View.GONE
             clearTmdbCacheBtn.visibility = View.GONE
+        }
+        panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)?.let {
+            bindSubtitleLangRadio(it, SubtitlePrefs.getPrimary(activity))
         }
     }
 }

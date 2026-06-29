@@ -32,6 +32,8 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.PlaybackProgressStore
+import com.mediavault.data.SubtitlePrefs
+import com.mediavault.data.SubtitleTrackRanker
 import com.mediavault.playback.PlaylistBuilder
 import com.mediavault.remote.RemoteDataSourceFactory
 import com.mediavault.remote.RemoteErrorMessages
@@ -50,6 +52,7 @@ class PlayerActivity : AppCompatActivity() {
     private sealed class SubSelection {
         object Auto : SubSelection()
         object Off : SubSelection()
+        data class ManualTier(val tier: SubtitleTrackRanker.Tier) : SubSelection()
         data class External(val index: Int) : SubSelection()
         data class Embedded(val groupIndex: Int, val trackIndex: Int) : SubSelection()
     }
@@ -101,6 +104,8 @@ class PlayerActivity : AppCompatActivity() {
             if (arr == null) emptyList()
             else (0 until arr.length()).map { arr.optString(it) }
         }
+        externalSubtitles = SubtitlePrefs.sortSubtitlePaths(this, externalSubtitles)
+        subSelection = subSelectionFromPrefs()
 
         val playerView = findViewById<PlayerView>(R.id.playerView)
         playerView.useController = false
@@ -133,7 +138,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
 
                 override fun onTracksChanged(tracks: Tracks) {
-                    applyAutoSubtitleIfNeeded(exo, tracks)
+                    applySubtitleSelection(exo, tracks)
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -247,7 +252,8 @@ class PlayerActivity : AppCompatActivity() {
         if (index !in playlist.indices) return
         playlistIndex = index
         val ep = playlist[index]
-        externalSubtitles = ep.subtitles
+        externalSubtitles = SubtitlePrefs.sortSubtitlePaths(this, ep.subtitles)
+        subSelection = subSelectionFromPrefs()
         historyStore.add(ep.path)
         pendingResumeMs = progressStore.getPositionMs(ep.path)
         player?.let { loadEpisode(it, ep.uri, ep.title, ep.path) }
@@ -337,18 +343,20 @@ class PlayerActivity : AppCompatActivity() {
         val autoMark = if (subSelection is SubSelection.Auto) "● " else "○ "
         options.add("$autoMark${getString(R.string.subtitle_auto)}")
         actions.add {
+            SubtitlePrefs.setPersistedAuto(this)
             subSelection = SubSelection.Auto
             autoResolved = false
             p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                 .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                 .build()
-            applyAutoSubtitleIfNeeded(p, p.currentTracks)
+            applySubtitleSelection(p, p.currentTracks)
         }
 
         val offMark = if (subSelection is SubSelection.Off) "● " else "○ "
         options.add("$offMark${getString(R.string.subtitle_off)}")
         actions.add {
+            SubtitlePrefs.setPersistedOff(this)
             subSelection = SubSelection.Off
             disableTextTracks(p)
         }
@@ -363,7 +371,13 @@ class PlayerActivity : AppCompatActivity() {
                 options.add("$mark${getString(R.string.subtitle_embedded_fmt, label)}")
                 val tg: TrackGroup = group.mediaTrackGroup
                 actions.add {
-                    subSelection = SubSelection.Embedded(gi, i)
+                    val fmt = group.getTrackFormat(i)
+                    val tier = SubtitleTrackRanker.tierFromTokenString(
+                        "${fmt.language.orEmpty()} ${fmt.label.orEmpty()} ${fmt.id.orEmpty()}",
+                    )
+                    SubtitlePrefs.setPersistedManualTier(this, tier)
+                    subSelection = SubSelection.ManualTier(tier)
+                    autoResolved = true
                     p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                         .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                         .setOverrideForType(TrackSelectionOverride(tg, i))
@@ -379,7 +393,11 @@ class PlayerActivity : AppCompatActivity() {
             options.add("$mark${getString(R.string.subtitle_external_fmt, File(externalSubtitles[extIdx]).name)}")
             val tg: TrackGroup = group.mediaTrackGroup
             actions.add {
-                subSelection = SubSelection.External(extIdx)
+                val path = externalSubtitles[extIdx]
+                val tier = SubtitleTrackRanker.tierFromTokenString(path)
+                SubtitlePrefs.setPersistedManualTier(this, tier)
+                subSelection = SubSelection.ManualTier(tier)
+                autoResolved = true
                 p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                     .setOverrideForType(TrackSelectionOverride(tg, 0))
@@ -408,44 +426,86 @@ class PlayerActivity : AppCompatActivity() {
         return embedded to external
     }
 
-    private fun applyAutoSubtitleIfNeeded(exo: ExoPlayer, tracks: Tracks) {
-        if (subSelection !is SubSelection.Auto) return
-        if (autoResolved) return
-        val (embedded, external) = classifyTextGroups(tracks)
-        if (embedded.isEmpty() && external.isEmpty()) return
-        autoResolved = true
-        val pick = pickPreferredTextTrack(embedded) ?: pickPreferredTextTrack(external) ?: return
-        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-            .setOverrideForType(TrackSelectionOverride(pick.first, pick.second))
-            .build()
+    private fun subSelectionFromPrefs(): SubSelection = when (SubtitlePrefs.getPersistedMode(this)) {
+        SubtitlePrefs.PersistedMode.OFF -> SubSelection.Off
+        SubtitlePrefs.PersistedMode.MANUAL_TIER -> SubSelection.ManualTier(
+            SubtitleTrackRanker.Tier.fromOrdinal(SubtitlePrefs.getManualTier(this)),
+        )
+        SubtitlePrefs.PersistedMode.AUTO -> SubSelection.Auto
     }
 
-    /** 在一组文本轨里挑：简中 > 中文 > 第一条可支持轨。返回 (TrackGroup, trackIndex) */
-    private fun pickPreferredTextTrack(groups: List<Pair<Int, Tracks.Group>>): Pair<TrackGroup, Int>? {
+    private fun applySubtitleSelection(exo: ExoPlayer, tracks: Tracks) {
+        when (val sel = subSelection) {
+            is SubSelection.Off -> disableTextTracks(exo)
+            is SubSelection.Embedded -> {
+                val (embedded, _) = classifyTextGroups(tracks)
+                val g = embedded.firstOrNull { it.first == sel.groupIndex }?.second ?: return
+                if (sel.trackIndex !in 0 until g.length || !g.isTrackSupported(sel.trackIndex)) return
+                exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, sel.trackIndex))
+                    .build()
+            }
+            is SubSelection.External -> {
+                val (_, external) = classifyTextGroups(tracks)
+                val pair = external.getOrNull(sel.index) ?: return
+                exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .setOverrideForType(TrackSelectionOverride(pair.second.mediaTrackGroup, 0))
+                    .build()
+            }
+            is SubSelection.ManualTier, is SubSelection.Auto -> {
+                if (sel is SubSelection.Auto && autoResolved) return
+                val (embedded, external) = classifyTextGroups(tracks)
+                if (embedded.isEmpty() && external.isEmpty()) return
+                val pick = when (sel) {
+                    is SubSelection.ManualTier -> {
+                        pickPreferredTextTrack(embedded, sel.tier)
+                            ?: pickPreferredTextTrack(external, sel.tier)
+                    }
+                    else -> {
+                        pickPreferredTextTrack(embedded, null)
+                            ?: pickPreferredTextTrack(external, null)
+                    }
+                } ?: return
+                if (sel is SubSelection.Auto) autoResolved = true
+                exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .setOverrideForType(TrackSelectionOverride(pick.first, pick.second))
+                    .build()
+            }
+        }
+    }
+
+    /** 内嵌优先，再外挂；按 [SubtitlePrefs] 语言偏好或指定 [tier] 选轨。 */
+    private fun pickPreferredTextTrack(
+        groups: List<Pair<Int, Tracks.Group>>,
+        tier: SubtitleTrackRanker.Tier?,
+    ): Pair<TrackGroup, Int>? {
         if (groups.isEmpty()) return null
-        val candidates = mutableListOf<Triple<TrackGroup, Int, String>>()
+        val primary = SubtitlePrefs.getPrimary(this)
+        val candidates = mutableListOf<Triple<TrackGroup, Int, SubtitleTrackRanker.Tier>>()
         for ((_, g) in groups) {
             val tg = g.mediaTrackGroup
             for (i in 0 until g.length) {
                 if (!g.isTrackSupported(i)) continue
                 val fmt = g.getTrackFormat(i)
-                val lang = (fmt.language ?: "").lowercase()
-                val labelTokens = listOf(fmt.label ?: "", fmt.id ?: "").joinToString(" ").lowercase()
-                val token = "$lang $labelTokens"
-                candidates.add(Triple(tg, i, token))
+                val token = "${fmt.language.orEmpty()} ${fmt.label.orEmpty()} ${fmt.id.orEmpty()}"
+                candidates.add(Triple(tg, i, SubtitleTrackRanker.tierFromTokenString(token)))
             }
         }
         if (candidates.isEmpty()) return null
-        fun rank(token: String): Int = when {
-            token.contains("zh-hans") || token.contains("zh-cn") || token.contains("zhs") ||
-                token.contains("简体") || token.contains("简中") || token.contains("chs") -> 0
-            token.contains("zh-hant") || token.contains("zh-tw") || token.contains("zh-hk") || token.contains("zht") ||
-                token.contains("繁体") || token.contains("繁中") || token.contains("cht") -> 1
-            token.startsWith("zh") || token.contains("chinese") || token.contains("中文") -> 2
-            else -> 3
-        }
-        val best = candidates.minByOrNull { rank(it.third) } ?: return null
+        val pool = if (tier != null) {
+            candidates.filter { it.third == tier }.ifEmpty { candidates }
+        } else candidates
+        val best = pool.minByOrNull { (tg, idx, t) ->
+            SubtitleTrackRanker.rankTrackTokens(
+                tg.getFormat(idx).language,
+                tg.getFormat(idx).label,
+                tg.getFormat(idx).id,
+                primary,
+            )
+        } ?: return null
         return best.first to best.second
     }
 

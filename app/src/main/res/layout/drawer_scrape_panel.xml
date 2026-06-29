@@ -135,6 +135,44 @@
             android:text="@string/settings_scrape_subtitles" />
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_subtitle_lang_title"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <RadioGroup
+            android:id="@+id/drawerSubtitleLangGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangHans"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_hans" />
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangHant"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_hant" />
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangEn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_en" />
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangNeutral"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_neutral" />
+        </RadioGroup>
+
+        <TextView
             android:id="@+id/drawerScrapeThreadsLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
