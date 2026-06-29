@@ -142,8 +142,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun notifyFusionUiChanged() {
+        reloadTabFragmentsForFusionLayout()
         homeFragment()?.onFusionUiChanged()
         (supportFragmentManager.findFragmentByTag(TAG_SEARCH) as? SearchFragment)?.onFusionUiChanged()
+        (supportFragmentManager.findFragmentByTag(TAG_COLLECTIONS) as? CollectionsFragment)?.onFusionUiChanged()
+        (supportFragmentManager.findFragmentByTag(TAG_SCRAPE) as? ScrapeFragment)?.onFusionUiChanged()
+        FusionFocusHelper.applyFusionToolbarFocus(findViewById(R.id.toolbar))
+    }
+
+    /** 横竖屏融合 layout 资源不同，需 detach/attach 重建 Fragment 视图。 */
+    private fun reloadTabFragmentsForFusionLayout() {
+        val fm = supportFragmentManager
+        val tx = fm.beginTransaction()
+        for (tag in listOf(TAG_HOME, TAG_SEARCH, TAG_COLLECTIONS, TAG_SCRAPE)) {
+            val f = fm.findFragmentByTag(tag) ?: continue
+            tx.detach(f).attach(f)
+        }
+        tx.commitNowAllowingStateLoss()
     }
 
     override fun onResume() {

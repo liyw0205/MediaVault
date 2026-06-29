@@ -1,5 +1,6 @@
 package com.mediavault.ui
 
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -21,12 +22,17 @@ class CollectionAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_collection_row, parent, false)
+        val fusion = HomeUiPrefs.useTvFusionUi(parent.context)
+        if (fusion) {
+            v.isFocusable = true
+            v.isFocusableInTouchMode = true
+        }
         if (coverW <= 0) {
             val dm = parent.resources.displayMetrics
             coverW = (120 * dm.density).toInt().coerceAtLeast(96)
             coverH = (72 * dm.density).toInt().coerceAtLeast(64)
         }
-        return VH(v, scope, coverW, coverH, onClick)
+        return VH(v, scope, coverW, coverH, fusion, onClick)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
@@ -41,6 +47,7 @@ class CollectionAdapter(
         private val scope: LifecycleCoroutineScope,
         private val coverW: Int,
         private val coverH: Int,
+        private val tvFocus: Boolean,
         private val onClick: (LibraryUi.CollectionGroup) -> Unit,
     ) : RecyclerView.ViewHolder(itemView) {
         private val title: TextView = itemView.findViewById(R.id.collectionTitle)
@@ -71,6 +78,15 @@ class CollectionAdapter(
                 chips.addView(chip)
             }
             itemView.setOnClickListener { onClick(g) }
+            if (tvFocus) {
+                itemView.setOnKeyListener { _, key, event ->
+                    if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                    if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
+                        onClick(g)
+                        true
+                    } else false
+                }
+            }
         }
 
         fun recycle() {

@@ -48,7 +48,7 @@ class HomeFragment : Fragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
-        inflater.inflate(R.layout.fragment_home, container, false)
+        inflater.inflate(FusionFragmentLayouts.home(requireContext()), container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val grid = view.findViewById<RecyclerView>(R.id.gridRecycler)
@@ -76,6 +76,7 @@ class HomeFragment : Fragment() {
         }
         // 库变更由 MainActivity 统一 refreshHome，避免与 collect 双通道重复刷 UI
         refreshFromParent()
+        FusionFocusHelper.applyFusionToolbarFocus(view)
     }
 
     private fun applyHomeGrid(grid: RecyclerView) {

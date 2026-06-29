@@ -26,7 +26,7 @@ class ScrapeFragment : Fragment() {
     private var rootsAdapter: ScrapeRootAdapter? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
-        inflater.inflate(R.layout.fragment_scrape, container, false)
+        inflater.inflate(FusionFragmentLayouts.scrape(requireContext()), container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val act = activity as? MainActivity ?: return
@@ -73,6 +73,11 @@ class ScrapeFragment : Fragment() {
         }
         refreshRoots()
         bindScrapeState(view)
+        FusionFocusHelper.applyFusionToolbarFocus(view)
+    }
+
+    fun onFusionUiChanged() {
+        FusionFocusHelper.applyFusionToolbarFocus(view)
     }
 
     private fun setOverlayExpanded(expanded: Boolean) {

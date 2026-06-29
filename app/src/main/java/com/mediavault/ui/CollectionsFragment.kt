@@ -32,7 +32,7 @@ class CollectionsFragment : Fragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
-        inflater.inflate(R.layout.fragment_collections, container, false)
+        inflater.inflate(FusionFragmentLayouts.collections(requireContext()), container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         listPager = ListPagerBar(view)
@@ -72,6 +72,16 @@ class CollectionsFragment : Fragment() {
                 refreshList(view, lib.items)
             }
         }
+        FusionFocusHelper.applyFusionToolbarFocus(view)
+    }
+
+    fun onFusionUiChanged() {
+        view?.findViewById<RecyclerView>(R.id.collectionsRecycler)?.let { list ->
+            if (HomeUiPrefs.useTvFusionUi(requireContext())) {
+                list.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            }
+        }
+        if (::adapter.isInitialized) adapter.notifyDataSetChanged()
     }
 
     private fun refreshList(view: View, items: List<com.mediavault.data.MediaItem>? = null) {

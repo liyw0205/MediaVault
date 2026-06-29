@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/mv_bg"
+    android:baselineAligned="false"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:id="@+id/homeFusionSidebar"
+        android:layout_width="280dp"
+        android:layout_height="match_parent"
+        android:background="@color/mv_surface"
+        android:orientation="vertical"
+        android:paddingHorizontal="14dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/tab_home"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+        <LinearLayout
+            android:id="@+id/summaryRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="4dp">
+
+                <TextView
+                    android:id="@+id/statCollections"
+                    style="@style/HomeStatNum"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="0" />
+
+                <TextView
+                    android:id="@+id/statItems"
+                    style="@style/HomeStatNum"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="0" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="4dp">
+
+                <TextView
+                    android:id="@+id/statRoots"
+                    style="@style/HomeStatNum"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="0" />
+
+                <TextView
+                    android:id="@+id/statTime"
+                    style="@style/HomeStatNum"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="--" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/homeFilterChips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:chipSpacingHorizontal="6dp"
+                app:singleLine="true"
+                app:singleSelection="true" />
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:id="@+id/homePager"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="vertical">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/prevPageBtn"
+                style="@style/Widget.MediaVault.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="44dp"
+                android:text="@string/prev_page"
+                android:textSize="14sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/nextPageBtn"
+                style="@style/Widget.MediaVault.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="44dp"
+                android:text="@string/next_page"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/pageInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:gravity="center"
+                android:minHeight="44dp"
+                android:textColor="@color/mv_primary"
+                android:textSize="15sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/homePagerActionBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="@color/mv_green"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="44dp"
+                android:text="@string/refresh_recommend"
+                android:textColor="@color/mv_bg"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/mv_muted"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/gridRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:descendantFocusability="afterDescendants"
+            android:nextFocusLeft="@id/homeFusionSidebar"
+            android:padding="10dp" />
+
+        <TextView
+            android:id="@+id/emptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:padding="32dp"
+            android:text="@string/no_items"
+            android:textColor="@color/mv_muted"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

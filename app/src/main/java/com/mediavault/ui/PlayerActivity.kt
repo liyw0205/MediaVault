@@ -76,7 +76,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_player)
+        setContentView(FusionFragmentLayouts.player(this))
 
         val startPath = intent.getStringExtra(EXTRA_PATH) ?: intent.getStringExtra(EXTRA_URI_LEGACY)
         val title = intent.getStringExtra(EXTRA_TITLE) ?: ""
@@ -168,6 +168,7 @@ class PlayerActivity : AppCompatActivity() {
 
         bindControls(title.ifBlank { episode?.title ?: "" })
         updateNavButtons()
+        FusionFocusHelper.applyFusionToolbarFocus(window.decorView)
         progressHandler.postDelayed(progressTick, 10_000)
     }
 

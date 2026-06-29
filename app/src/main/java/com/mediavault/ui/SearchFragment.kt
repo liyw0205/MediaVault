@@ -58,7 +58,7 @@ class SearchFragment : Fragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
-        inflater.inflate(R.layout.fragment_search, container, false)
+        inflater.inflate(FusionFragmentLayouts.search(requireContext()), container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         listPager = ListPagerBar(view)
@@ -112,6 +112,7 @@ class SearchFragment : Fragment() {
         val initial = restoredQuery ?: arguments?.getString(ARG_QUERY).orEmpty()
         if (initial.isNotBlank()) input.setText(initial)
         showInitialTagsOrRun(view, initial)
+        FusionFocusHelper.applyFusionToolbarFocus(view)
     }
 
     private fun showInitialTagsOrRun(view: View, query: String) {
