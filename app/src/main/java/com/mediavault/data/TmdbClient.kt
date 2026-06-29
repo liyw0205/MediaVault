@@ -73,8 +73,15 @@ object TmdbClient {
         return match
     }
 
-    /** 清空内存中的 TMDB 响应缓存（重建扫描前可主动调一次） */
-    fun clearCache() = cache.clear()
+    /** 清空内存与磁盘 TMDB 响应缓存（重建扫描前可主动调一次） */
+    fun clearCache() {
+        cache.clear()
+        TmdbDiskCache.clearAll()
+    }
+
+    fun init(context: android.content.Context) {
+        TmdbDiskCache.init(context)
+    }
 
     /** 手动重新匹配：按标题搜索，返回最多 [limit] 条候选（电影 + 剧集合并排序）。 */
     fun searchCandidates(
@@ -345,15 +352,19 @@ object TmdbClient {
         return root.optJSONArray("results")
     }
 
-    private fun getJson(url: String): JSONObject? =
-        runCatching {
+    private fun getJson(url: String): JSONObject? {
+        TmdbDiskCache.read(url)?.let { return it }
+        return runCatching {
             val req = Request.Builder().url(url).get().build()
             http.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return@runCatching null
                 val body = resp.body?.string() ?: return@runCatching null
-                JSONObject(body)
+                val json = JSONObject(body)
+                TmdbDiskCache.write(url, json)
+                json
             }
         }.getOrNull()
+    }
 
     fun downloadPoster(url: String, dest: java.io.File): Boolean =
         runCatching {

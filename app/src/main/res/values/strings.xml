@@ -224,6 +224,9 @@
     <string name="settings_scrape_mode_local_option">本地（NFO / 文件名 / 旁挂）</string>
     <string name="settings_scrape_mode_online_option">在线（TMDB，需 API Key）</string>
     <string name="settings_tmdb_api_key_hint">TMDB API Key（themoviedb.org 申请）</string>
+    <string name="settings_tmdb_cache_hint_fmt">TMDB 响应磁盘缓存：%1$d 条（7 天有效，重复刮削可省流量）</string>
+    <string name="settings_clear_tmdb_cache">清空 TMDB 缓存</string>
+    <string name="settings_tmdb_cache_cleared">已清空 TMDB 内存与磁盘缓存</string>
     <string name="settings_scrape_local_sources">本地来源（可与在线叠加）</string>
 
     <string name="settings_scrape_cover_files">从旁挂图片识别封面</string>

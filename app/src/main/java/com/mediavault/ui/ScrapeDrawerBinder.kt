@@ -17,6 +17,8 @@ import com.mediavault.R
 import com.mediavault.data.LibraryRepository
 import com.mediavault.data.ScrapeConfig
 import com.mediavault.data.ScrapeSettings
+import com.mediavault.data.TmdbClient
+import com.mediavault.data.TmdbDiskCache
 
 object ScrapeDrawerBinder {
 
@@ -82,6 +84,8 @@ object ScrapeDrawerBinder {
         val cachePerSlider = panelRoot.findViewById<Slider>(R.id.drawerRemoteCachePerFileSlider)
         val cachePerLabel = panelRoot.findViewById<TextView>(R.id.drawerRemoteCachePerFileLabel)
         val saveBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerSaveScrapeSettingsBtn)
+        val tmdbCacheHint = panelRoot.findViewById<TextView>(R.id.drawerTmdbCacheHint)
+        val clearTmdbCacheBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerClearTmdbCacheBtn)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
         val dirsSection = panelRoot.findViewById<View>(R.id.drawerDirsSection)
 
@@ -90,6 +94,23 @@ object ScrapeDrawerBinder {
             val perMb = perFileCacheMbSteps[(perStep - 1).coerceIn(0, perFileCacheMbSteps.lastIndex)]
             cacheTotalLabel.text = formatMbLabel(activity, totalMb, R.string.settings_remote_cache_total_fmt)
             cachePerLabel.text = formatMbLabel(activity, perMb, R.string.settings_remote_cache_per_file_fmt)
+        }
+
+        fun refreshTmdbCacheUi(
+            activity: AppCompatActivity,
+            hint: TextView,
+            btn: MaterialButton,
+            online: Boolean,
+        ) {
+            if (!online) {
+                hint.visibility = View.GONE
+                btn.visibility = View.GONE
+                return
+            }
+            val n = TmdbDiskCache.entryCount()
+            hint.visibility = View.VISIBLE
+            btn.visibility = View.VISIBLE
+            hint.text = activity.getString(R.string.settings_tmdb_cache_hint_fmt, n)
         }
 
         fun loadUi(s: ScrapeSettings) {
@@ -111,15 +132,23 @@ object ScrapeDrawerBinder {
             cacheTotalSlider.value = mbToTotalStep(totalMb)
             cachePerSlider.value = mbToPerFileStep(perMb)
             updateCacheLabels(cacheTotalSlider.value.toInt(), cachePerSlider.value.toInt())
+            refreshTmdbCacheUi(activity, tmdbCacheHint, clearTmdbCacheBtn, cfg.isOnlineMode())
         }
 
         loadUi(ScrapeConfig.readSettings(activity))
 
         panelRoot.findViewById<RadioGroup>(R.id.drawerScrapeModeGroup)
             .setOnCheckedChangeListener { _, checkedId ->
-                tmdbKeyLayout.visibility =
-                    if (checkedId == R.id.drawerScrapeModeOnline) View.VISIBLE else View.GONE
+                val online = checkedId == R.id.drawerScrapeModeOnline
+                tmdbKeyLayout.visibility = if (online) View.VISIBLE else View.GONE
+                refreshTmdbCacheUi(activity, tmdbCacheHint, clearTmdbCacheBtn, online)
             }
+
+        clearTmdbCacheBtn.setOnClickListener {
+            TmdbClient.clearCache()
+            refreshTmdbCacheUi(activity, tmdbCacheHint, clearTmdbCacheBtn, modeOnline.isChecked)
+            Toast.makeText(activity, R.string.settings_tmdb_cache_cleared, Toast.LENGTH_SHORT).show()
+        }
 
         threadsSlider.addOnChangeListener { _, value, _ ->
             threadsLabel.text = activity.getString(R.string.settings_scrape_threads_fmt, value.toInt())
@@ -203,5 +232,16 @@ object ScrapeDrawerBinder {
         val perMb2 = perFileCacheMbSteps[(pStep - 1).coerceIn(0, perFileCacheMbSteps.lastIndex)]
         cacheTotalLabel.text = formatMbLabel(activity, totalMb2, R.string.settings_remote_cache_total_fmt)
         cachePerLabel.text = formatMbLabel(activity, perMb2, R.string.settings_remote_cache_per_file_fmt)
+        val tmdbCacheHint = panelRoot.findViewById<TextView>(R.id.drawerTmdbCacheHint)
+        val clearTmdbCacheBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerClearTmdbCacheBtn)
+        if (cfg.isOnlineMode()) {
+            tmdbCacheHint.visibility = View.VISIBLE
+            clearTmdbCacheBtn.visibility = View.VISIBLE
+            val n = TmdbDiskCache.entryCount()
+            tmdbCacheHint.text = activity.getString(R.string.settings_tmdb_cache_hint_fmt, n)
+        } else {
+            tmdbCacheHint.visibility = View.GONE
+            clearTmdbCacheBtn.visibility = View.GONE
+        }
     }
 }

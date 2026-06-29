@@ -2,6 +2,7 @@ package com.mediavault
 
 import android.app.Application
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.TmdbClient
 import com.mediavault.scrape.ScrapeManager
 
 class MediaVaultApp : Application() {
@@ -12,6 +13,7 @@ class MediaVaultApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        TmdbClient.init(this)
         repository = LibraryRepository(this)
         scrapeManager = ScrapeManager(this, repository)
         repository.reload()
