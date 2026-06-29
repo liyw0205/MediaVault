@@ -1,6 +1,6 @@
 package com.mediavault.ui
 
-import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
@@ -14,6 +14,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.navigation.NavigationBarView
+import com.google.android.material.navigationrail.NavigationRailView
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.MediaItem
@@ -36,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var drawerPanel: View
     private var currentTabTag: String = TAG_HOME
+    private var bottomNav: BottomNavigationView? = null
+    private var navRail: NavigationRailView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,31 +85,35 @@ class MainActivity : AppCompatActivity() {
 
         ensureAllTabFragments()
 
-        val bottom = findViewById<BottomNavigationView>(R.id.bottomNav)
-        bottom.setOnItemSelectedListener { item ->
-            if (item.itemId == bottom.selectedItemId) {
-                return@setOnItemSelectedListener true
-            }
-            when (item.itemId) {
+        bottomNav = findViewById(R.id.bottomNav)
+        navRail = findViewById(R.id.navRail)
+        val navListener = NavigationBarView.OnItemSelectedListener { item ->
+            val currentId = bottomNav?.selectedItemId ?: navRail?.selectedItemId ?: return@OnItemSelectedListener false
+            if (item.itemId == currentId) return@OnItemSelectedListener true
+            val ok = when (item.itemId) {
                 R.id.nav_home -> showTab(TAG_HOME, getString(R.string.tab_home))
                 R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
                 R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
                 else -> false
             }
+            if (ok) syncNavSelection(item.itemId)
+            ok
         }
+        bottomNav?.setOnItemSelectedListener(navListener)
+        navRail?.setOnItemSelectedListener(navListener)
 
         if (savedInstanceState == null) {
             val tag = intent.getStringExtra(EXTRA_SEARCH_TAG)
             if (!tag.isNullOrBlank()) {
-                bottom.selectedItemId = R.id.nav_search
+                syncNavSelection(R.id.nav_search)
                 showTab(TAG_SEARCH, getString(R.string.tab_search))
             } else {
-                bottom.selectedItemId = R.id.nav_home
+                syncNavSelection(R.id.nav_home)
                 showTab(TAG_HOME, getString(R.string.tab_home))
             }
         } else {
-            when (bottom.selectedItemId) {
+            when (bottomNav?.selectedItemId ?: navRail?.selectedItemId) {
                 R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
                 R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
@@ -121,6 +129,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        notifyFusionUiChanged()
+    }
+
+    private fun syncNavSelection(itemId: Int) {
+        if (bottomNav?.selectedItemId != itemId) bottomNav?.selectedItemId = itemId
+        if (navRail?.selectedItemId != itemId) navRail?.selectedItemId = itemId
+    }
+
+    private fun notifyFusionUiChanged() {
+        homeFragment()?.onFusionUiChanged()
+        (supportFragmentManager.findFragmentByTag(TAG_SEARCH) as? SearchFragment)?.onFusionUiChanged()
     }
 
     override fun onResume() {

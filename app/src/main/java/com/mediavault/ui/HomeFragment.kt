@@ -52,8 +52,7 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val grid = view.findViewById<RecyclerView>(R.id.gridRecycler)
-        val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
-        grid.layoutManager = GridLayoutManager(requireContext(), span)
+        applyHomeGrid(grid)
         grid.setHasFixedSize(true)
         grid.setItemViewCacheSize(16)
         adapter = VideoCardAdapter(
@@ -78,6 +77,24 @@ class HomeFragment : Fragment() {
         // 库变更由 MainActivity 统一 refreshHome，避免与 collect 双通道重复刷 UI
         refreshFromParent()
     }
+
+    private fun applyHomeGrid(grid: RecyclerView) {
+        val ctx = requireContext()
+        val fusion = HomeUiPrefs.useTvFusionUi(ctx)
+        val span = HomeUiPrefs.gridSpanCount(ctx)
+        if (grid.layoutManager !is GridLayoutManager || (grid.layoutManager as GridLayoutManager).spanCount != span) {
+            grid.layoutManager = GridLayoutManager(ctx, span)
+        }
+        grid.descendantFocusability = if (fusion) ViewGroup.FOCUS_AFTER_DESCENDANTS else ViewGroup.FOCUS_BEFORE_DESCENDANTS
+    }
+
+    fun onFusionUiChanged() {
+        view?.findViewById<RecyclerView>(R.id.gridRecycler)?.let { applyHomeGrid(it) }
+        if (::adapter.isInitialized) adapter.notifyDataSetChanged()
+    }
+
+    /** @deprecated 手动界面切换已移除 */
+    fun onHomeLayoutModeChanged() = onFusionUiChanged()
 
     fun refreshFromParent() {
         view?.let { v ->
@@ -297,6 +314,7 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        view?.findViewById<RecyclerView>(R.id.gridRecycler)?.let { applyHomeGrid(it) }
         if (::adapter.isInitialized) adapter.refreshProgressHints()
     }
 

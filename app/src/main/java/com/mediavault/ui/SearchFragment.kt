@@ -73,8 +73,7 @@ class SearchFragment : Fragment() {
         }
 
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
-        val span = if (resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
-        grid.layoutManager = GridLayoutManager(requireContext(), span)
+        applySearchGrid(grid)
         grid.setHasFixedSize(true)
         grid.setItemViewCacheSize(20)
         adapter = VideoCardAdapter(
@@ -330,6 +329,23 @@ class SearchFragment : Fragment() {
     private fun openDetail(item: MediaItem) {
         startActivity(VideoDetailActivity.intent(requireContext(), item.path))
     }
+
+    private fun applySearchGrid(grid: RecyclerView) {
+        val ctx = requireContext()
+        val fusion = HomeUiPrefs.useTvFusionUi(ctx)
+        val span = HomeUiPrefs.gridSpanCount(ctx)
+        if (grid.layoutManager !is GridLayoutManager || (grid.layoutManager as GridLayoutManager).spanCount != span) {
+            grid.layoutManager = GridLayoutManager(ctx, span)
+        }
+        grid.descendantFocusability = if (fusion) ViewGroup.FOCUS_AFTER_DESCENDANTS else ViewGroup.FOCUS_BEFORE_DESCENDANTS
+    }
+
+    fun onFusionUiChanged() {
+        view?.findViewById<RecyclerView>(R.id.searchRecycler)?.let { applySearchGrid(it) }
+        if (::adapter.isInitialized) adapter.notifyDataSetChanged()
+    }
+
+    fun onHomeLayoutModeChanged() = onFusionUiChanged()
 
     override fun onResume() {
         super.onResume()

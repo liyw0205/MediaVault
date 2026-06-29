@@ -1,5 +1,6 @@
 package com.mediavault.ui
 
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.mediavault.R
 import com.mediavault.data.MediaItem
@@ -21,23 +23,20 @@ class VideoCardAdapter(
     private val progressStore: PlaybackProgressStore? = null,
 ) : ListAdapter<MediaItem, VideoCardAdapter.VH>(Diff) {
 
-    private var coverW = 0
-    private var coverH = 0
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_video_card, parent, false)
-        if (coverW <= 0) {
-            val dm = parent.resources.displayMetrics
-            val span = if (parent.resources.configuration.smallestScreenWidthDp >= 600) 4 else 2
-            coverW = (dm.widthPixels / span).coerceAtLeast(120)
-            coverH = (coverW * 120 / 180).coerceAtLeast(80)
-        }
-        return VH(v, scope, coverW, coverH, onCoverClick, onInfoClick, progressStore)
+        val ctx = parent.context
+        val fusion = HomeUiPrefs.useTvFusionUi(ctx)
+        val span = HomeUiPrefs.gridSpanCount(ctx)
+        val dm = parent.resources.displayMetrics
+        val coverW = (dm.widthPixels / span).coerceAtLeast(120)
+        val ratio = HomeUiPrefs.coverHeightRatio(fusion)
+        val coverH = (coverW * ratio).toInt().coerceAtLeast(if (fusion) 90 else 80)
+        return VH(v, scope, coverW, coverH, fusion, onCoverClick, onInfoClick, progressStore)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
 
-    /** 从播放器返回后刷新封面续播条 */
     fun refreshProgressHints() {
         if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
     }
@@ -52,10 +51,12 @@ class VideoCardAdapter(
         private val scope: LifecycleCoroutineScope,
         private val coverW: Int,
         private val coverH: Int,
+        private val tvFocus: Boolean,
         private val onCoverClick: (MediaItem) -> Unit,
         private val onInfoClick: (MediaItem) -> Unit,
         private val progressStore: PlaybackProgressStore?,
     ) : RecyclerView.ViewHolder(itemView) {
+        private val card = itemView as? MaterialCardView
         private val title: TextView = itemView.findViewById(R.id.titleText)
         private val meta: TextView = itemView.findViewById(R.id.metaText)
         private val cover: ImageView = itemView.findViewById(R.id.coverImage)
@@ -66,9 +67,32 @@ class VideoCardAdapter(
         private val resumeBar: LinearProgressIndicator = itemView.findViewById(R.id.resumeProgress)
 
         private var boundPath: String? = null
+        private var boundItem: MediaItem? = null
+
+        init {
+            if (tvFocus && card != null) {
+                card.isFocusable = true
+                card.isFocusableInTouchMode = true
+                card.setOnFocusChangeListener { _, has ->
+                    val px = (if (has) 3 else 1) * itemView.resources.displayMetrics.density
+                    card.strokeWidth = px.toInt().coerceAtLeast(1)
+                }
+                card.setOnKeyListener { _, key, event ->
+                    if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                    if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
+                        boundItem?.let { onCoverClick(it) }
+                        true
+                    } else false
+                }
+            }
+        }
 
         fun bind(item: MediaItem) {
             boundPath = item.path
+            boundItem = item
+            if (tvFocus) {
+                coverArea.layoutParams = coverArea.layoutParams.apply { height = coverH }
+            }
             title.text = item.displayTitle()
             val ep = item.episodeLabel()
             meta.text = ep
@@ -104,6 +128,7 @@ class VideoCardAdapter(
         fun recycle() {
             CoverThumbnailLoader.cancel(cover)
             boundPath = null
+            boundItem = null
         }
     }
 
