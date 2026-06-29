@@ -198,9 +198,11 @@ class ScrapeFragment : Fragment() {
     private fun applyState(view: View, s: ScrapeUiState) {
         val overlay = view.findViewById<View>(R.id.scrapeProgressOverlay)
         val status = view.findViewById<TextView>(R.id.scanStatus)
+        val queueLine = view.findViewById<TextView>(R.id.scanQueueLine)
         val currentFile = view.findViewById<TextView>(R.id.scanCurrentFile)
         val collapsedCount = view.findViewById<TextView>(R.id.scrapeProgressCollapsedCount)
         val bar = view.findViewById<LinearProgressIndicator>(R.id.scanProgress)
+        val miniBar = view.findViewById<com.google.android.material.progressindicator.CircularProgressIndicator>(R.id.scanProgressMini)
         val idleHint = view.findViewById<TextView>(R.id.scanIdleHint)
         val weakBtn = view.findViewById<MaterialButton>(R.id.weakTmdbListBtn)
         val inc = view.findViewById<MaterialButton>(R.id.scanIncrementalBtn)
@@ -220,13 +222,44 @@ class ScrapeFragment : Fragment() {
         val prep = ScrapeProgressFormat.isPrepStatus(s.message)
         when (s.phase) {
             ScrapePhase.RUNNING -> {
+                val hasQueue = s.queueTotal > 0
                 bar.visibility = View.VISIBLE
-                bar.isIndeterminate = true
+                if (hasQueue) {
+                    bar.isIndeterminate = false
+                    bar.max = 100
+                    bar.progress = ScrapeProgressFormat.queuePercent(s.queueDone, s.queueTotal)
+                } else {
+                    bar.isIndeterminate = true
+                }
+                miniBar?.let { m ->
+                    if (hasQueue) {
+                        m.isIndeterminate = false
+                        m.max = 100
+                        m.progress = ScrapeProgressFormat.queuePercent(s.queueDone, s.queueTotal)
+                    } else {
+                        m.isIndeterminate = true
+                    }
+                }
                 inc.isEnabled = false
                 reb.isEnabled = false
                 status.text = countLine
+                if (hasQueue) {
+                    queueLine.visibility = View.VISIBLE
+                    queueLine.text = ScrapeProgressFormat.queueLine(
+                        ctx,
+                        s.scopeLabel.ifBlank { getString(R.string.scrape_scope_remote) },
+                        s.queueDone,
+                        s.queueTotal,
+                    )
+                } else if (prep && s.message.isNotBlank()) {
+                    queueLine.visibility = View.VISIBLE
+                    queueLine.text = s.message
+                } else {
+                    queueLine.visibility = View.GONE
+                    queueLine.text = ""
+                }
                 val file = s.currentFileLabel.trim()
-                if (prep && s.message.isNotBlank()) {
+                if (prep && s.message.isNotBlank() && !hasQueue) {
                     currentFile.visibility = View.VISIBLE
                     currentFile.text = ScrapeProgressFormat.ellipsizeFileName(s.message)
                 } else if (file.isNotEmpty()) {
@@ -236,7 +269,12 @@ class ScrapeFragment : Fragment() {
                     currentFile.visibility = View.GONE
                     currentFile.text = ""
                 }
-                collapsedCount?.text = ScrapeProgressFormat.collapsedCompact(s.batchCount, s.totalInLibrary)
+                val collapsed = if (hasQueue) {
+                    "${s.queueDone}/${s.queueTotal}"
+                } else {
+                    ScrapeProgressFormat.collapsedCompact(s.batchCount, s.totalInLibrary)
+                }
+                collapsedCount?.text = collapsed
                 idleHint.text = ""
                 applyRunningOverlayLayout(view, true)
             }

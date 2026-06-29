@@ -31,6 +31,7 @@ object RemoteLibraryScanner {
         shouldCancel: () -> Boolean,
         onFile: (MediaItem) -> Unit,
         onStatus: (String) -> Unit,
+        onQueueProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ) {
         val cfg = settings.normalized()
         var configs = store.readRemotesList()
@@ -54,6 +55,7 @@ object RemoteLibraryScanner {
             return
         }
         onStatus("待处理 $total 个远程视频（含封面），$workers 线程…")
+        onQueueProgress(0, total)
         val done = AtomicInteger(0)
         val pool = Executors.newFixedThreadPool(workers)
         try {
@@ -68,6 +70,7 @@ object RemoteLibraryScanner {
                         scrapeSession.record(store, libPath)
                         onFile(item)
                         val n = done.incrementAndGet()
+                        onQueueProgress(n, total)
                         if (n % 3 == 0 || n == total) {
                             onStatus(ScrapeProgressFormat.ellipsizeFileName(w.name))
                         }

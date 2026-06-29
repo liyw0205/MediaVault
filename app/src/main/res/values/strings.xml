@@ -139,6 +139,11 @@
     <string name="scrape_progress_collapsed_label">刮削中</string>
     <string name="scrape_progress_count">已刮削 %1$d 条  库 %2$d</string>
     <string name="scrape_progress_current_file">当前：%1$s</string>
+    <string name="scrape_progress_queue_fmt">%1$s %2$d / %3$d</string>
+    <string name="scrape_progress_queue_unknown">准备中…</string>
+    <string name="scrape_scope_local">本地</string>
+    <string name="scrape_scope_remote">远程</string>
+    <string name="scrape_notif_sub_batch">本轮已入库 %1$d 条</string>
     <string name="scrape_already_running">刮削任务已在运行</string>
     <string name="scrape_title">刮削</string>
     <string name="scan_incremental">全部刮削</string>

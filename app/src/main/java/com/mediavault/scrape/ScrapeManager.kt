@@ -101,8 +101,14 @@ class ScrapeManager(
         totalInLibrary: Int,
         currentFileLabel: String = "",
         forceJobWrite: Boolean = false,
+        queueDone: Int = 0,
+        queueTotal: Int = 0,
+        scopeLabel: String = "",
     ) {
         if (ScrapeProgressThrottle.shouldEmitUi(batchCount, lastUiEmitAtMs, force = forceJobWrite)) {
+            val qTotal = if (queueTotal > 0) queueTotal else _state.value.queueTotal
+            val qDone = if (queueTotal > 0) queueDone else _state.value.queueDone
+            val scope = scopeLabel.ifBlank { _state.value.scopeLabel }
             _state.value = _state.value.copy(
                 phase = ScrapePhase.RUNNING,
                 message = message,
@@ -111,6 +117,9 @@ class ScrapeManager(
                 currentFileLabel = currentFileLabel.ifBlank { _state.value.currentFileLabel },
                 lastBatchAt = now(),
                 canResume = false,
+                queueTotal = qTotal,
+                queueDone = qDone,
+                scopeLabel = scope,
             )
             lastUiEmitAtMs = System.currentTimeMillis()
         }

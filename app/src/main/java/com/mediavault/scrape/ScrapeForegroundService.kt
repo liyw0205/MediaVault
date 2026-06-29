@@ -89,17 +89,88 @@ class ScrapeForegroundService : Service() {
         val batchAcc = ScrapeBatchAccumulator(repository)
         var scannedThisRun = 0
         var lastNotifAtMs = 0L
+        var queueDone = 0
+        var queueTotal = 0
+        var scopeLabel = ""
+
+        fun emitQueueProgress(done: Int, total: Int, scope: String) {
+            queueDone = done
+            queueTotal = total
+            scopeLabel = scope
+            val libTotal = batchAcc.currentLibrarySize()
+            val countLine = ScrapeProgressFormat.countLine(
+                this@ScrapeForegroundService,
+                scannedThisRun,
+                libTotal,
+            )
+            val refreshNotif = ScrapeProgressThrottle.shouldRefreshNotification(done, lastNotifAtMs) ||
+                (total > 0 && done == total) ||
+                (total > 0 && done == 0)
+            manager.onProgress(
+                countLine,
+                scannedThisRun,
+                libTotal,
+                "",
+                forceJobWrite = refreshNotif,
+                queueDone = done,
+                queueTotal = total,
+                scopeLabel = scope,
+            )
+            if (refreshNotif && total > 0) {
+                val qLine = ScrapeProgressFormat.queueLine(
+                    this@ScrapeForegroundService,
+                    scope,
+                    done,
+                    total,
+                )
+                updateNotification(qLine, scannedThisRun, done, total)
+                lastNotifAtMs = System.currentTimeMillis()
+            } else if (refreshNotif && total == 0) {
+                updateNotification(
+                    ScrapeProgressFormat.queueLine(this@ScrapeForegroundService, scope, 0, 0),
+                    scannedThisRun,
+                    0,
+                    0,
+                )
+                lastNotifAtMs = System.currentTimeMillis()
+            }
+        }
 
         fun pushUiAndMaybeNotif(fileLabel: String, refreshNotif: Boolean) {
             val total = batchAcc.currentLibrarySize()
             val countLine = ScrapeProgressFormat.countLine(this@ScrapeForegroundService, scannedThisRun, total)
             val file = ScrapeProgressFormat.ellipsizeFileName(fileLabel)
             val forceJob = refreshNotif
-            manager.onProgress(countLine, scannedThisRun, total, file, forceJobWrite = forceJob)
+            manager.onProgress(
+                countLine,
+                scannedThisRun,
+                total,
+                file,
+                forceJobWrite = forceJob,
+                queueDone = queueDone,
+                queueTotal = queueTotal,
+                scopeLabel = scopeLabel,
+            )
             if (!refreshNotif) return
-            val compact = ScrapeProgressFormat.collapsedCompact(scannedThisRun, total)
-            val notifBody = if (file.isNotBlank()) "$compact\n$file" else compact
-            updateNotification(notifBody, scannedThisRun)
+            val notifBody = buildString {
+                if (queueTotal > 0) {
+                    append(
+                        ScrapeProgressFormat.queueLine(
+                            this@ScrapeForegroundService,
+                            scopeLabel,
+                            queueDone,
+                            queueTotal,
+                        ),
+                    )
+                } else {
+                    append(ScrapeProgressFormat.collapsedCompact(scannedThisRun, total))
+                }
+                if (file.isNotBlank()) {
+                    append('\n')
+                    append(file)
+                }
+            }
+            updateNotification(notifBody, scannedThisRun, queueDone, queueTotal)
             lastNotifAtMs = System.currentTimeMillis()
         }
 
@@ -126,6 +197,9 @@ class ScrapeForegroundService : Service() {
 
         try {
             if (scanLocal) {
+                queueDone = 0
+                queueTotal = 0
+                scopeLabel = getString(R.string.scrape_scope_local)
                 LocalScanner.scanTreeUrisParallel(
                     this@ScrapeForegroundService,
                     store,
@@ -142,9 +216,18 @@ class ScrapeForegroundService : Service() {
                             val total = batchAcc.currentLibrarySize()
                             val refreshNotif = lastNotifAtMs == 0L ||
                                 System.currentTimeMillis() - lastNotifAtMs >= ScrapeProgressThrottle.NOTIF_MIN_INTERVAL_MS
-                            manager.onProgress(msg, scannedThisRun, total, "", forceJobWrite = refreshNotif)
+                            manager.onProgress(
+                                msg,
+                                scannedThisRun,
+                                total,
+                                "",
+                                forceJobWrite = refreshNotif,
+                                queueDone = queueDone,
+                                queueTotal = queueTotal,
+                                scopeLabel = scopeLabel,
+                            )
                             if (refreshNotif) {
-                                updateNotification(msg, scannedThisRun)
+                                updateNotification(msg, scannedThisRun, queueDone, queueTotal)
                                 lastNotifAtMs = System.currentTimeMillis()
                             }
                         } else {
@@ -152,9 +235,15 @@ class ScrapeForegroundService : Service() {
                             pushUiAndMaybeNotif(file, refreshNotif = true)
                         }
                     },
+                    onQueueProgress = { done, total ->
+                        emitQueueProgress(done, total, getString(R.string.scrape_scope_local))
+                    },
                 )
             }
             if (!cancelRequested && scanRemote) {
+                queueDone = 0
+                queueTotal = 0
+                scopeLabel = getString(R.string.scrape_scope_remote)
                 RemoteLibraryScanner.scanRemotesParallel(
                     this@ScrapeForegroundService,
                     store,
@@ -171,15 +260,27 @@ class ScrapeForegroundService : Service() {
                             val total = batchAcc.currentLibrarySize()
                             val refreshNotif = lastNotifAtMs == 0L ||
                                 System.currentTimeMillis() - lastNotifAtMs >= ScrapeProgressThrottle.NOTIF_MIN_INTERVAL_MS
-                            manager.onProgress(msg, scannedThisRun, total, "", forceJobWrite = refreshNotif)
+                            manager.onProgress(
+                                msg,
+                                scannedThisRun,
+                                total,
+                                "",
+                                forceJobWrite = refreshNotif,
+                                queueDone = queueDone,
+                                queueTotal = queueTotal,
+                                scopeLabel = scopeLabel,
+                            )
                             if (refreshNotif) {
-                                updateNotification(msg, scannedThisRun)
+                                updateNotification(msg, scannedThisRun, queueDone, queueTotal)
                                 lastNotifAtMs = System.currentTimeMillis()
                             }
                         } else {
                             val file = ScrapeProgressFormat.fileFromLegacyMessage(msg)
                             pushUiAndMaybeNotif(file, refreshNotif = true)
                         }
+                    },
+                    onQueueProgress = { done, total ->
+                        emitQueueProgress(done, total, getString(R.string.scrape_scope_remote))
                     },
                 )
             }
@@ -223,26 +324,34 @@ class ScrapeForegroundService : Service() {
         }
     }
 
-    private fun updateNotification(text: String, count: Int) {
+    private fun updateNotification(text: String, count: Int, queueDone: Int, queueTotal: Int) {
         getSystemService(NotificationManager::class.java)
-            .notify(NOTIF_ID, buildNotification(text, count))
+            .notify(NOTIF_ID, buildNotification(text, count, queueDone, queueTotal))
     }
 
-    private fun buildNotification(text: String, count: Int): Notification {
+    private fun buildNotification(
+        text: String,
+        count: Int,
+        queueDone: Int = 0,
+        queueTotal: Int = 0,
+    ): Notification {
         val open = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.scrape_notif_title))
             .setContentText(text)
-            .setSubText(if (count > 0) "本轮 $count 条" else null)
+            .setSubText(if (count > 0) getString(R.string.scrape_notif_sub_batch, count) else null)
             .setSmallIcon(android.R.drawable.ic_menu_upload)
             .setOngoing(true)
             .setContentIntent(open)
             .setOnlyAlertOnce(true)
-            .build()
+        if (queueTotal > 0) {
+            builder.setProgress(queueTotal, queueDone.coerceAtMost(queueTotal), false)
+        }
+        return builder.build()
     }
 
     private fun createChannel() {

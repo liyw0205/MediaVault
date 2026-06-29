@@ -44,6 +44,7 @@ object LocalScanner {
         shouldCancel: () -> Boolean,
         onFile: (MediaItem) -> Unit,
         onStatus: (String) -> Unit,
+        onQueueProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ) {
         val cfg = settings.normalized()
         var uris = store.readLocalRootUris()
@@ -66,6 +67,7 @@ object LocalScanner {
             return
         }
         onStatus("待处理 $total 个视频，启动 $workers 线程…")
+        onQueueProgress(0, total)
         val done = AtomicInteger(0)
         val pool = Executors.newFixedThreadPool(workers)
         try {
@@ -80,6 +82,7 @@ object LocalScanner {
                         scrapeSession.record(store, work.path)
                         onFile(item)
                         val n = done.incrementAndGet()
+                        onQueueProgress(n, total)
                         if (n % 3 == 0 || n == total) {
                             onStatus(ScrapeProgressFormat.ellipsizeFileName(work.name))
                         }

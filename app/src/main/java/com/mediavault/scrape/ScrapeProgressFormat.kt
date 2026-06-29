@@ -12,6 +12,17 @@ object ScrapeProgressFormat {
     /** 收起浮窗：仅「本批 / 库总量」 */
     fun collapsedCompact(scraped: Int, libraryTotal: Int): String = "$scraped / $libraryTotal"
 
+    /** 队列进度：远程/本地 已处理/待处理 */
+    fun queueLine(ctx: Context, scope: String, done: Int, total: Int): String {
+        if (total <= 0) return scope.ifBlank { ctx.getString(R.string.scrape_progress_queue_unknown) }
+        return ctx.getString(R.string.scrape_progress_queue_fmt, scope, done, total)
+    }
+
+    fun queuePercent(done: Int, total: Int): Int {
+        if (total <= 0) return 0
+        return ((done.coerceAtMost(total)).toLong() * 100L / total).toInt().coerceIn(0, 100)
+    }
+
     fun ellipsizeFileName(name: String): String {
         val t = name.trim()
         if (t.isEmpty()) return ""
@@ -26,7 +37,7 @@ object ScrapeProgressFormat {
         if (m.isEmpty()) return false
         val markers = listOf(
             "收集", "待处理", "枚举", "准备", "启动", "扫描 ", "目录遍历",
-            "远程扫描", "没有需要", "待扫",
+            "远程扫描", "没有需要", "待扫", "遍历",
         )
         return markers.any { m.contains(it) } && !m.startsWith("已刮削")
     }
