@@ -28,7 +28,17 @@ if [[ -f "$ZIP" ]]; then
 fi
 
 chmod +x "$ROOT/gradlew" 2>/dev/null || true
-./gradlew assembleDebug --no-daemon
+
+# Termux 本机 aapt2（勿写入 gradle.properties，否则 CI 会失败）
+GRADLE_EXTRA=()
+for AAPT2 in /data/data/com.termux/files/usr/bin/aapt2 "$PREFIX/bin/aapt2"; do
+  if [[ -x "$AAPT2" ]]; then
+    GRADLE_EXTRA+=("-Dandroid.aapt2FromMavenOverride=$AAPT2")
+    break
+  fi
+done
+
+./gradlew assembleDebug --no-daemon "${GRADLE_EXTRA[@]}"
 
 OUT="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 VN=$(grep versionName "$ROOT/app/build.gradle.kts" | head -1 | sed 's/.*"\(.*\)".*/\1/')
