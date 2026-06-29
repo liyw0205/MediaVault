@@ -7,9 +7,11 @@ on:
       - 'app/**'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
+      - 'gradle.properties'
       - 'gradle/**'
       - 'gradlew'
       - 'gradlew.bat'
+      - 'pack_mediavault.sh'
       - '.github/workflows/release-apk.yml'
   workflow_dispatch:
 
