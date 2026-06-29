@@ -3,6 +3,7 @@ package com.mediavault.remote
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
 import org.apache.commons.net.ftp.FTPFile
+import org.apache.commons.net.ftp.FTPReply
 import androidx.media3.common.C
 import java.io.IOException
 
@@ -12,6 +13,9 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         ftp.connectTimeout = 30_000
         ftp.defaultTimeout = 120_000
         ftp.connect(cfg.host, cfg.port)
+        if (!FTPReply.isPositiveCompletion(ftp.replyCode)) {
+            throw IOException("FTP 连接失败: ${ftp.replyString?.trim()}")
+        }
         if (!ftp.login(cfg.user, cfg.password)) {
             throw IOException("FTP 登录失败: ${ftp.replyString}")
         }
@@ -50,18 +54,39 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         if (offset > 0) {
             ftp.setRestartOffset(offset)
         }
-        val raw = ftp.retrieveFileStream(path)
+        var raw = ftp.retrieveFileStream(path)
+        if (raw == null && offset > 0) {
+            runCatching { ftp.disconnect() }
+            val ftp2 = connect()
+            ftp2.sendCommand("REST", offset.toString())
+            if (FTPReply.isPositiveIntermediate(ftp2.replyCode)) {
+                raw = ftp2.retrieveFileStream(path)
+                if (raw != null) {
+                    return wrapFtpStream(ftp2, raw, length)
+                }
+            }
+            runCatching { ftp2.logout(); ftp2.disconnect() }
+            throw IOException("FTP 不支持断点续传（拖动到未缓存位置）：REST $offset")
+        }
         if (raw == null) {
             val code = ftp.replyCode
             val reply = ftp.replyString?.trim().orEmpty()
             runCatching { ftp.logout(); ftp.disconnect() }
             if (offset > 0 && (code == 501 || code == 502 || code == 550 ||
-                    reply.contains("REST", ignoreCase = true) && reply.contains("not", ignoreCase = true))
+                    (reply.contains("REST", ignoreCase = true) && reply.contains("not", ignoreCase = true)))
             ) {
                 throw IOException("FTP 不支持断点续传（拖动到未缓存位置）：服务端拒绝 REST $offset")
             }
             throw IOException("FTP 无法打开: $path")
         }
+        return wrapFtpStream(ftp, raw, length)
+    }
+
+    private fun wrapFtpStream(
+        ftp: FTPClient,
+        raw: java.io.InputStream,
+        length: Long,
+    ): java.io.InputStream {
         val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
             RemoteLimitedInputStream(raw, length)
         } else {

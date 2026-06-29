@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG_SEARCH = "tab_search"
         private const val TAG_COLLECTIONS = "tab_collections"
         private const val TAG_SCRAPE = "tab_scrape"
+        private const val TAG_SETTINGS = "tab_settings"
     }
 
     val repository
@@ -92,6 +93,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
                 R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+                R.id.nav_settings -> showTab(TAG_SETTINGS, getString(R.string.tab_settings))
                 else -> false
             }
         }
@@ -110,6 +112,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
                 R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+                R.id.nav_settings -> showTab(TAG_SETTINGS, getString(R.string.tab_settings))
                 else -> showTab(TAG_HOME, getString(R.string.tab_home))
             }
         }
@@ -142,14 +145,17 @@ class MainActivity : AppCompatActivity() {
         val searchFrag = if (!searchTag.isNullOrBlank()) SearchFragment.newInstance(searchTag) else SearchFragment()
         val collections = CollectionsFragment()
         val scrape = ScrapeFragment()
+        val settings = SettingsFragment()
         fm.beginTransaction()
             .add(R.id.fragmentContainer, home, TAG_HOME)
             .add(R.id.fragmentContainer, searchFrag, TAG_SEARCH)
             .add(R.id.fragmentContainer, collections, TAG_COLLECTIONS)
             .add(R.id.fragmentContainer, scrape, TAG_SCRAPE)
+            .add(R.id.fragmentContainer, settings, TAG_SETTINGS)
             .hide(searchFrag)
             .hide(collections)
             .hide(scrape)
+            .hide(settings)
             .commitNow()
     }
 
@@ -160,7 +166,7 @@ class MainActivity : AppCompatActivity() {
         currentTabTag = tag
         val fm = supportFragmentManager
         val tx = fm.beginTransaction()
-        for (t in listOf(TAG_HOME, TAG_SEARCH, TAG_COLLECTIONS, TAG_SCRAPE)) {
+        for (t in listOf(TAG_HOME, TAG_SEARCH, TAG_COLLECTIONS, TAG_SCRAPE, TAG_SETTINGS)) {
             val f = fm.findFragmentByTag(t) ?: continue
             if (t == tag) tx.show(f) else tx.hide(f)
         }
@@ -173,6 +179,7 @@ class MainActivity : AppCompatActivity() {
         val menuRes = when (tag) {
             TAG_HOME -> R.menu.main_top_home
             TAG_SCRAPE -> R.menu.main_top_scrape
+            TAG_SETTINGS -> R.menu.main_top_other
             else -> R.menu.main_top_other
         }
         toolbar.inflateMenu(menuRes)

@@ -66,6 +66,7 @@ class PlayerActivity : AppCompatActivity() {
     private val progressHandler = Handler(Looper.getMainLooper())
     private var currentMediaPath: String = ""
     private var pendingResumeMs: Long = 0L
+    private var remoteDurationHintShown = false
     private val progressTick = object : Runnable {
         override fun run() {
             persistPlaybackProgress()
@@ -131,6 +132,9 @@ class PlayerActivity : AppCompatActivity() {
                         pendingResumeMs = 0L
                         exo.seekTo(seek)
                     }
+                    if (state == Player.STATE_READY) {
+                        maybeShowRemoteDurationHint(exo)
+                    }
                     if (state == Player.STATE_ENDED) {
                         handleEndOfMedia()
                     }
@@ -178,6 +182,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun loadEpisode(exo: ExoPlayer, uri: Uri, title: String, mediaPath: String) {
         currentMediaPath = mediaPath
         autoResolved = false
+        remoteDurationHintShown = false
         val builder = ExoMediaItem.Builder().setUri(uri)
         if (externalSubtitles.isNotEmpty()) {
             builder.setSubtitleConfigurations(
@@ -313,6 +318,14 @@ class PlayerActivity : AppCompatActivity() {
         PlaybackPrefs.AutoplayMode.REPEAT_ONE -> getString(R.string.player_autoplay_repeat_one)
         PlaybackPrefs.AutoplayMode.LOOP_COLLECTION -> getString(R.string.player_autoplay_loop_collection)
         PlaybackPrefs.AutoplayMode.OFF -> getString(R.string.player_autoplay_off)
+    }
+
+    private fun maybeShowRemoteDurationHint(exo: ExoPlayer) {
+        if (remoteDurationHintShown) return
+        if (RemotePath.parse(currentMediaPath) == null) return
+        if (exo.duration > 0) return
+        remoteDurationHintShown = true
+        Toast.makeText(this, R.string.player_duration_unknown_seek_hint, Toast.LENGTH_LONG).show()
     }
 
     private fun handleEndOfMedia() {

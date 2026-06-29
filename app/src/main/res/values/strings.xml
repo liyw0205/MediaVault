@@ -20,6 +20,11 @@
     <string name="tab_search">搜索</string>
     <string name="tab_scrape">刮削</string>
     <string name="tab_collections">合集</string>
+    <string name="tab_settings">设置</string>
+    <string name="settings_section_playback">播放</string>
+    <string name="settings_section_storage">存储与数据</string>
+    <string name="settings_default_autoplay_hint">新安装默认顺序连播；与播放器「列表 → 连播」共用同一设置。</string>
+    <string name="player_duration_unknown_seek_hint">远程文件大小未知，进度条可能不准；可正常播放，拖动范围受限。</string>
     <string name="no_collections">暂无合集。刮削后会按 NFO 里的剧集/合集信息，或同文件夹自动分组。</string>
     <string name="no_tag_collections">暂无按标签分组。刮削后视频带有标签时会出现在「标签」页。</string>
     <string name="no_genre_collections">暂无按类型分组。NFO 或刮削写入类型后会出现在「类型」页。</string>
