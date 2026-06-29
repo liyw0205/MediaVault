@@ -19,6 +19,7 @@ import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
 import com.mediavault.playback.PlaylistBuilder
+import kotlinx.coroutines.launch
 
 class VideoDetailActivity : AppCompatActivity() {
     private val historyStore by lazy { HistoryStore(this) }
@@ -103,6 +104,7 @@ class VideoDetailActivity : AppCompatActivity() {
         }
 
         bindNfoFields(item)
+        bindTmdbMatchRow(item)
 
         val coverPath = item.coverLocalPath()
         val coverView = findViewById<android.widget.ImageView>(R.id.detailCover)
@@ -196,6 +198,54 @@ class VideoDetailActivity : AppCompatActivity() {
         relatedPage = (relatedPage + delta).coerceIn(1, pages)
         val path = intent.getStringExtra(EXTRA_PATH) ?: return
         bindRelatedList(path, relatedAll)
+    }
+
+    private fun bindTmdbMatchRow(item: MediaItem) {
+        val row = findViewById<View>(R.id.tmdbMatchRow) ?: return
+        val summary = findViewById<TextView>(R.id.tmdbMatchSummary)
+        val rematchBtn = findViewById<MaterialButton>(R.id.tmdbRematchBtn)
+        val tmdbId = item.raw.optInt("tmdb_id", 0)
+        val tmdbTitle = item.raw.optString("tmdb_match_title", "").trim()
+        val tmdbYear = item.raw.optString("tmdb_match_year", "").trim()
+        val confidence = item.raw.optString("tmdb_match_confidence", "").trim()
+        val hasMatch = tmdbId > 0 || tmdbTitle.isNotBlank()
+
+        if (!hasMatch) {
+            // 显示但仅给出重新匹配入口
+            row.visibility = View.VISIBLE
+            summary.text = "TMDB · 未匹配"
+            summary.alpha = 0.7f
+        } else {
+            row.visibility = View.VISIBLE
+            val titleYear = if (tmdbYear.isNotBlank()) {
+                getString(R.string.tmdb_match_year_fmt, tmdbTitle.ifBlank { "?" }, tmdbYear)
+            } else tmdbTitle
+            val base = getString(R.string.tmdb_match_summary_fmt, titleYear)
+            val weak = confidence == "popularity"
+            summary.text = if (weak) base + getString(R.string.tmdb_match_weak_suffix) else base
+            summary.alpha = if (weak) 0.7f else 1.0f
+        }
+        rematchBtn.setOnClickListener {
+            TmdbRematchDialog.show(this, item) { onRematchDone(item.path) }
+        }
+    }
+
+    private fun onRematchDone(path: String) {
+        val repo = (application as MediaVaultApp).repository
+        lifecycleScope.launch {
+            repo.reload()
+            val refreshed = repo.library.value.items.find { it.path == path } ?: return@launch
+            bindTmdbMatchRow(refreshed)
+            findViewById<TextView>(R.id.detailTitle).text = refreshed.displayTitle()
+            findViewById<TextView>(R.id.detailPlot).apply {
+                if (refreshed.plot.isBlank()) visibility = View.GONE
+                else {
+                    visibility = View.VISIBLE
+                    PlotText.bindPlot(this, refreshed.plot, getString(R.string.no_plot))
+                }
+            }
+            bindNfoFields(refreshed)
+        }
     }
 
     private fun bindNfoFields(item: MediaItem) {

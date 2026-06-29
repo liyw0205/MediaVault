@@ -76,6 +76,95 @@ object TmdbClient {
     /** 清空内存中的 TMDB 响应缓存（重建扫描前可主动调一次） */
     fun clearCache() = cache.clear()
 
+    /** 手动重新匹配：按标题搜索，返回最多 [limit] 条候选（电影 + 剧集合并排序）。 */
+    fun searchCandidates(
+        apiKey: String,
+        title: String,
+        yearHint: String,
+        seasonHint: String,
+        episodeHint: String,
+        limit: Int = 3,
+    ): List<Match> {
+        val key = apiKey.trim()
+        val query = title.trim()
+        if (key.isBlank() || query.length < 2) return emptyList()
+        val isTv = seasonHint.isNotBlank() || episodeHint.isNotBlank()
+        val out = mutableListOf<Match>()
+        if (isTv) {
+            searchTvCandidates(key, query, seasonHint, episodeHint, yearHint, limit)?.let { out.addAll(it) }
+            if (out.size < limit) {
+                searchMovieCandidates(key, query, yearHint, limit - out.size)?.let { out.addAll(it) }
+            }
+        } else {
+            searchMovieCandidates(key, query, yearHint, limit)?.let { out.addAll(it) }
+            if (out.size < limit) {
+                searchTvCandidates(key, query, seasonHint, episodeHint, yearHint, limit - out.size)?.let { out.addAll(it) }
+            }
+        }
+        return out.take(limit)
+    }
+
+    private fun searchMovieCandidates(apiKey: String, query: String, yearHint: String, limit: Int): List<Match>? {
+        val url = buildString {
+            append(BASE).append("/search/movie?api_key=").append(apiKey)
+            append("&query=").append(java.net.URLEncoder.encode(query, "UTF-8"))
+            append("&language=zh-CN")
+            if (yearHint.isNotBlank()) append("&year=").append(yearHint)
+        }
+        val arr = getResults(url) ?: return null
+        val matches = mutableListOf<Match>()
+        for (i in 0 until minOf(arr.length(), limit)) {
+            val hit = arr.optJSONObject(i) ?: continue
+            val id = hit.optInt("id", 0)
+            if (id <= 0) continue
+            val detail = getJson("$BASE/movie/$id?api_key=$apiKey&language=zh-CN") ?: continue
+            matches.add(movieToMatch(detail, hit).copy(confidence = "manual_pick"))
+        }
+        return matches.ifEmpty { null }
+    }
+
+    private fun searchTvCandidates(
+        apiKey: String,
+        query: String,
+        season: String,
+        episode: String,
+        yearHint: String,
+        limit: Int,
+    ): List<Match>? {
+        val url = buildString {
+            append(BASE).append("/search/tv?api_key=").append(apiKey)
+            append("&query=").append(java.net.URLEncoder.encode(query, "UTF-8"))
+            append("&language=zh-CN")
+            if (yearHint.isNotBlank()) append("&first_air_date_year=").append(yearHint)
+        }
+        val arr = getResults(url) ?: return null
+        val matches = mutableListOf<Match>()
+        for (i in 0 until minOf(arr.length(), limit)) {
+            val hit = arr.optJSONObject(i) ?: continue
+            val id = hit.optInt("id", 0)
+            if (id <= 0) continue
+            val detail = getJson("$BASE/tv/$id?api_key=$apiKey&language=zh-CN") ?: continue
+            var base = tvToMatch(detail, hit, season, episode).copy(confidence = "manual_pick")
+            if (season.isNotBlank() && episode.isNotBlank()) {
+                val sNum = season.toIntOrNull()
+                val eNum = episode.toIntOrNull()
+                if (sNum != null && eNum != null) {
+                    val ep = getJson("$BASE/tv/$id/season/$sNum/episode/$eNum?api_key=$apiKey&language=zh-CN")
+                    if (ep != null) {
+                        base = base.copy(
+                            episodeTitle = ep.optString("name", "").trim(),
+                            episodePlot = ep.optString("overview", "").trim(),
+                            episodeStillUrl = posterUrl(ep.optString("still_path", "")),
+                            episodeAirDate = ep.optString("air_date", "").trim(),
+                        )
+                    }
+                }
+            }
+            matches.add(base)
+        }
+        return matches.ifEmpty { null }
+    }
+
     private fun queryFromFilename(clean: String): String {
         var q = clean
         q = Regex("(?i)\\s*s\\d{1,2}e\\d{1,3}.*").replace(q, "")

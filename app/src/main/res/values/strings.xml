@@ -103,6 +103,25 @@
     <string name="search_type_tv">剧集</string>
     <string name="search_type_movie">电影</string>
     <string name="search_pick_fmt">%1$s · %2$s</string>
+    <string name="tmdb_match_summary_fmt">TMDB · %1$s</string>
+    <string name="tmdb_match_weak_suffix">（弱匹配，可点「重新匹配」）</string>
+    <string name="tmdb_match_year_fmt">%1$s (%2$s)</string>
+    <string name="tmdb_rematch_btn">重新匹配</string>
+    <string name="tmdb_rematch_title">在 TMDB 重新匹配</string>
+    <string name="tmdb_rematch_field_title">标题（必填）</string>
+    <string name="tmdb_rematch_field_year">年份（可空）</string>
+    <string name="tmdb_rematch_field_season">季（可空）</string>
+    <string name="tmdb_rematch_field_episode">集（可空）</string>
+    <string name="tmdb_rematch_search">搜索候选</string>
+    <string name="tmdb_rematch_no_results">未找到结果</string>
+    <string name="tmdb_rematch_searching">搜索中…</string>
+    <string name="tmdb_rematch_apply_done">已重新匹配并保存</string>
+    <string name="tmdb_rematch_apply_fail">保存失败：%1$s</string>
+    <string name="tmdb_rematch_need_key">未配置 TMDB API Key，请到刮削侧栏填入并保存</string>
+    <string name="tmdb_rematch_kind_movie">电影</string>
+    <string name="tmdb_rematch_kind_tv">剧集</string>
+    <string name="tmdb_rematch_pick_fmt">%1$s · %2$s (%3$s)</string>
+    <string name="tmdb_rematch_applying">正在写入…</string>
     <string name="scrape_roots">已配置的媒体目录</string>
 
     <string name="scrape_roots_empty">尚未配置媒体目录</string>

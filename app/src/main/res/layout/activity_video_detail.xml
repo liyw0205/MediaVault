@@ -74,6 +74,35 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp" />
 
+            <LinearLayout
+                android:id="@+id/tmdbMatchRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tmdbMatchSummary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/mv_text_secondary"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tmdbRematchBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/tmdb_rematch_btn"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/detailPlot"
                 android:layout_width="match_parent"
