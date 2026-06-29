@@ -1,6 +1,7 @@
 package com.mediavault.ui
 
 import android.content.Context
+import com.mediavault.R
 
 /**
  * 横屏 / TV 融合态选用专用 layout（与手机版 id 一致，Fragment 逻辑共用）。
