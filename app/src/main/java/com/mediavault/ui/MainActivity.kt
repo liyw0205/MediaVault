@@ -39,6 +39,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (HomeUiPrefs.isAndroidTvDevice(this)) {
+            HomeUiPrefs.setTvLayout(this, true)
+        }
         setContentView(R.layout.activity_main)
 
         drawerLayout = findViewById(R.id.mainDrawer)
@@ -175,6 +178,9 @@ class MainActivity : AppCompatActivity() {
             else -> R.menu.main_top_other
         }
         toolbar.inflateMenu(menuRes)
+        if (tag == TAG_HOME) {
+            toolbar.menu.findItem(R.id.action_home_layout)?.isVisible = HomeUiPrefs.canToggleLayout(this)
+        }
         if (tag == TAG_SCRAPE) {
             drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.END)
         } else {
@@ -196,6 +202,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onTopMenu(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.action_home_layout -> {
+            if (!HomeUiPrefs.canToggleLayout(this)) {
+                Toast.makeText(this, R.string.home_layout_tv_locked, Toast.LENGTH_SHORT).show()
+                true
+            } else {
+                val nextTv = !HomeUiPrefs.isTvLayout(this)
+                HomeUiPrefs.setTvLayout(this, nextTv)
+                Toast.makeText(
+                    this,
+                    if (nextTv) R.string.home_layout_tv_on else R.string.home_layout_phone_on,
+                    Toast.LENGTH_SHORT,
+                ).show()
+                homeFragment()?.onHomeLayoutModeChanged()
+                (supportFragmentManager.findFragmentByTag(TAG_SEARCH) as? SearchFragment)?.onHomeLayoutModeChanged()
+                true
+            }
+        }
         R.id.action_reload -> {
             HomeRecommendState.clearPersist(this)
             HomeRecommendState.resetAutoSeedFlag(this)
