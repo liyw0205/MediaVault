@@ -1,5 +1,6 @@
 # Gradle
 .gradle/
+gradle/wrapper/gradle-*-bin.zip
 build/
 **/build/
 
