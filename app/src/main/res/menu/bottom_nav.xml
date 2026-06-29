@@ -16,8 +16,4 @@
         android:id="@+id/nav_scrape"
         android:icon="@android:drawable/ic_menu_manage"
         android:title="@string/tab_scrape" />
-    <item
-        android:id="@+id/nav_settings"
-        android:icon="@android:drawable/ic_menu_preferences"
-        android:title="@string/tab_settings" />
 </menu>

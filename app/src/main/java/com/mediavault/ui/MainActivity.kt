@@ -9,7 +9,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -23,13 +22,10 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_SEARCH_TAG = "search_tag"
-        /** 从设置 Tab 跳转：打开刮削 Tab 并展开右侧刮削侧栏 */
-        const val EXTRA_OPEN_SCRAPE_DRAWER = "open_scrape_drawer"
         private const val TAG_HOME = "tab_home"
         private const val TAG_SEARCH = "tab_search"
         private const val TAG_COLLECTIONS = "tab_collections"
         private const val TAG_SCRAPE = "tab_scrape"
-        private const val TAG_SETTINGS = "tab_settings"
     }
 
     val repository
@@ -95,35 +91,24 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
                 R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
-                R.id.nav_settings -> showTab(TAG_SETTINGS, getString(R.string.tab_settings))
                 else -> false
             }
         }
 
         if (savedInstanceState == null) {
             val tag = intent.getStringExtra(EXTRA_SEARCH_TAG)
-            val openScrapeDrawer = intent.getBooleanExtra(EXTRA_OPEN_SCRAPE_DRAWER, false)
-            when {
-                openScrapeDrawer -> {
-                    bottom.selectedItemId = R.id.nav_scrape
-                    showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
-                    drawerContent.post { openScrapeDrawer() }
-                }
-                !tag.isNullOrBlank() -> {
-                    bottom.selectedItemId = R.id.nav_search
-                    showTab(TAG_SEARCH, getString(R.string.tab_search))
-                }
-                else -> {
-                    bottom.selectedItemId = R.id.nav_home
-                    showTab(TAG_HOME, getString(R.string.tab_home))
-                }
+            if (!tag.isNullOrBlank()) {
+                bottom.selectedItemId = R.id.nav_search
+                showTab(TAG_SEARCH, getString(R.string.tab_search))
+            } else {
+                bottom.selectedItemId = R.id.nav_home
+                showTab(TAG_HOME, getString(R.string.tab_home))
             }
         } else {
             when (bottom.selectedItemId) {
                 R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
                 R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
-                R.id.nav_settings -> showTab(TAG_SETTINGS, getString(R.string.tab_settings))
                 else -> showTab(TAG_HOME, getString(R.string.tab_home))
             }
         }
@@ -156,17 +141,14 @@ class MainActivity : AppCompatActivity() {
         val searchFrag = if (!searchTag.isNullOrBlank()) SearchFragment.newInstance(searchTag) else SearchFragment()
         val collections = CollectionsFragment()
         val scrape = ScrapeFragment()
-        val settings = SettingsFragment()
         fm.beginTransaction()
             .add(R.id.fragmentContainer, home, TAG_HOME)
             .add(R.id.fragmentContainer, searchFrag, TAG_SEARCH)
             .add(R.id.fragmentContainer, collections, TAG_COLLECTIONS)
             .add(R.id.fragmentContainer, scrape, TAG_SCRAPE)
-            .add(R.id.fragmentContainer, settings, TAG_SETTINGS)
             .hide(searchFrag)
             .hide(collections)
             .hide(scrape)
-            .hide(settings)
             .commitNow()
     }
 
@@ -177,7 +159,7 @@ class MainActivity : AppCompatActivity() {
         currentTabTag = tag
         val fm = supportFragmentManager
         val tx = fm.beginTransaction()
-        for (t in listOf(TAG_HOME, TAG_SEARCH, TAG_COLLECTIONS, TAG_SCRAPE, TAG_SETTINGS)) {
+        for (t in listOf(TAG_HOME, TAG_SEARCH, TAG_COLLECTIONS, TAG_SCRAPE)) {
             val f = fm.findFragmentByTag(t) ?: continue
             if (t == tag) tx.show(f) else tx.hide(f)
         }
@@ -190,7 +172,6 @@ class MainActivity : AppCompatActivity() {
         val menuRes = when (tag) {
             TAG_HOME -> R.menu.main_top_home
             TAG_SCRAPE -> R.menu.main_top_scrape
-            TAG_SETTINGS -> R.menu.main_top_other
             else -> R.menu.main_top_other
         }
         toolbar.inflateMenu(menuRes)
@@ -208,13 +189,6 @@ class MainActivity : AppCompatActivity() {
         ScrapeDrawerBinder.reloadOptions(this, drawerContent)
         ScrapeDrawerBinder.reloadDirectories(this, drawerContent)
         drawerLayout.openDrawer(GravityCompat.END)
-    }
-
-    /** 设置 Tab：刮削选项、管理目录、TMDB/字幕等均在刮削侧栏 */
-    fun openScrapeSettingsFromSettingsTab() {
-        findViewById<BottomNavigationView>(R.id.bottomNav).selectedItemId = R.id.nav_scrape
-        showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
-        findViewById<View>(R.id.scrapeDrawerContent).post { openScrapeDrawer() }
     }
 
     fun closeScrapeDrawer(animate: Boolean = false) {
