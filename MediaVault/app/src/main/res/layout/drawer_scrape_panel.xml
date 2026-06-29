@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/mv_surface"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp"
+        android:paddingBottom="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/scrape_drawer_title"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/settings_scrape_section"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/settings_scrape_mode_local"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <RadioGroup
+            android:id="@+id/drawerScrapeModeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/drawerScrapeModeLocal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_scrape_mode_local_option" />
+
+            <RadioButton
+                android:id="@+id/drawerScrapeModeOnline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_scrape_mode_online_option" />
+        </RadioGroup>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/drawerTmdbKeyLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/settings_tmdb_api_key_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/drawerTmdbApiKeyInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/drawerTmdbCacheHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/drawerClearTmdbCacheBtn"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_clear_tmdb_cache"
+            android:textColor="@color/mv_amber"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/settings_scrape_local_sources"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/drawerScrapeCoverFilesSwitch"
+            style="@style/Widget.MediaVault.Switch.Settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:showText="false"
+            android:text="@string/settings_scrape_cover_files" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/drawerScrapeCoverFrameSwitch"
+            style="@style/Widget.MediaVault.Switch.Settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:showText="false"
+            android:text="@string/settings_scrape_cover_frame" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/drawerScrapeNfoSwitch"
+            style="@style/Widget.MediaVault.Switch.Settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:showText="false"
+            android:text="@string/settings_scrape_nfo" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/drawerScrapeFilenameSwitch"
+            style="@style/Widget.MediaVault.Switch.Settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:showText="false"
+            android:text="@string/settings_scrape_filename" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/drawerScrapeSubtitlesSwitch"
+            style="@style/Widget.MediaVault.Switch.Settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:showText="false"
+            android:text="@string/settings_scrape_subtitles" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_subtitle_lang_title"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <RadioGroup
+            android:id="@+id/drawerSubtitleLangGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangHans"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_hans" />
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangHant"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_hant" />
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangEn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_en" />
+
+            <RadioButton
+                android:id="@+id/drawerSubtitleLangNeutral"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_subtitle_lang_neutral" />
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/drawerScrapeThreadsLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/drawerScrapeThreadsSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="32"
+            app:thumbColor="@color/mv_primary"
+            app:trackColorActive="@color/mv_primary_dark"
+            app:trackColorInactive="@color/mv_line" />
+
+        <TextView
+            android:id="@+id/drawerScrapeRemoteFrameLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/drawerScrapeRemoteFrameSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="5"
+            app:thumbColor="@color/mv_primary"
+            app:trackColorActive="@color/mv_primary_dark"
+            app:trackColorInactive="@color/mv_line" />
+
+        <TextView
+            android:id="@+id/drawerRemoteCacheTotalLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/drawerRemoteCacheTotalSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="8"
+            app:thumbColor="@color/mv_primary"
+            app:trackColorActive="@color/mv_primary_dark"
+            app:trackColorInactive="@color/mv_line" />
+
+        <TextView
+            android:id="@+id/drawerRemoteCachePerFileLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/drawerRemoteCachePerFileSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:stepSize="1"
+            android:valueFrom="1"
+            android:valueTo="8"
+            app:thumbColor="@color/mv_primary"
+            app:trackColorActive="@color/mv_primary_dark"
+            app:trackColorInactive="@color/mv_line" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/drawerSaveScrapeSettingsBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_save_scrape"
+            android:textSize="15sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:background="@color/mv_line" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/scrape_dirs_title"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+        <include
+            android:id="@+id/drawerDirsSection"
+            layout="@layout/drawer_scrape_directories_section" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:background="@color/mv_line" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/app_settings"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/drawerOpenDataBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/data_menu"
+            android:textSize="15sp" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

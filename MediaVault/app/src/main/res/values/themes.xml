@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MediaVault" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/mv_primary_dark</item>
+        <item name="colorPrimaryVariant">@color/mv_primary_dark</item>
+        <item name="colorOnPrimary">@color/mv_on_primary</item>
+        <item name="android:colorBackground">@color/mv_bg</item>
+        <item name="colorSurface">@color/mv_surface</item>
+        <item name="colorOnSurface">@color/mv_text</item>
+        <item name="android:textColorPrimary">@color/mv_text</item>
+        <item name="android:textColorSecondary">@color/mv_text_secondary</item>
+        <item name="android:textColorHint">@color/mv_hint</item>
+        <item name="android:statusBarColor">@color/mv_bg</item>
+        <item name="android:navigationBarColor">@color/mv_surface</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.MediaVault.AlertDialog</item>
+        <item name="materialButtonStyle">@style/Widget.MediaVault.Button</item>
+        <item name="textInputStyle">@style/Widget.MediaVault.TextInput</item>
+        <item name="editTextStyle">@style/Widget.MediaVault.EditText</item>
+    </style>
+
+    <style name="ThemeOverlay.MediaVault.AlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="android:background">@color/mv_dialog_bg</item>
+        <item name="colorSurface">@color/mv_dialog_bg</item>
+        <item name="colorOnSurface">@color/mv_text</item>
+        <item name="android:textColorPrimary">@color/mv_text</item>
+        <item name="android:textColorSecondary">@color/mv_text_secondary</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.MediaVault.DialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.MediaVault.DialogBody</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.MediaVault.DialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.MediaVault.DialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.MediaVault.DialogButton</item>
+    </style>
+
+    <style name="TextAppearance.MediaVault.DialogTitle" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textColor">@color/mv_text</item>
+    </style>
+    <style name="TextAppearance.MediaVault.DialogBody" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColor">@color/mv_text_secondary</item>
+    </style>
+
+    <style name="Widget.MediaVault.DialogButton" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/mv_primary</item>
+    </style>
+
+    <style name="Widget.MediaVault.Button" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/mv_line</item>
+        <item name="android:textColor">@color/mv_text</item>
+    </style>
+    <!-- 设置页并排小按钮：去掉 Material 默认 inset，避免高度不一致 -->
+    <style name="Widget.MediaVault.Button.SettingsTile" parent="Widget.MediaVault.Button">
+        <item name="android:minHeight">0dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:gravity">center</item>
+    </style>
+    <style name="Widget.MediaVault.Button.Green" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/mv_green</item>
+        <item name="android:textColor">@color/mv_green_on</item>
+    </style>
+    <style name="Widget.MediaVault.Chip" parent="Widget.MaterialComponents.Chip.Choice">
+        <item name="chipBackgroundColor">@color/mv_chip_bg</item>
+        <item name="android:textColor">@color/mv_text</item>
+        <item name="chipStrokeColor">@color/mv_line</item>
+        <item name="chipStrokeWidth">1dp</item>
+    </style>
+    <style name="Widget.MediaVault.Chip.Tag" parent="Widget.MaterialComponents.Chip.Action">
+        <item name="chipBackgroundColor">@color/mv_chip_bg</item>
+        <item name="android:textColor">@color/mv_text</item>
+        <item name="chipStrokeColor">@color/mv_primary</item>
+        <item name="chipStrokeWidth">1dp</item>
+    </style>
+    <style name="Widget.MediaVault.TextInput" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="hintTextColor">@color/mv_hint</item>
+        <item name="android:textColorHint">@color/mv_hint</item>
+        <item name="boxStrokeColor">@color/mv_line</item>
+        <item name="boxBackgroundColor">@color/mv_input_bg</item>
+    </style>
+    <style name="Widget.MediaVault.EditText" parent="Widget.AppCompat.EditText">
+        <item name="android:textColor">@color/mv_text</item>
+        <item name="android:textColorHint">@color/mv_hint</item>
+        <item name="android:backgroundTint">@color/mv_line</item>
+    </style>
+
+    <style name="TextAppearance.MediaVault.Settings.Section" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/mv_text</item>
+    </style>
+    <style name="TextAppearance.MediaVault.Settings.Body" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/mv_text</item>
+    </style>
+    <style name="TextAppearance.MediaVault.Settings.Hint" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/mv_text_secondary</item>
+    </style>
+    <style name="Widget.MediaVault.Switch.Settings" parent="Widget.AppCompat.CompoundButton.Switch">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/mv_text</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
+    </style>
+</resources>

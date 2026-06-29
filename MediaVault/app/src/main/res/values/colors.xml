@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mv_bg">#0b1220</color>
+    <color name="mv_surface">#111827</color>
+    <color name="mv_surface2">#1f2937</color>
+    <color name="mv_line">#4b5563</color>
+    <color name="mv_text">#f9fafb</color>
+    <color name="mv_text_secondary">#d1d5db</color>
+    <color name="mv_muted">#b8c0cc</color>
+    <color name="mv_primary">#67e8f9</color>
+    <color name="mv_primary_dark">#0e7490</color>
+    <color name="mv_on_primary">#042f2e</color>
+    <color name="mv_green">#6ee7b7</color>
+    <color name="mv_green_on">#064e3b</color>
+    <color name="mv_amber">#fcd34d</color>
+    <color name="mv_amber_on">#78350f</color>
+    <color name="mv_chip_bg">#243b55</color>
+    <color name="mv_hint">#9ca3af</color>
+    <color name="mv_input_bg">#1a2332</color>
+    <color name="mv_dialog_bg">#111827</color>
+</resources>

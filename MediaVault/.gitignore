@@ -1,0 +1,20 @@
+# Gradle
+.gradle/
+gradle/wrapper/gradle-*-bin.zip
+build/
+**/build/
+
+# Local SDK path (Termux)
+local.properties
+
+# IDE
+.idea/
+*.iml
+.kotlin/
+
+# APK outputs (build in CI/local)
+*.apk
+*.aab
+
+# OS
+.DS_Store

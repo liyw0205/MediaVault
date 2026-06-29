@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainDrawer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="false">
+
+    <LinearLayout
+        android:id="@+id/mainContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/mv_bg"
+        android:orientation="vertical">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/mv_surface"
+            android:elevation="4dp"
+            app:titleTextColor="@color/mv_text" />
+
+        <FrameLayout
+            android:id="@+id/fragmentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottomNav"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/mv_surface"
+            app:itemIconTint="@color/mv_bottom_nav"
+            app:itemTextColor="@color/mv_bottom_nav"
+            app:menu="@menu/bottom_nav" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/scrapeDrawerPanel"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:background="@color/mv_surface"
+        android:clickable="true"
+        android:elevation="8dp"
+        android:focusable="true">
+
+        <include
+            android:id="@+id/scrapeDrawerContent"
+            layout="@layout/drawer_scrape_panel" />
+    </FrameLayout>
+</androidx.drawerlayout.widget.DrawerLayout>
