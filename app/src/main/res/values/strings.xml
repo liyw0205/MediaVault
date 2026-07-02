@@ -11,10 +11,6 @@
     <string name="add_local_root">添加本机文件夹</string>
     <string name="scan_local">扫描本机根目录</string>
     <string name="reload">重读</string>
-    <string name="home_layout_menu">界面</string>
-    <string name="home_layout_phone_on">已切换到手机界面</string>
-    <string name="home_layout_tv_on">已切换到安卓 TV 界面</string>
-    <string name="home_layout_tv_locked">电视设备固定为安卓 TV 界面</string>
     <string name="data_menu">数据</string>
     <string name="search_hint">搜标题、简拼、标签或简介</string>
     <string name="no_items">还没有视频。请点「重读」，或到「刮削」页扫描目录。</string>

@@ -101,7 +101,6 @@ class HomeFragment : Fragment() {
 
     /** @deprecated 手动界面切换已移除 */
     fun onHomeLayoutModeChanged() = onFusionUiChanged()
-
     fun refreshFromParent() {
         view?.let { v ->
             val act = activity as? MainActivity ?: return

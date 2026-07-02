@@ -382,7 +382,6 @@ class SearchFragment : Fragment() {
     }
 
     fun onHomeLayoutModeChanged() = onFusionUiChanged()
-
     override fun onResume() {
         super.onResume()
         if (::adapter.isInitialized) adapter.refreshProgressHints()
