@@ -15,6 +15,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.mediavault.R
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.LibraryDiagnosticsSnapshot
 import com.mediavault.data.ScrapeConfig
 import com.mediavault.data.ScrapeSettings
 import com.mediavault.data.TmdbClient
@@ -120,6 +121,10 @@ object ScrapeDrawerBinder {
         val clearTmdbCacheBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerClearTmdbCacheBtn)
         val subtitleLangGroup = panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
+        val maintenanceSummary = panelRoot.findViewById<TextView>(R.id.drawerLibraryMaintenanceSummary)
+        val maintenanceIssues = panelRoot.findViewById<TextView>(R.id.drawerLibraryMaintenanceIssues)
+        val maintenanceRefreshBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerRefreshLibraryMaintenanceBtn)
+        val maintenanceOpenBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenLibraryMaintenanceBtn)
         val dirsSection = panelRoot.findViewById<View>(R.id.drawerDirsSection)
         if (!includeDirectories) {
             dirsSection?.visibility = View.GONE
@@ -170,6 +175,7 @@ object ScrapeDrawerBinder {
             updateCacheLabels(cacheTotalSlider.value.toInt(), cachePerSlider.value.toInt())
             refreshTmdbCacheUi(activity, tmdbCacheHint, clearTmdbCacheBtn, cfg.isOnlineMode())
             bindSubtitleLangRadio(subtitleLangGroup, SubtitlePrefs.getPrimary(activity))
+            renderMaintenance(activity, maintenanceSummary, maintenanceIssues, repository.diagnostics.value)
         }
 
         subtitleLangGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -243,6 +249,20 @@ object ScrapeDrawerBinder {
             }
         }
 
+        maintenanceRefreshBtn.setOnClickListener {
+            val snapshot = repository.refreshDiagnostics()
+            renderMaintenance(activity, maintenanceSummary, maintenanceIssues, snapshot)
+            Toast.makeText(activity, R.string.library_maintenance_refreshed, Toast.LENGTH_SHORT).show()
+        }
+
+        maintenanceOpenBtn.setOnClickListener {
+            LibraryMaintenanceDialog.show(activity, repository) {
+                val snapshot = repository.diagnostics.value
+                renderMaintenance(activity, maintenanceSummary, maintenanceIssues, snapshot)
+                onRootsMayHaveChanged()
+            }
+        }
+
         dataBtn.setOnClickListener {
             drawer?.closeDrawer(GravityCompat.END, false)
             DataStorageDialog.show(activity, repository) { onRootsMayHaveChanged() }
@@ -299,5 +319,57 @@ object ScrapeDrawerBinder {
         panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)?.let {
             bindSubtitleLangRadio(it, SubtitlePrefs.getPrimary(activity))
         }
+        renderMaintenance(
+            activity,
+            panelRoot.findViewById(R.id.drawerLibraryMaintenanceSummary),
+            panelRoot.findViewById(R.id.drawerLibraryMaintenanceIssues),
+            boundRepository?.diagnostics?.value ?: LibraryDiagnosticsSnapshot.EMPTY,
+        )
+    }
+
+    private fun renderMaintenance(
+        activity: AppCompatActivity,
+        summary: TextView,
+        issues: TextView,
+        snapshot: LibraryDiagnosticsSnapshot,
+    ) {
+        summary.text = activity.getString(
+            R.string.library_maintenance_summary_fmt,
+            snapshot.itemCount,
+            snapshot.localCount,
+            snapshot.remoteCount,
+            snapshot.totalIssues,
+        )
+        val issueText = if (snapshot.issueCounts.isEmpty()) {
+            activity.getString(R.string.library_maintenance_no_issues)
+        } else {
+            snapshot.issueCounts.entries
+                .sortedByDescending { it.value }
+                .joinToString("\n") { (kind, count) ->
+                    activity.getString(
+                        R.string.library_maintenance_issue_line_fmt,
+                        issueLabel(activity, kind),
+                        count,
+                    )
+                }
+        }
+        issues.text = issueText + "\n" + activity.getString(
+            R.string.library_maintenance_scanned_fmt,
+            snapshot.scannedAt,
+        )
+    }
+
+    private fun issueLabel(activity: AppCompatActivity, kind: String): String {
+        val resId = when (kind) {
+            "missing_path" -> R.string.library_issue_missing_path
+            "duplicate_path" -> R.string.library_issue_duplicate_path
+            "duplicate_title" -> R.string.library_issue_duplicate_title
+            "stale_remote" -> R.string.library_issue_stale_remote
+            "missing_cover" -> R.string.library_issue_missing_cover
+            "unmatched" -> R.string.library_issue_unmatched
+            "low_confidence_match" -> R.string.library_issue_low_confidence_match
+            else -> 0
+        }
+        return if (resId != 0) activity.getString(resId) else kind
     }
 }

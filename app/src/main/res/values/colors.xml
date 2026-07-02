@@ -14,6 +14,7 @@
     <color name="mv_green_on">#064e3b</color>
     <color name="mv_amber">#fcd34d</color>
     <color name="mv_amber_on">#78350f</color>
+    <color name="mv_danger">#fca5a5</color>
     <color name="mv_chip_bg">#243b55</color>
     <color name="mv_hint">#9ca3af</color>
     <color name="mv_input_bg">#1a2332</color>

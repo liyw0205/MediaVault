@@ -12,6 +12,7 @@ import java.util.Locale
 
 class LibraryRepository(context: Context) {
     val store = MediaStore(context)
+    private val diagnosticsStore = LibraryDiagnosticsStore(context)
     private val app = context.applicationContext
 
     private val _library = MutableStateFlow(MediaLibrary(false, emptyList(), ""))
@@ -19,6 +20,9 @@ class LibraryRepository(context: Context) {
 
     private val _updatedAt = MutableStateFlow("--")
     val updatedAt: StateFlow<String> = _updatedAt.asStateFlow()
+
+    private val _diagnostics = MutableStateFlow(diagnosticsStore.readSnapshot() ?: LibraryDiagnosticsSnapshot.EMPTY)
+    val diagnostics: StateFlow<LibraryDiagnosticsSnapshot> = _diagnostics.asStateFlow()
 
     fun reload(): Result<Int> = runCatching {
         val text = store.readLibraryText() ?: run {
@@ -29,6 +33,7 @@ class LibraryRepository(context: Context) {
         val lib = MediaLibrary.parse(text, store.libraryFile.absolutePath)
         _library.value = lib
         _updatedAt.value = readUpdatedFromJson(text) ?: formatFileTime(store.libraryFile)
+        refreshDiagnostics(lib.items)
         lib.items.size
     }
 
@@ -60,8 +65,15 @@ class LibraryRepository(context: Context) {
             val merged = byPath.values.toList()
             store.writeLibraryJson(merged).getOrThrow()
             _library.value = MediaLibrary(true, merged, store.libraryFile.absolutePath)
+            refreshDiagnostics(merged)
             merged.size
         }
+    }
+
+    fun refreshDiagnostics(items: List<MediaItem> = _library.value.items): LibraryDiagnosticsSnapshot {
+        val snapshot = diagnosticsStore.scanAndPersist(store, items)
+        _diagnostics.value = snapshot
+        return snapshot
     }
 
     private fun mergeAndPersist(batch: List<MediaItem>): Int {
@@ -96,6 +108,15 @@ class LibraryRepository(context: Context) {
         val n = store.removeLibraryItemsUnderRemote(remoteId)
         reload()
         n
+    }
+
+    fun removeItemByPath(path: String): Result<Boolean> = runCatching {
+        val existing = _library.value.items
+        val kept = existing.filter { it.path != path }
+        if (kept.size == existing.size) return@runCatching false
+        store.writeLibraryJson(kept).getOrThrow()
+        reload()
+        true
     }
 
     fun dataSizes(): DataSizes {

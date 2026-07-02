@@ -280,6 +280,50 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
+            android:text="@string/library_maintenance_title"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+        <TextView
+            android:id="@+id/drawerLibraryMaintenanceSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
+
+        <TextView
+            android:id="@+id/drawerLibraryMaintenanceIssues"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/drawerRefreshLibraryMaintenanceBtn"
+            style="@style/Widget.MediaVault.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="@string/library_maintenance_refresh" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/drawerOpenLibraryMaintenanceBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/library_maintenance_open"
+            android:textSize="15sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:background="@color/mv_line" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
             android:text="@string/app_settings"
             android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
 
