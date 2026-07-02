@@ -5,11 +5,13 @@ import android.os.Build
 import com.mediavault.remote.RemoteStreamCache
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 data class ExportArchive(
@@ -27,7 +29,7 @@ class ExportBundleWriter(context: Context) {
         val archive = createArchiveFile("backup")
         val entries = mutableListOf<ExportEntry>()
         ZipOutputStream(archive.outputStream().buffered()).use { zip ->
-            zip.putFile(entries, "data/library.json", store.libraryFile)
+            zip.putLibrary(entries)
             zip.putFile(entries, "data/roots.list", store.rootsListFile)
             zip.putText(entries, "data/remotes.redacted.json", redactedRemotesJson().toString(2))
             zip.putFile(entries, "data/scrape-record.tsv", store.scrapeRecordFile)
@@ -39,10 +41,11 @@ class ExportBundleWriter(context: Context) {
             zip.putText(entries, "config/playback-ui.json", sharedPrefsJson("playback_ui").toString(2))
             zip.putText(entries, "manifest.json", manifestJson("backup", snapshot, entries).toString(2))
         }
+        val validation = validateArchiveOrDelete(archive, "backup", BACKUP_REQUIRED_ENTRIES)
         return ExportArchive(
             file = archive,
             suggestedName = archive.name,
-            summary = "备份包已生成：${snapshot.itemCount} 条媒体、${store.readLocalRootUris().size} 个本机目录、${store.readRemotesList().size} 个远程配置；远程密码和 TMDB Key 已脱敏。",
+            summary = "备份包已生成：${snapshot.itemCount} 条媒体、${store.readLocalRootUris().size} 个本机目录、${store.readRemotesList().size} 个远程配置；远程密码和 TMDB Key 已脱敏。${validation.summary}",
         )
     }
 
@@ -58,10 +61,11 @@ class ExportBundleWriter(context: Context) {
             zip.putText(entries, "config/scrape-settings.redacted.json", scrapeSettingsJson().toString(2))
             zip.putText(entries, "manifest.json", manifestJson("diagnostics", snapshot, entries).toString(2))
         }
+        val validation = validateArchiveOrDelete(archive, "diagnostics", DIAGNOSTICS_REQUIRED_ENTRIES)
         return ExportArchive(
             file = archive,
             suggestedName = archive.name,
-            summary = "诊断包已生成：库 ${snapshot.itemCount} 条、问题 ${snapshot.totalIssues} 个、源状态 ${snapshot.sourceHealth.size} 条；不包含明文密码。",
+            summary = "诊断包已生成：库 ${snapshot.itemCount} 条、问题 ${snapshot.totalIssues} 个、源状态 ${snapshot.sourceHealth.size} 条；不包含明文密码。${validation.summary}",
         )
     }
 
@@ -84,6 +88,13 @@ class ExportBundleWriter(context: Context) {
 
     private fun diagnosticsFile(): File =
         File(app.filesDir, "mediavault/library-diagnostics.json")
+
+    private fun emptyLibraryJson(): JSONObject =
+        JSONObject().apply {
+            put("ok", true)
+            put("items", JSONArray())
+            put("updated", nowText())
+        }
 
     private fun manifestJson(
         kind: String,
@@ -363,6 +374,113 @@ class ExportBundleWriter(context: Context) {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 
     private data class ExportEntry(val path: String, val bytes: Long)
+    private data class ArchiveValidationResult(val entryCount: Int, val manifestContentCount: Int) {
+        val summary: String = "已校验 $entryCount 个 ZIP 条目 / 清单 $manifestContentCount 项。"
+    }
+
+    private data class ReadZipEntry(val bytes: Long, val text: String?)
+
+    private fun validateArchiveOrDelete(
+        archive: File,
+        expectedKind: String,
+        requiredEntries: Set<String>,
+    ): ArchiveValidationResult =
+        runCatching { validateArchive(archive, expectedKind, requiredEntries) }
+            .getOrElse { e ->
+                archive.delete()
+                throw e
+            }
+
+    private fun validateArchive(
+        archive: File,
+        expectedKind: String,
+        requiredEntries: Set<String>,
+    ): ArchiveValidationResult {
+        val entryBytes = linkedMapOf<String, Long>()
+        var manifestText: String? = null
+        try {
+            ZipInputStream(archive.inputStream().buffered()).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    val path = entry.name
+                    if (!entry.isDirectory) {
+                        if (entryBytes.containsKey(path)) validationError("ZIP 内有重复条目：$path")
+                        val read = zip.readEntry(captureText = path == "manifest.json")
+                        entryBytes[path] = read.bytes
+                        if (path == "manifest.json") manifestText = read.text.orEmpty()
+                    }
+                    zip.closeEntry()
+                }
+            }
+        } catch (e: IllegalStateException) {
+            throw e
+        } catch (e: Throwable) {
+            validationError("无法读取 ZIP：${e.message?.take(120).orEmpty().ifBlank { e.javaClass.simpleName }}")
+        }
+
+        requiredEntries.forEach { path ->
+            if (!entryBytes.containsKey(path)) validationError("缺少必要条目：$path")
+        }
+
+        val rawManifest = manifestText ?: validationError("缺少 manifest.json")
+        val manifest = runCatching { JSONObject(rawManifest) }
+            .getOrElse { validationError("manifest.json 不是有效 JSON") }
+        val schema = manifest.optInt("schema", 0)
+        if (schema <= 0) validationError("manifest.json 缺少有效 schema")
+        val kind = manifest.optString("kind", "")
+        if (kind != expectedKind) validationError("manifest.kind=$kind，期望 $expectedKind")
+
+        val contents = manifest.optJSONArray("contents")
+            ?: validationError("manifest.json 缺少 contents 清单")
+        val manifestPaths = linkedSetOf<String>()
+        for (i in 0 until contents.length()) {
+            val obj = contents.optJSONObject(i)
+                ?: validationError("contents[$i] 不是有效对象")
+            val path = obj.optString("path", "")
+            if (path.isBlank()) validationError("contents[$i] 缺少 path")
+            if (!manifestPaths.add(path)) validationError("contents 有重复条目：$path")
+            val actualBytes = entryBytes[path] ?: validationError("contents 条目不存在于 ZIP：$path")
+            val declaredBytes = obj.optLong("bytes", -1L)
+            if (declaredBytes < 0L) validationError("contents 条目缺少 bytes：$path")
+            if (actualBytes != declaredBytes) {
+                validationError("contents 字节数不匹配：$path")
+            }
+        }
+        val unlisted = entryBytes.keys.filter { it != "manifest.json" && !manifestPaths.contains(it) }
+        if (unlisted.isNotEmpty()) {
+            validationError("ZIP 存在未列入清单的条目：${unlisted.take(3).joinToString("、")}")
+        }
+        return ArchiveValidationResult(entryBytes.size, manifestPaths.size)
+    }
+
+    private fun validationError(message: String): Nothing =
+        throw IllegalStateException("导出包校验失败：$message")
+
+    private fun ZipInputStream.readEntry(captureText: Boolean): ReadZipEntry {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        val captured = if (captureText) ByteArrayOutputStream() else null
+        var bytes = 0L
+        while (true) {
+            val read = read(buffer)
+            if (read < 0) break
+            bytes += read
+            if (captured != null) {
+                if (captured.size() + read > MAX_MANIFEST_BYTES) {
+                    validationError("manifest.json 超过大小上限")
+                }
+                captured.write(buffer, 0, read)
+            }
+        }
+        return ReadZipEntry(bytes, captured?.let { String(it.toByteArray(), Charsets.UTF_8) })
+    }
+
+    private fun ZipOutputStream.putLibrary(entries: MutableList<ExportEntry>) {
+        if (store.libraryFile.isFile) {
+            putFile(entries, "data/library.json", store.libraryFile)
+        } else {
+            putText(entries, "data/library.json", emptyLibraryJson().toString(2))
+        }
+    }
 
     private fun ZipOutputStream.putFile(entries: MutableList<ExportEntry>, path: String, file: File) {
         if (!file.isFile) return
@@ -378,5 +496,21 @@ class ExportBundleWriter(context: Context) {
         write(bytes)
         closeEntry()
         entries += ExportEntry(path, bytes.size.toLong())
+    }
+
+    private companion object {
+        private const val MAX_MANIFEST_BYTES = 1024 * 1024
+        private val BACKUP_REQUIRED_ENTRIES = setOf(
+            "manifest.json",
+            "data/library.json",
+            "data/remotes.redacted.json",
+            "config/scrape-settings.redacted.json",
+        )
+        private val DIAGNOSTICS_REQUIRED_ENTRIES = setOf(
+            "manifest.json",
+            "diagnostics/summary.json",
+            "config/remotes-summary.json",
+            "config/scrape-settings.redacted.json",
+        )
     }
 }
