@@ -30,6 +30,7 @@ data class BackupImportPrecheck(
     val historyEntryCount: Int,
     val subtitlePrefsEntryCount: Int,
     val playbackUiEntryCount: Int,
+    val validatedOptionalJsonCount: Int,
     val missingOptionalEntries: List<String>,
     val redactedRemotePasswordCount: Int,
     val preservedRemotePasswordCount: Int,
@@ -115,12 +116,20 @@ class BackupImportManager(context: Context) {
                 copyOptional(extracted, "data/roots.list", store.rootsListFile, deleteIfMissing = true)
                 writeText(store.remotesFile, remotes.text)
                 copyOptional(extracted, "data/scrape-record.tsv", store.scrapeRecordFile, deleteIfMissing = true)
-                copyOptional(extracted, "data/library-diagnostics.json", diagnosticsFile(), deleteIfMissing = true)
+                copyOptionalDiagnostics(extracted)
                 writeText(scrapeConfigFile(), scrapeSettings.text)
-                extracted.text("data/playback-progress.json")?.let { applySharedPrefs("mediavault_playback_progress", it) }
-                extracted.text("data/history.json")?.let { applySharedPrefs("mediavault_history", it) }
-                extracted.text("config/subtitle-prefs.json")?.let { applySharedPrefs("subtitle_prefs", it) }
-                extracted.text("config/playback-ui.json")?.let { applySharedPrefs("playback_ui", it) }
+                extracted.text("data/playback-progress.json")?.let {
+                    applySharedPrefs("mediavault_playback_progress", it, "data/playback-progress.json")
+                }
+                extracted.text("data/history.json")?.let {
+                    applySharedPrefs("mediavault_history", it, "data/history.json")
+                }
+                extracted.text("config/subtitle-prefs.json")?.let {
+                    applySharedPrefs("subtitle_prefs", it, "config/subtitle-prefs.json")
+                }
+                extracted.text("config/playback-ui.json")?.let {
+                    applySharedPrefs("playback_ui", it, "config/playback-ui.json")
+                }
 
                 repository.reloadDiagnosticsSnapshot()
                 repository.reload().getOrThrow()
@@ -213,7 +222,10 @@ class BackupImportManager(context: Context) {
         val remotesText = extracted.textRequired("data/remotes.redacted.json")
         val remotes = runCatching { RemoteConfig.listFromJson(remotesText) }
             .getOrElse { importError("data/remotes.redacted.json 不是有效远程配置 JSON") }
-        extracted.textRequired("config/scrape-settings.redacted.json")
+        val scrapeSettings = parseJsonObject(
+            extracted.textRequired("config/scrape-settings.redacted.json"),
+            "config/scrape-settings.redacted.json",
+        )
 
         val localRootCount = extracted.text("data/roots.list")
             ?.lineSequence()
@@ -221,10 +233,7 @@ class BackupImportManager(context: Context) {
             ?.count { it.isNotBlank() && !it.startsWith("#") }
             ?: 0
         val scrapeRecordCount = lineEntryCount(extracted.text("data/scrape-record.tsv"))
-        val playbackProgressEntryCount = sharedPrefsEntryCount(extracted.text("data/playback-progress.json"))
-        val historyEntryCount = sharedPrefsEntryCount(extracted.text("data/history.json"))
-        val subtitlePrefsEntryCount = sharedPrefsEntryCount(extracted.text("config/subtitle-prefs.json"))
-        val playbackUiEntryCount = sharedPrefsEntryCount(extracted.text("config/playback-ui.json"))
+        val optionalJson = validateOptionalJsonEntries(extracted)
         val missingOptionalEntries = IMPORT_OPTIONAL_ENTRIES
             .filter { extracted.file(it) == null }
             .map(::importEntryLabel)
@@ -252,7 +261,6 @@ class BackupImportManager(context: Context) {
             }
         }
         val missingPasswords = missingCredentials.size
-        val scrapeSettings = JSONObject(extracted.textRequired("config/scrape-settings.redacted.json"))
         val tmdbRedacted = scrapeSettings.optBoolean("tmdbApiKeyRedacted", false) &&
             scrapeSettings.optString("tmdbApiKey", "").isBlank()
         val tmdbPreserved = tmdbRedacted && ScrapeConfig.readSettings(app).tmdbApiKey.isNotBlank()
@@ -266,6 +274,7 @@ class BackupImportManager(context: Context) {
             warnings += "备份包缺少内容清单，已按实际 ZIP 条目预检。"
         }
         warnings += contentValidation.warnings
+        warnings += optionalJson.warnings
         if (extracted.ignoredEntries.isNotEmpty()) {
             warnings += "ZIP 包含 ${extracted.ignoredEntries.size} 个当前版本不会导入的额外条目。"
         }
@@ -303,10 +312,11 @@ class BackupImportManager(context: Context) {
             localRootCount = localRootCount,
             remoteCount = remotes.size,
             scrapeRecordCount = scrapeRecordCount,
-            playbackProgressEntryCount = playbackProgressEntryCount,
-            historyEntryCount = historyEntryCount,
-            subtitlePrefsEntryCount = subtitlePrefsEntryCount,
-            playbackUiEntryCount = playbackUiEntryCount,
+            playbackProgressEntryCount = optionalJson.playbackProgressEntryCount,
+            historyEntryCount = optionalJson.historyEntryCount,
+            subtitlePrefsEntryCount = optionalJson.subtitlePrefsEntryCount,
+            playbackUiEntryCount = optionalJson.playbackUiEntryCount,
+            validatedOptionalJsonCount = optionalJson.validatedJsonCount,
             missingOptionalEntries = missingOptionalEntries,
             redactedRemotePasswordCount = redactedPasswords,
             preservedRemotePasswordCount = preservedPasswords,
@@ -418,6 +428,31 @@ class BackupImportManager(context: Context) {
     private fun importError(message: String): Nothing =
         throw IllegalStateException(message)
 
+    private fun validateOptionalJsonEntries(extracted: ExtractedZip): OptionalJsonValidation {
+        var validated = 0
+        val warnings = mutableListOf<String>()
+        fun prefs(path: String): Int {
+            val text = extracted.text(path) ?: return 0
+            validated++
+            return sharedPrefsEntryCount(path, text)
+        }
+        extracted.text("data/library-diagnostics.json")?.let {
+            if (runCatching { JSONObject(it) }.isSuccess) {
+                validated++
+            } else {
+                warnings += "库诊断快照损坏，导入时将忽略并重新生成。"
+            }
+        }
+        return OptionalJsonValidation(
+            playbackProgressEntryCount = prefs("data/playback-progress.json"),
+            historyEntryCount = prefs("data/history.json"),
+            subtitlePrefsEntryCount = prefs("config/subtitle-prefs.json"),
+            playbackUiEntryCount = prefs("config/playback-ui.json"),
+            validatedJsonCount = validated,
+            warnings = warnings,
+        )
+    }
+
     private fun createRollbackSnapshot(): File {
         val dir = rollbackDir().also { it.mkdirs() }
         val file = File(dir, "MediaVault_import_rollback_${fileStamp()}.zip")
@@ -449,7 +484,7 @@ class BackupImportManager(context: Context) {
                 if (source != null) copyFile(source, target) else target.delete()
             }
             for (prefName in PREF_NAMES) {
-                extracted.text("prefs/$prefName.json")?.let { applySharedPrefs(prefName, it) }
+                extracted.text("prefs/$prefName.json")?.let { applySharedPrefs(prefName, it, "prefs/$prefName.json") }
             }
             repository.reloadDiagnosticsSnapshot()
             repository.reload().getOrThrow()
@@ -583,6 +618,20 @@ class BackupImportManager(context: Context) {
         }
     }
 
+    private fun copyOptionalDiagnostics(extracted: ExtractedZip) {
+        val path = "data/library-diagnostics.json"
+        val source = extracted.file(path)
+        if (source == null) {
+            diagnosticsFile().delete()
+            return
+        }
+        if (runCatching { JSONObject(source.readText(Charsets.UTF_8)) }.isSuccess) {
+            copyFile(source, diagnosticsFile())
+        } else {
+            diagnosticsFile().delete()
+        }
+    }
+
     private fun copyFile(source: File, target: File) {
         target.parentFile?.mkdirs()
         source.copyTo(target, overwrite = true)
@@ -593,9 +642,8 @@ class BackupImportManager(context: Context) {
         target.writeText(text, Charsets.UTF_8)
     }
 
-    private fun applySharedPrefs(name: String, text: String) {
-        val root = JSONObject(text)
-        val entries = root.optJSONObject("entries") ?: root
+    private fun applySharedPrefs(name: String, text: String, path: String) {
+        val entries = sharedPrefsEntries(path, text)
         val editor = app.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear()
         val keys = entries.keys()
         while (keys.hasNext()) {
@@ -639,6 +687,18 @@ class BackupImportManager(context: Context) {
             val root = JSONObject(text ?: return@runCatching 0)
             (root.optJSONObject("entries") ?: root).length()
         }.getOrDefault(0)
+
+    private fun sharedPrefsEntryCount(path: String, text: String): Int =
+        sharedPrefsEntries(path, text).length()
+
+    private fun sharedPrefsEntries(path: String, text: String): JSONObject {
+        val root = parseJsonObject(text, path)
+        if (root.has("entries")) {
+            return root.optJSONObject("entries")
+                ?: importError("$path 的 entries 不是有效对象")
+        }
+        return root
+    }
 
     private fun importEntryLabel(path: String): String = when (path) {
         "data/roots.list" -> "本机目录列表"
@@ -766,6 +826,15 @@ class BackupImportManager(context: Context) {
     private data class ImportContentValidation(
         val verifiedEntries: Int,
         val ignoredEntries: Int,
+        val warnings: List<String>,
+    )
+
+    private data class OptionalJsonValidation(
+        val playbackProgressEntryCount: Int,
+        val historyEntryCount: Int,
+        val subtitlePrefsEntryCount: Int,
+        val playbackUiEntryCount: Int,
+        val validatedJsonCount: Int,
         val warnings: List<String>,
     )
 

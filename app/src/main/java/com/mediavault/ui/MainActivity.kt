@@ -565,6 +565,10 @@ class MainActivity : AppCompatActivity() {
         append(precheck.subtitlePrefsEntryCount)
         append("，播放 UI ")
         append(precheck.playbackUiEntryCount)
+        append('\n')
+        append("可选 JSON：已校验 ")
+        append(precheck.validatedOptionalJsonCount)
+        append(" 组")
         if (precheck.missingOptionalEntries.isNotEmpty()) {
             append('\n')
             append("缺少可选内容：")
