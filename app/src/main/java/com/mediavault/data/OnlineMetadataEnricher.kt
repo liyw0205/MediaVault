@@ -87,6 +87,7 @@ object OnlineMetadataEnricher {
         o.put("tmdb_type", match.mediaType)
         o.put("metadata_source", "tmdb")
         if (match.confidence.isNotBlank()) o.put("tmdb_match_confidence", match.confidence)
+        if (match.confidence.isNotBlank()) o.put("tmdb_match_reason", reasonForConfidence(match.confidence))
         o.put("tmdb_match_title", match.title)
         if (match.year.isNotBlank()) o.put("tmdb_match_year", match.year)
 
@@ -161,7 +162,9 @@ object OnlineMetadataEnricher {
         o.put("tmdb_id", match.tmdbId)
         o.put("tmdb_type", match.mediaType)
         o.put("metadata_source", "tmdb")
-        o.put("tmdb_match_confidence", match.confidence.ifBlank { "manual_pick" })
+        val confidence = match.confidence.ifBlank { "manual_pick" }
+        o.put("tmdb_match_confidence", confidence)
+        o.put("tmdb_match_reason", reasonForConfidence(confidence))
         o.put("tmdb_match_title", match.title)
         if (match.year.isNotBlank()) o.put("tmdb_match_year", match.year)
 
@@ -183,6 +186,16 @@ object OnlineMetadataEnricher {
         val clean = fileName.substringBeforeLast('.')
         return title.equals(clean, ignoreCase = true)
     }
+
+    private fun reasonForConfidence(confidence: String): String =
+        when (confidence.trim()) {
+            "title_exact+year_match" -> "标题完全匹配且年份一致"
+            "title_exact" -> "标题完全匹配"
+            "year_match" -> "年份一致，按热度和票数排序选中"
+            "popularity" -> "未命中标题或年份强条件，按热度和票数排序选中"
+            "manual_pick" -> "用户手动选择候选"
+            else -> confidence.trim()
+        }
 
     private fun sha1(s: String): String {
         val d = MessageDigest.getInstance("SHA-1").digest(s.toByteArray())

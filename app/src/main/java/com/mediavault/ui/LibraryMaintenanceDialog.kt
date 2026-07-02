@@ -13,9 +13,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.LibraryIssue
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.ScrapeEvidence
+import com.mediavault.remote.RemotePath
 import kotlinx.coroutines.launch
 
 object LibraryMaintenanceDialog {
@@ -183,16 +186,38 @@ object LibraryMaintenanceDialog {
             holder.evidence.setOnClickListener {
                 showEvidence(issue)
             }
+            holder.rescrape.setOnClickListener {
+                rescrapeIssue(issue)
+            }
             holder.remove.setOnClickListener {
                 confirmRemove(issue)
             }
         }
 
         private fun showEvidence(issue: LibraryIssue) {
-            val msg = activity.getString(
+            val title = issue.title.ifBlank { issue.path.substringAfterLast('/') }
+            val msg = issue.evidence?.let { evidence ->
+                activity.getString(
+                    R.string.library_issue_evidence_deep_fmt,
+                    issueLabel(activity, issue.kind),
+                    title,
+                    issue.detail,
+                    issue.path,
+                    sourceLine(evidence),
+                    evidence.fileName.ifBlank { "-" },
+                    evidence.parsedTitle.ifBlank { "-" },
+                    seasonLine(evidence),
+                    if (evidence.nfoHit) activity.getString(R.string.library_issue_evidence_yes) else activity.getString(R.string.library_issue_evidence_no),
+                    tmdbLine(evidence),
+                    tmdbEvidenceLine(evidence),
+                    coverLine(evidence),
+                    evidence.subtitles.size.toString(),
+                    evidence.sidecarFiles.take(6).joinToString(", ").ifBlank { "-" },
+                )
+            } ?: activity.getString(
                 R.string.library_issue_evidence_fmt,
                 issueLabel(activity, issue.kind),
-                issue.title.ifBlank { issue.path.substringAfterLast('/') },
+                title,
                 issue.detail,
                 issue.path,
             )
@@ -202,6 +227,38 @@ object LibraryMaintenanceDialog {
                     .setMessage(msg)
                     .setPositiveButton(android.R.string.ok, null),
             )
+        }
+
+        private fun rescrapeIssue(issue: LibraryIssue) {
+            if (rescrapeRemote(issue)) return
+            if (rescrapeLocal(issue)) return
+            Toast.makeText(activity, R.string.library_issue_rescrape_no_scope, Toast.LENGTH_LONG).show()
+        }
+
+        private fun rescrapeRemote(issue: LibraryIssue): Boolean {
+            val parsed = RemotePath.parse(issue.path) ?: return false
+            val app = activity.application as MediaVaultApp
+            if (app.scrapeManager.isRunning()) {
+                Toast.makeText(activity, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
+                return true
+            }
+            app.repository.store.clearScrapeRecordPath(issue.path)
+            app.scrapeManager.start(false, remoteIds = listOf(parsed.configId))
+            Toast.makeText(activity, activity.getString(R.string.library_issue_rescrape_started, issue.title.ifBlank { issue.path }), Toast.LENGTH_SHORT).show()
+            return true
+        }
+
+        private fun rescrapeLocal(issue: LibraryIssue): Boolean {
+            val app = activity.application as MediaVaultApp
+            val root = app.repository.store.readLocalRootUris().firstOrNull { issue.path.startsWith(it) } ?: return false
+            if (app.scrapeManager.isRunning()) {
+                Toast.makeText(activity, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
+                return true
+            }
+            app.repository.store.clearScrapeRecordPath(issue.path)
+            app.scrapeManager.start(false, localRootUris = listOf(root))
+            Toast.makeText(activity, activity.getString(R.string.library_issue_rescrape_started, issue.title.ifBlank { issue.path }), Toast.LENGTH_SHORT).show()
+            return true
         }
 
         private fun confirmRemove(issue: LibraryIssue) {
@@ -234,6 +291,7 @@ object LibraryMaintenanceDialog {
         val meta: TextView = view.findViewById(R.id.libraryIssueMeta)
         val open: MaterialButton = view.findViewById(R.id.libraryIssueOpen)
         val evidence: MaterialButton = view.findViewById(R.id.libraryIssueEvidence)
+        val rescrape: MaterialButton = view.findViewById(R.id.libraryIssueRescrape)
         val remove: MaterialButton = view.findViewById(R.id.libraryIssueRemove)
     }
 
@@ -265,4 +323,34 @@ object LibraryMaintenanceDialog {
         val kind: String?,
         val label: String,
     )
+
+    private fun sourceLine(evidence: ScrapeEvidence): String =
+        listOf(evidence.sourceType, evidence.sourcePath).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "-" }
+
+    private fun seasonLine(evidence: ScrapeEvidence): String {
+        val year = evidence.year.ifBlank { "?" }
+        val se = when {
+            evidence.season.isNotBlank() && evidence.episode.isNotBlank() -> "S${evidence.season}E${evidence.episode}"
+            evidence.season.isNotBlank() -> "S${evidence.season}"
+            evidence.episode.isNotBlank() -> "E${evidence.episode}"
+            else -> "-"
+        }
+        return "$year / $se"
+    }
+
+    private fun tmdbLine(evidence: ScrapeEvidence): String {
+        val id = evidence.tmdbId.ifBlank { "-" }
+        val title = evidence.tmdbTitle.ifBlank { "-" }
+        val year = evidence.tmdbYear.ifBlank { "?" }
+        return "$id · $title ($year)"
+    }
+
+    private fun tmdbEvidenceLine(evidence: ScrapeEvidence): String =
+        listOf(evidence.tmdbConfidence, evidence.tmdbReason)
+            .filter { it.isNotBlank() }
+            .joinToString(" · ")
+            .ifBlank { "-" }
+
+    private fun coverLine(evidence: ScrapeEvidence): String =
+        listOf(evidence.coverSource, evidence.coverLocal).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "-" }
 }

@@ -138,6 +138,22 @@ class MediaStore(private val context: Context) {
         scrapeRecordFile.writeText(lines.joinToString("\n").let { if (it.isEmpty()) "" else "$it\n" })
     }
 
+    fun clearScrapeRecordPath(path: String): Boolean {
+        if (!scrapeRecordFile.isFile) return false
+        val target = path.trim()
+        var removed = false
+        val lines = scrapeRecordFile.readLines().filter { line ->
+            val p = line.trim()
+            val keep = p.isEmpty() || p != target
+            if (!keep) removed = true
+            keep
+        }
+        if (removed) {
+            scrapeRecordFile.writeText(lines.joinToString("\n").let { if (it.isEmpty()) "" else "$it\n" })
+        }
+        return removed
+    }
+
     fun readRemotesJsonText(): String {
         if (!remotesFile.isFile) return "[]"
         return remotesFile.readText(Charsets.UTF_8)

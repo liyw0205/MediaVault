@@ -24,6 +24,7 @@ data class LibraryDiagnosticsSnapshot(
     val sampleIssues: List<LibraryIssue>,
     val issues: List<LibraryIssue> = sampleIssues,
     val sourceHealth: List<SourceHealth> = emptyList(),
+    val scrapeEvidence: Map<String, ScrapeEvidence> = emptyMap(),
 ) {
     val totalIssues: Int = issueCounts.values.sum()
 
@@ -37,6 +38,7 @@ data class LibraryDiagnosticsSnapshot(
             sampleIssues = emptyList(),
             issues = emptyList(),
             sourceHealth = emptyList(),
+            scrapeEvidence = emptyMap(),
         )
     }
 }
@@ -46,12 +48,14 @@ data class LibraryIssue(
     val path: String,
     val title: String,
     val detail: String,
+    val evidence: ScrapeEvidence? = null,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("kind", kind)
         put("path", path)
         put("title", title)
         put("detail", detail)
+        evidence?.let { put("evidence", it.toJson()) }
     }
 
     companion object {
@@ -60,6 +64,7 @@ data class LibraryIssue(
             path = o.optString("path", ""),
             title = o.optString("title", ""),
             detail = o.optString("detail", ""),
+            evidence = o.optJSONObject("evidence")?.let { ScrapeEvidence.fromJson(it) },
         )
     }
 }
@@ -123,6 +128,7 @@ class LibraryDiagnosticsStore(context: Context) {
         val issues = readIssues(root.optJSONArray("issues") ?: root.optJSONArray("sampleIssues") ?: JSONArray())
         val sampleIssues = readIssues(root.optJSONArray("sampleIssues") ?: JSONArray()).ifEmpty { issues.take(20) }
         val sourceHealth = readSourceHealth(root.optJSONArray("sourceHealth") ?: JSONArray())
+        val scrapeEvidence = readScrapeEvidence(root.optJSONObject("scrapeEvidence") ?: JSONObject())
         LibraryDiagnosticsSnapshot(
             scannedAt = root.optString("scannedAt", "--"),
             itemCount = root.optInt("itemCount", 0),
@@ -132,6 +138,7 @@ class LibraryDiagnosticsStore(context: Context) {
             sampleIssues = sampleIssues,
             issues = issues,
             sourceHealth = sourceHealth,
+            scrapeEvidence = scrapeEvidence,
         )
     }.getOrNull()
 
@@ -147,6 +154,16 @@ class LibraryDiagnosticsStore(context: Context) {
         val out = mutableListOf<SourceHealth>()
         for (i in 0 until arr.length()) {
             out.add(SourceHealth.fromJson(arr.optJSONObject(i) ?: continue))
+        }
+        return out
+    }
+
+    private fun readScrapeEvidence(obj: JSONObject): Map<String, ScrapeEvidence> {
+        val out = linkedMapOf<String, ScrapeEvidence>()
+        val keys = obj.keys()
+        while (keys.hasNext()) {
+            val path = keys.next()
+            out[path] = ScrapeEvidence.fromJson(obj.optJSONObject(path) ?: continue)
         }
         return out
     }
@@ -206,6 +223,7 @@ class LibraryDiagnosticsStore(context: Context) {
         }
 
         val counts = issues.groupingBy { it.kind }.eachCount().toSortedMap()
+        val evidenceByPath = items.associate { it.path to ScrapeEvidence.fromItem(it) }
         return LibraryDiagnosticsSnapshot(
             scannedAt = scannedAt,
             itemCount = items.size,
@@ -215,6 +233,7 @@ class LibraryDiagnosticsStore(context: Context) {
             sampleIssues = issues.take(20),
             issues = issues,
             sourceHealth = buildSourceHealth(store, items, scannedAt, probeSources, previousSourceHealth),
+            scrapeEvidence = evidenceByPath,
         )
     }
 
@@ -227,8 +246,10 @@ class LibraryDiagnosticsStore(context: Context) {
         for (issue in snapshot.issues) issues.put(issue.toJson())
         val sources = JSONArray()
         for (source in snapshot.sourceHealth) sources.put(source.toJson())
+        val evidence = JSONObject()
+        for ((path, itemEvidence) in snapshot.scrapeEvidence) evidence.put(path, itemEvidence.toJson())
         val root = JSONObject().apply {
-            put("schema", 2)
+            put("schema", 3)
             put("scannedAt", snapshot.scannedAt)
             put("itemCount", snapshot.itemCount)
             put("localCount", snapshot.localCount)
@@ -237,6 +258,7 @@ class LibraryDiagnosticsStore(context: Context) {
             put("sampleIssues", sample)
             put("issues", issues)
             put("sourceHealth", sources)
+            put("scrapeEvidence", evidence)
         }
         file.writeText(root.toString(2), Charsets.UTF_8)
     }
@@ -401,6 +423,7 @@ class LibraryDiagnosticsStore(context: Context) {
         path = path,
         title = displayTitle(),
         detail = detail,
+        evidence = ScrapeEvidence.fromItem(this),
     )
 
     private fun nowText(): String =

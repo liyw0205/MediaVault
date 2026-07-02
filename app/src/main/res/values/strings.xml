@@ -280,6 +280,12 @@
     <string name="library_issue_open">详情</string>
     <string name="library_issue_evidence">证据</string>
     <string name="library_issue_evidence_fmt">类型：%1$s\n标题：%2$s\n原因：%3$s\n路径：%4$s</string>
+    <string name="library_issue_evidence_deep_fmt">类型：%1$s\n标题：%2$s\n原因：%3$s\n路径：%4$s\n\n来源：%5$s\n文件名：%6$s\n解析标题：%7$s\n年份/季集：%8$s\nNFO：%9$s\nTMDB：%10$s\n匹配置信：%11$s\n封面：%12$s\n字幕：%13$s\n旁挂：%14$s</string>
+    <string name="library_issue_evidence_yes">有</string>
+    <string name="library_issue_evidence_no">无</string>
+    <string name="library_issue_rescrape">重刮</string>
+    <string name="library_issue_rescrape_started">已加入刮削：%1$s</string>
+    <string name="library_issue_rescrape_no_scope">无法判断该条目的媒体源</string>
     <string name="library_issue_remove">移除</string>
     <string name="library_issue_remove_confirm">从媒体库移除“%1$s”？不会删除源文件、目录或远程配置。</string>
     <string name="library_issue_removed">条目已移除</string>
