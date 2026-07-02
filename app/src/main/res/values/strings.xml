@@ -261,6 +261,14 @@
     <string name="library_maintenance_open">查看问题</string>
     <string name="library_maintenance_sample_hint">显示样本问题 %1$d 条</string>
     <string name="library_maintenance_list_hint">显示问题 %1$d 条</string>
+    <string name="library_maintenance_filter_all">全部问题（%1$d）</string>
+    <string name="library_maintenance_filter_kind">%1$s（%2$d）</string>
+    <string name="library_maintenance_page_fmt">%1$d-%2$d / %3$d</string>
+    <string name="library_maintenance_empty_filter">当前筛选没有问题</string>
+    <string name="library_maintenance_prev">上一页</string>
+    <string name="library_maintenance_next">下一页</string>
+    <string name="source_health_summary_fmt">源状态：%1$d 个，可达 %2$d，异常 %3$d，未检查 %4$d</string>
+    <string name="source_health_issue_fmt">%1$s：%2$s</string>
     <string name="library_issue_missing_path">无路径</string>
     <string name="library_issue_duplicate_path">重复路径</string>
     <string name="library_issue_duplicate_title">疑似重复</string>

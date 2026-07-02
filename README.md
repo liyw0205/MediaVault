@@ -7,7 +7,7 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 | 包名 | `com.mediavault` |
 | 最低系统 | Android 8.0（API 26） |
 | 编译目标 | Android SDK 34 |
-| 当前版本 | **0.5.1**（versionCode 84） |
+| 当前版本 | **0.5.2**（versionCode 85） |
 
 ## 0.5.x 方向
 
@@ -17,7 +17,7 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 - **竖屏手机态 + 横屏融合态**：横屏或 Android TV 类设备自动进入融合 UI；竖屏保持手机触控布局。
 - **不提供手动“界面”开关**：界面由设备配置和方向自动决定。
 - **触控与遥控共存**：融合态保留触控，同时加强焦点链、D-pad 与返回键行为。
-- **库维护优先**：新增库诊断和问题样本列表，先解决重复、失效、未匹配、缺封面等可维护性问题。
+- **库维护优先**：新增库诊断、完整问题列表、筛选分页和源健康状态，先解决重复、失效、未匹配、缺封面等可维护性问题。
 
 ## 功能概览
 
@@ -28,7 +28,7 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 | 播放 | 全屏播放、手势 seek、字幕、截图、进度记忆、连播策略 |
 | 远程播放 | 网络拉流，已播放片段本地缓存，减少重复下载 |
 | 数据管理 | 应用内查看媒体库、刮削记录、封面和远程缓存占用并清理 |
-| 库维护 | 在刮削侧栏查看库诊断统计、完整问题列表、问题证据，支持打开详情和从媒体库移除单条问题项 |
+| 库维护 | 在刮削侧栏查看库诊断统计、源健康、完整问题列表、筛选分页和问题证据，支持打开详情和从媒体库移除单条问题项 |
 
 ## 信息架构
 
@@ -90,7 +90,7 @@ Termux 下必须使用仓库脚本，它会临时设置可执行的 aarch64 `aap
 
 ```bash
 bash pack_mediavault.sh
-# 生成 ../MediaVault_0.5.1_debug.apk
+# 生成 ../MediaVault_0.5.2_debug.apk
 ```
 
 不要把 `android.aapt2FromMavenOverride` 长期写入 `gradle.properties`。
@@ -114,7 +114,7 @@ LOG_DIR=~/Downloads ./log_mediavault.sh
 
 应用私有数据位于 `/data/user/0/com.mediavault/files/`，包含媒体库、目录配置、远程配置、刮削记录、库诊断快照、封面、远程缓存和播放进度等。
 
-0.5.x 的库诊断快照写入 `mediavault/library-diagnostics.json`，用于刮削侧栏的库维护统计和问题样本列表。
+0.5.x 的库诊断快照写入 `mediavault/library-diagnostics.json`，用于刮削侧栏的库维护统计、源健康和完整问题列表。
 
 应用内 **数据** 菜单可以查看占用并清理，无需 adb。
 
@@ -126,6 +126,28 @@ LOG_DIR=~/Downloads ./log_mediavault.sh
 - 竖屏触控和横屏 D-pad 都必须保持可用。
 - 新业务能力默认不加入，除非明确决定。
 - 每版至少验证冷启动、四 Tab、搜索、刮削侧栏、远程浏览/播放和播放器。
+
+### UI 配色与可读性
+
+当前 UI 是深色工作台风格，基础色在 `app/src/main/res/values/colors.xml`：
+
+| 角色 | 颜色 | 用法 |
+|------|------|------|
+| 背景 | `mv_bg #0b1220` | 页面底色、播放器遮罩基色 |
+| 面板 | `mv_surface #111827` / `mv_surface2 #1f2937` | 列表、抽屉、对话框、卡片面 |
+| 主文本 | `mv_text #f9fafb` | 深色背景上的标题和正文 |
+| 次文本 | `mv_text_secondary #d1d5db` / `mv_muted #b8c0cc` | 深色背景上的说明和元信息 |
+| 弱提示 | `mv_hint #9ca3af` | 仅用于非关键信息，不能当主要正文 |
+| 主强调 | `mv_primary #67e8f9` | 主操作、选中态、焦点高亮 |
+| 危险 | `mv_danger #fca5a5` | 删除、移除等危险操作文本 |
+
+配色约束：
+
+- 深色背景只配 `mv_text`、`mv_text_secondary`、`mv_muted`、`mv_hint`、`mv_primary`、`mv_danger` 这类浅色文本。
+- `mv_on_primary`、`mv_green_on`、`mv_amber_on` 这类深色文本只放在对应的亮色填充按钮、标签或状态块上。
+- 新增布局不要直接写硬编码文本色；优先复用 `mv_text`、`mv_text_secondary` 和现有 TextAppearance。
+- 禁止浅色背景配浅色字、深色背景配深色字；新增对话框、抽屉、列表项和横屏面板时必须检查可读性。
+- 禁用态可以降低透明度，但文本仍应在实际背景上可辨认，不能只靠颜色区分状态。
 
 发布前建议流程：
 

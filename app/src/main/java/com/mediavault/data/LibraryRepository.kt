@@ -70,8 +70,16 @@ class LibraryRepository(context: Context) {
         }
     }
 
-    fun refreshDiagnostics(items: List<MediaItem> = _library.value.items): LibraryDiagnosticsSnapshot {
-        val snapshot = diagnosticsStore.scanAndPersist(store, items)
+    fun refreshDiagnostics(
+        items: List<MediaItem> = _library.value.items,
+        probeSources: Boolean = false,
+    ): LibraryDiagnosticsSnapshot {
+        val snapshot = diagnosticsStore.scanAndPersist(
+            store,
+            items,
+            probeSources = probeSources,
+            previousSourceHealth = _diagnostics.value.sourceHealth,
+        )
         _diagnostics.value = snapshot
         return snapshot
     }

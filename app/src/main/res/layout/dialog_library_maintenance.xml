@@ -17,9 +17,46 @@
         android:textColor="@color/mv_text"
         android:textSize="14sp" />
 
+    <Spinner
+        android:id="@+id/libraryMaintenanceFilter"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="10dp" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/libraryMaintenanceRecycler"
         android:layout_width="match_parent"
-        android:layout_height="320dp"
+        android:layout_height="300dp"
         android:layout_marginTop="12dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/libraryMaintenancePrev"
+            style="@style/Widget.MediaVault.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/library_maintenance_prev" />
+
+        <TextView
+            android:id="@+id/libraryMaintenancePage"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textColor="@color/mv_text_secondary"
+            android:textSize="13sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/libraryMaintenanceNext"
+            style="@style/Widget.MediaVault.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/library_maintenance_next" />
+    </LinearLayout>
 </LinearLayout>

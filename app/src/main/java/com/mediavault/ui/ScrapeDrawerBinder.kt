@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.TextInputEditText
@@ -16,11 +17,15 @@ import com.google.android.material.textfield.TextInputLayout
 import com.mediavault.R
 import com.mediavault.data.LibraryRepository
 import com.mediavault.data.LibraryDiagnosticsSnapshot
+import com.mediavault.data.SourceHealth
 import com.mediavault.data.ScrapeConfig
 import com.mediavault.data.ScrapeSettings
 import com.mediavault.data.TmdbClient
 import com.mediavault.data.TmdbDiskCache
 import com.mediavault.data.SubtitlePrefs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object ScrapeDrawerBinder {
 
@@ -250,9 +255,15 @@ object ScrapeDrawerBinder {
         }
 
         maintenanceRefreshBtn.setOnClickListener {
-            val snapshot = repository.refreshDiagnostics()
-            renderMaintenance(activity, maintenanceSummary, maintenanceIssues, snapshot)
-            Toast.makeText(activity, R.string.library_maintenance_refreshed, Toast.LENGTH_SHORT).show()
+            maintenanceRefreshBtn.isEnabled = false
+            activity.lifecycleScope.launch {
+                val snapshot = withContext(Dispatchers.IO) {
+                    repository.refreshDiagnostics(probeSources = true)
+                }
+                renderMaintenance(activity, maintenanceSummary, maintenanceIssues, snapshot)
+                maintenanceRefreshBtn.isEnabled = true
+                Toast.makeText(activity, R.string.library_maintenance_refreshed, Toast.LENGTH_SHORT).show()
+            }
         }
 
         maintenanceOpenBtn.setOnClickListener {
@@ -353,10 +364,14 @@ object ScrapeDrawerBinder {
                     )
                 }
         }
-        issues.text = issueText + "\n" + activity.getString(
-            R.string.library_maintenance_scanned_fmt,
-            snapshot.scannedAt,
-        )
+        val sourceText = sourceHealthText(activity, snapshot.sourceHealth)
+        issues.text = buildString {
+            append(issueText)
+            append('\n')
+            append(sourceText)
+            append('\n')
+            append(activity.getString(R.string.library_maintenance_scanned_fmt, snapshot.scannedAt))
+        }
     }
 
     private fun issueLabel(activity: AppCompatActivity, kind: String): String {
@@ -371,5 +386,23 @@ object ScrapeDrawerBinder {
             else -> 0
         }
         return if (resId != 0) activity.getString(resId) else kind
+    }
+
+    private fun sourceHealthText(activity: AppCompatActivity, sources: List<SourceHealth>): String {
+        val ok = sources.count { it.reachable == true }
+        val bad = sources.count { it.reachable == false }
+        val unchecked = sources.count { it.reachable == null }
+        val summary = activity.getString(R.string.source_health_summary_fmt, sources.size, ok, bad, unchecked)
+        val badLines = sources
+            .filter { it.reachable == false }
+            .take(3)
+            .joinToString("\n") { source ->
+                activity.getString(
+                    R.string.source_health_issue_fmt,
+                    source.name.ifBlank { source.sourceId },
+                    source.lastErrorMessage.ifBlank { source.lastErrorKind.ifBlank { "不可达" } },
+                )
+            }
+        return if (badLines.isBlank()) summary else summary + "\n" + badLines
     }
 }

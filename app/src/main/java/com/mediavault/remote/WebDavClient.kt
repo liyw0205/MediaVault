@@ -58,7 +58,8 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         val url = baseUrl() + p
         val req = Request.Builder().url(url).get()
         authHeader()?.let { req.header("Authorization", it) }
-        if (offset > 0 || length != C.LENGTH_UNSET.toLong()) {
+        val wantsRange = offset > 0 || length != C.LENGTH_UNSET.toLong()
+        if (wantsRange) {
             val end = when {
                 length != C.LENGTH_UNSET.toLong() && length > 0 -> offset + length - 1
                 else -> ""
@@ -66,6 +67,10 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
             req.header("Range", "bytes=$offset-$end")
         }
         val resp = http.newCall(req.build()).execute()
+        if (wantsRange && offset > 0 && resp.code != 206) {
+            resp.close()
+            error("WebDAV Range unsupported: ${resp.code}")
+        }
         if (!resp.isSuccessful && resp.code != 206) {
             resp.close()
             error("WebDAV GET ${resp.code}")
