@@ -1,6 +1,8 @@
 package com.mediavault.ui
 
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
@@ -21,6 +23,8 @@ import com.google.android.material.navigation.NavigationBarView
 import com.google.android.material.navigationrail.NavigationRailView
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
+import com.mediavault.data.BackupImportManager
+import com.mediavault.data.BackupImportPrecheck
 import com.mediavault.data.ExportArchive
 import com.mediavault.data.MediaItem
 import kotlinx.coroutines.Dispatchers
@@ -91,6 +95,18 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
                     }
             }
+        }
+
+    private val openBackupZipDocumentLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) {
+                Toast.makeText(this, R.string.backup_import_pick_cancelled, Toast.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
+            runCatching {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            precheckBackupImport(uri)
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -432,6 +448,116 @@ class MainActivity : AppCompatActivity() {
         pendingExportArchive?.file?.delete()
         pendingExportArchive = archive
         createZipDocumentLauncher.launch(archive.suggestedName)
+    }
+
+    fun openBackupImportDocument() {
+        openBackupZipDocumentLauncher.launch(
+            arrayOf(
+                "application/zip",
+                "application/x-zip-compressed",
+                "application/octet-stream",
+                "*/*",
+            ),
+        )
+    }
+
+    private fun precheckBackupImport(uri: Uri) {
+        Toast.makeText(this, R.string.backup_import_prechecking, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { BackupImportManager(this@MainActivity).inspect(uri) }
+            }
+            result
+                .onSuccess { precheck -> showBackupImportPrecheck(uri, precheck) }
+                .onFailure { e ->
+                    Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    private fun showBackupImportPrecheck(uri: Uri, precheck: BackupImportPrecheck) {
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.backup_import_precheck_title)
+                .setMessage(backupImportPrecheckText(precheck))
+                .setPositiveButton(R.string.backup_import_confirm) { _, _ -> runBackupImport(uri) }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
+    }
+
+    private fun backupImportPrecheckText(precheck: BackupImportPrecheck): String = buildString {
+        append("备份时间：")
+        append(precheck.createdAt)
+        append('\n')
+        append("来源版本：")
+        append(precheck.sourceVersionName)
+        append('\n')
+        append("媒体库：")
+        append(precheck.itemCount)
+        append(" 条")
+        append('\n')
+        append("本机目录：")
+        append(precheck.localRootCount)
+        append(" 个")
+        append('\n')
+        append("远程配置：")
+        append(precheck.remoteCount)
+        append(" 个")
+        if (precheck.redactedRemotePasswordCount > 0) {
+            append('\n')
+            append("远程密码：脱敏 ")
+            append(precheck.redactedRemotePasswordCount)
+            append(" 个，可保留当前 ")
+            append(precheck.preservedRemotePasswordCount)
+            append(" 个，需手动补 ")
+            append(precheck.missingRemotePasswordCount)
+            append(" 个")
+        }
+        if (precheck.tmdbKeyRedacted) {
+            append('\n')
+            append("TMDB Key：已脱敏")
+            if (precheck.tmdbKeyWillBePreserved) append("，会保留当前 Key")
+        }
+        if (precheck.warnings.isNotEmpty()) {
+            append("\n\n注意：")
+            precheck.warnings.forEach { warning ->
+                append('\n')
+                append("- ")
+                append(warning)
+            }
+        }
+        append("\n\n导入会覆盖当前媒体库、目录配置、远程配置、刮削记录、播放进度和基础偏好。导入前会保存内部回滚快照；如果导入失败，会自动回滚。")
+    }
+
+    private fun runBackupImport(uri: Uri) {
+        Toast.makeText(this, R.string.backup_import_importing, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { BackupImportManager(this@MainActivity).importBackup(uri, repository) }
+            }
+            result
+                .onSuccess { imported ->
+                    refreshHome(recommendPathsOnly = false)
+                    refreshSearch()
+                    scrapeFragment()?.refreshRootsFromOutside()
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(
+                            R.string.backup_import_done_fmt,
+                            imported.itemCount,
+                            imported.localRootCount,
+                            imported.remoteCount,
+                        ) + "\n" + getString(
+                            R.string.backup_import_done_detail_fmt,
+                            imported.restoredRemotePasswords,
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                .onFailure { e ->
+                    Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
+                }
+        }
     }
 
     private fun onTopMenu(item: MenuItem): Boolean = when (item.itemId) {

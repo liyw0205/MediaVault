@@ -168,6 +168,14 @@
     <string name="backup_export_generating_diagnostics">正在生成诊断包…</string>
     <string name="backup_export_save_cancelled">已取消保存</string>
     <string name="backup_export_save_done">已保存：%1$s</string>
+    <string name="backup_import_pick">导入备份包</string>
+    <string name="backup_import_pick_cancelled">已取消导入</string>
+    <string name="backup_import_prechecking">正在检查备份包…</string>
+    <string name="backup_import_precheck_title">导入前预检</string>
+    <string name="backup_import_confirm">确认导入</string>
+    <string name="backup_import_importing">正在导入并创建回滚快照…</string>
+    <string name="backup_import_done_fmt">导入完成：库 %1$d 条 · 本机目录 %2$d · 远程 %3$d</string>
+    <string name="backup_import_done_detail_fmt">已保留远程密码 %1$d 个；回滚快照已保存到应用私有目录。</string>
     <string name="play">播放</string>
     <string name="detail">详情</string>
     <string name="player_title">播放</string>

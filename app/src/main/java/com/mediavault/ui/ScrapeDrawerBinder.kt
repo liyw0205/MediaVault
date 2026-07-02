@@ -282,9 +282,16 @@ object ScrapeDrawerBinder {
 
         backupExportBtn.setOnClickListener {
             drawer?.closeDrawer(GravityCompat.END, false)
-            BackupExportDialog.show(activity, repository) { archive ->
-                (activity as? MainActivity)?.saveExportArchive(archive)
-            }
+            BackupExportDialog.show(
+                activity = activity,
+                repository = repository,
+                onArchiveReady = { archive ->
+                    (activity as? MainActivity)?.saveExportArchive(archive)
+                },
+                onImportRequested = {
+                    (activity as? MainActivity)?.openBackupImportDocument()
+                },
+            )
         }
     }
 

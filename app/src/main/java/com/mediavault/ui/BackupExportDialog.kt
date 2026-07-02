@@ -21,12 +21,14 @@ object BackupExportDialog {
         activity: AppCompatActivity,
         repository: LibraryRepository,
         onArchiveReady: (ExportArchive) -> Unit,
+        onImportRequested: () -> Unit,
     ) {
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_backup_export, null)
         val stats = root.findViewById<TextView>(R.id.backupExportStats)
         val status = root.findViewById<TextView>(R.id.backupExportStatus)
         val backupBtn = root.findViewById<MaterialButton>(R.id.backupExportBackupBtn)
         val diagnosticsBtn = root.findViewById<MaterialButton>(R.id.backupExportDiagnosticsBtn)
+        val importBtn = root.findViewById<MaterialButton>(R.id.backupImportBtn)
         stats.text = statsText(activity, repository)
 
         val dialog = MvDialog.showStyled(
@@ -40,6 +42,7 @@ object BackupExportDialog {
         fun setBusy(busy: Boolean, textRes: Int) {
             backupBtn.isEnabled = !busy
             diagnosticsBtn.isEnabled = !busy
+            importBtn.isEnabled = !busy
             status.visibility = if (busy) View.VISIBLE else View.GONE
             status.setText(textRes)
         }
@@ -76,6 +79,10 @@ object BackupExportDialog {
             createArchive(R.string.backup_export_generating_diagnostics) {
                 createDiagnosticsArchive(repository)
             }
+        }
+        importBtn.setOnClickListener {
+            dialog.dismiss()
+            onImportRequested()
         }
     }
 
