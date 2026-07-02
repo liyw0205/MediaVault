@@ -26,6 +26,7 @@ import com.mediavault.R
 import com.mediavault.data.BackupImportManager
 import com.mediavault.data.BackupImportPrecheck
 import com.mediavault.data.BackupImportResult
+import com.mediavault.data.BackupMissingRemoteCredential
 import com.mediavault.data.BackupRollbackSnapshot
 import com.mediavault.data.ExportArchive
 import com.mediavault.data.MediaItem
@@ -479,7 +480,10 @@ class MainActivity : AppCompatActivity() {
             MvDialog.builder(this)
                 .setTitle(R.string.backup_rollback_title)
                 .setMessage(rollbackSnapshotsText(snapshots))
-                .setPositiveButton(R.string.backup_rollback_clear) { _, _ ->
+                .setPositiveButton(R.string.backup_rollback_restore) { _, _ ->
+                    promptRestoreRollbackSnapshot(snapshots)
+                }
+                .setNeutralButton(R.string.backup_rollback_clear) { _, _ ->
                     confirmClearRollbackSnapshots()
                 }
                 .setNegativeButton(android.R.string.cancel, null),
@@ -537,6 +541,7 @@ class MainActivity : AppCompatActivity() {
             append(" 个，需手动补 ")
             append(precheck.missingRemotePasswordCount)
             append(" 个")
+            appendMissingRemoteCredentials(precheck.missingRemoteCredentials)
         }
         if (precheck.tmdbKeyRedacted) {
             append('\n')
@@ -574,17 +579,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showBackupImportResult(imported: BackupImportResult) {
-        MvDialog.show(
-            MvDialog.builder(this)
-                .setTitle(R.string.backup_import_result_title)
-                .setMessage(backupImportResultText(imported))
+        val needsCredentialAction = imported.missingRemoteCredentials.isNotEmpty() || imported.tmdbKeyStillMissing
+        val builder = MvDialog.builder(this)
+            .setTitle(R.string.backup_import_result_title)
+            .setMessage(backupImportResultText(imported))
+            .setNeutralButton(R.string.backup_import_recheck_sources) { _, _ ->
+                refreshImportedSourceHealth()
+            }
+        if (needsCredentialAction) {
+            builder
+                .setPositiveButton(
+                    if (imported.missingRemoteCredentials.isNotEmpty()) {
+                        R.string.backup_import_complete_remote_credentials
+                    } else {
+                        R.string.backup_import_open_settings
+                    },
+                ) { _, _ ->
+                    openImportCredentialSettings(imported)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+        } else {
+            builder
                 .setPositiveButton(android.R.string.ok, null)
-                .setNeutralButton(R.string.backup_import_open_settings) { _, _ ->
-                    syncNavSelection(R.id.nav_scrape)
-                    showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
-                    openScrapeDrawer()
-                },
-        )
+                .setNegativeButton(R.string.backup_import_open_settings) { _, _ ->
+                    openScrapeSettingsFromImport()
+                }
+        }
+        MvDialog.show(builder)
     }
 
     private fun backupImportResultText(imported: BackupImportResult): String = buildString {
@@ -599,6 +620,7 @@ class MainActivity : AppCompatActivity() {
         append(" 个，仍需补充 ")
         append(imported.missingRemotePasswords)
         append(" 个。")
+        appendMissingRemoteCredentials(imported.missingRemoteCredentials)
         append('\n')
         append("TMDB Key：")
         append(
@@ -616,10 +638,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun StringBuilder.appendMissingRemoteCredentials(remotes: List<BackupMissingRemoteCredential>) {
+        if (remotes.isEmpty()) return
+        append('\n')
+        append("需补远程：")
+        remotes.take(5).forEach { remote ->
+            append('\n')
+            append("- ")
+            append(missingRemoteCredentialLabel(remote))
+        }
+        if (remotes.size > 5) {
+            append('\n')
+            append("- 另有 ")
+            append(remotes.size - 5)
+            append(" 个远程")
+        }
+    }
+
+    private fun missingRemoteCredentialLabel(remote: BackupMissingRemoteCredential): String {
+        val name = remote.name.ifBlank { remote.id.ifBlank { "remote" } }
+        val type = remote.type.ifBlank { "remote" }.uppercase()
+        val host = remote.host.ifBlank { "--" }
+        return "$name ($type $host)"
+    }
+
     private fun rollbackSnapshotsText(snapshots: List<BackupRollbackSnapshot>): String = buildString {
         append("保留 ")
         append(snapshots.size)
-        append(" 个内部回滚快照。导入失败时会自动使用最新快照回滚；清空不会影响当前媒体库。")
+        append(" 个内部回滚快照。导入失败时会自动使用最新快照回滚；也可手动选择一个快照恢复。清空不会影响当前媒体库。")
         snapshots.forEachIndexed { index, snapshot ->
             append("\n\n")
             append(index + 1)
@@ -629,6 +675,97 @@ class MainActivity : AppCompatActivity() {
             append(snapshot.name)
             append(" · ")
             append(LibraryUi.formatBytes(snapshot.bytes))
+        }
+    }
+
+    private fun promptRestoreRollbackSnapshot(snapshots: List<BackupRollbackSnapshot>) {
+        val labels = snapshots.map { snapshot ->
+            "${snapshot.createdAt} · ${LibraryUi.formatBytes(snapshot.bytes)}\n${snapshot.name}"
+        }.toTypedArray()
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.backup_rollback_restore)
+                .setItems(labels) { _, which ->
+                    snapshots.getOrNull(which)?.let { confirmRestoreRollbackSnapshot(it) }
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
+    }
+
+    private fun confirmRestoreRollbackSnapshot(snapshot: BackupRollbackSnapshot) {
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setMessage(getString(R.string.backup_rollback_restore_confirm_fmt, snapshot.createdAt, snapshot.name))
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    restoreRollbackSnapshot(snapshot)
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
+    }
+
+    private fun restoreRollbackSnapshot(snapshot: BackupRollbackSnapshot) {
+        Toast.makeText(this, R.string.backup_rollback_restoring, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { BackupImportManager(this@MainActivity).restoreRollbackSnapshot(snapshot.name, repository) }
+            }
+            result
+                .onSuccess { restored ->
+                    refreshHome(recommendPathsOnly = false)
+                    refreshSearch()
+                    scrapeFragment()?.refreshRootsFromOutside()
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.backup_rollback_restored_fmt, restored.createdAt),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                .onFailure { e ->
+                    Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    private fun openImportCredentialSettings(imported: BackupImportResult) {
+        openScrapeSettingsFromImport()
+        val remoteIds = imported.missingRemoteCredentials.map { it.id }
+        if (remoteIds.isNotEmpty()) {
+            val opened = ScrapeDrawerBinder.promptCredentialCompletion(remoteIds)
+            if (!opened) {
+                Toast.makeText(this, R.string.backup_import_remote_credentials_unavailable, Toast.LENGTH_LONG).show()
+            }
+        } else if (imported.tmdbKeyStillMissing) {
+            Toast.makeText(this, R.string.backup_import_fill_tmdb_key_hint, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openScrapeSettingsFromImport() {
+        syncNavSelection(R.id.nav_scrape)
+        showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+        openScrapeDrawer()
+    }
+
+    private fun refreshImportedSourceHealth() {
+        Toast.makeText(this, R.string.backup_import_rechecking_sources, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val snapshot = withContext(Dispatchers.IO) {
+                repository.refreshDiagnostics(probeSources = true)
+            }
+            refreshHome(recommendPathsOnly = false)
+            refreshSearch()
+            scrapeFragment()?.refreshRootsFromOutside()
+            if (::drawerPanel.isInitialized) {
+                val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+                ScrapeDrawerBinder.reloadOptions(this@MainActivity, drawerContent)
+            }
+            val ok = snapshot.sourceHealth.count { it.reachable == true }
+            val bad = snapshot.sourceHealth.count { it.reachable == false }
+            val unchecked = snapshot.sourceHealth.count { it.reachable == null }
+            Toast.makeText(
+                this@MainActivity,
+                getString(R.string.backup_import_recheck_sources_done_fmt, snapshot.sourceHealth.size, ok, bad, unchecked),
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 

@@ -23,9 +23,17 @@ data class BackupImportPrecheck(
     val redactedRemotePasswordCount: Int,
     val preservedRemotePasswordCount: Int,
     val missingRemotePasswordCount: Int,
+    val missingRemoteCredentials: List<BackupMissingRemoteCredential>,
     val tmdbKeyRedacted: Boolean,
     val tmdbKeyWillBePreserved: Boolean,
     val warnings: List<String>,
+)
+
+data class BackupMissingRemoteCredential(
+    val id: String,
+    val name: String,
+    val type: String,
+    val host: String,
 )
 
 data class BackupImportResult(
@@ -35,6 +43,7 @@ data class BackupImportResult(
     val redactedRemotePasswords: Int,
     val restoredRemotePasswords: Int,
     val missingRemotePasswords: Int,
+    val missingRemoteCredentials: List<BackupMissingRemoteCredential>,
     val restoredTmdbKey: Boolean,
     val tmdbKeyStillMissing: Boolean,
     val rollbackSnapshotPath: String,
@@ -97,6 +106,7 @@ class BackupImportManager(context: Context) {
                 redactedRemotePasswords = precheck.redactedRemotePasswordCount,
                 restoredRemotePasswords = remotes.restoredPasswords,
                 missingRemotePasswords = precheck.missingRemotePasswordCount,
+                missingRemoteCredentials = precheck.missingRemoteCredentials,
                 restoredTmdbKey = scrapeSettings.restoredTmdbKey,
                 tmdbKeyStillMissing = precheck.tmdbKeyRedacted && !scrapeSettings.restoredTmdbKey,
                 rollbackSnapshotPath = rollbackSnapshot.absolutePath,
@@ -140,6 +150,21 @@ class BackupImportManager(context: Context) {
         return count
     }
 
+    fun restoreRollbackSnapshot(snapshotName: String, repository: LibraryRepository): BackupRollbackSnapshot {
+        val snapshot = rollbackDir()
+            .listFiles()
+            ?.firstOrNull { it.isFile && it.name == snapshotName && it.name.endsWith(".zip") }
+            ?: error("找不到回滚快照：$snapshotName")
+        val info = BackupRollbackSnapshot(
+            name = snapshot.name,
+            createdAt = readRollbackCreatedAt(snapshot) ?: formatFileTime(snapshot.lastModified()),
+            bytes = snapshot.length(),
+            lastModified = snapshot.lastModified(),
+        )
+        restoreRollbackSnapshot(snapshot, repository)
+        return info
+    }
+
     private fun parsePrecheck(extracted: ExtractedZip): BackupImportPrecheck {
         val manifest = JSONObject(extracted.textRequired("manifest.json"))
         val kind = manifest.optString("kind", "")
@@ -161,14 +186,24 @@ class BackupImportManager(context: Context) {
         val importedRemotes = JSONArray(remotesText)
         var redactedPasswords = 0
         var preservedPasswords = 0
+        val missingCredentials = mutableListOf<BackupMissingRemoteCredential>()
         for (i in 0 until importedRemotes.length()) {
             val remote = importedRemotes.optJSONObject(i) ?: continue
             if (remote.optBoolean("passwordRedacted", false) && remote.optString("password", "").isBlank()) {
                 redactedPasswords++
-                if (!currentPasswords[remote.optString("id", "")].isNullOrBlank()) preservedPasswords++
+                if (!currentPasswords[remote.optString("id", "")].isNullOrBlank()) {
+                    preservedPasswords++
+                } else {
+                    missingCredentials += BackupMissingRemoteCredential(
+                        id = remote.optString("id", ""),
+                        name = remote.optString("name", remote.optString("id", "remote")),
+                        type = remote.optString("type", "webdav").lowercase(),
+                        host = remote.optString("host", ""),
+                    )
+                }
             }
         }
-        val missingPasswords = (redactedPasswords - preservedPasswords).coerceAtLeast(0)
+        val missingPasswords = missingCredentials.size
         val scrapeSettings = JSONObject(extracted.textRequired("config/scrape-settings.redacted.json"))
         val tmdbRedacted = scrapeSettings.optBoolean("tmdbApiKeyRedacted", false) &&
             scrapeSettings.optString("tmdbApiKey", "").isBlank()
@@ -196,6 +231,7 @@ class BackupImportManager(context: Context) {
             redactedRemotePasswordCount = redactedPasswords,
             preservedRemotePasswordCount = preservedPasswords,
             missingRemotePasswordCount = missingPasswords,
+            missingRemoteCredentials = missingCredentials,
             tmdbKeyRedacted = tmdbRedacted,
             tmdbKeyWillBePreserved = tmdbPreserved,
             warnings = warnings,

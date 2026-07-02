@@ -75,6 +75,32 @@ class ScrapeDirectoriesPanelController(
         refreshRemoteList()
     }
 
+    fun promptCredentialCompletion(remoteIds: List<String>): Boolean {
+        val wanted = remoteIds.filter { it.isNotBlank() }.toSet()
+        if (wanted.isEmpty()) return false
+        remotes.clear()
+        remotes.addAll(store.readRemotesList())
+        val targets = remotes.filter { it.id in wanted }
+        if (targets.isEmpty()) return false
+        if (targets.size == 1) {
+            openRemoteEditor(targets.first(), saveImmediately = true)
+            return true
+        }
+        val labels = targets.map { r ->
+            val name = r.name.ifBlank { r.id }
+            "$name (${r.type.uppercase()} ${r.host})"
+        }.toTypedArray()
+        MvDialog.show(
+            MvDialog.builder(activity)
+                .setTitle(R.string.backup_import_pick_remote_credential)
+                .setItems(labels) { _, which ->
+                    targets.getOrNull(which)?.let { openRemoteEditor(it, saveImmediately = true) }
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
+        return true
+    }
+
     /** 横竖屏重载主壳后，侧栏 View 已换新，需重绑列表与按钮。 */
     fun rebindPanelRoot(newSection: View) {
         panelRoot = newSection
@@ -135,7 +161,7 @@ class ScrapeDirectoriesPanelController(
                 h.name.text = r.name.ifBlank { r.id }
                 h.meta.text = "${r.type.uppercase()} ${r.host}:${r.port} ${r.basePath}"
                 h.edit.setOnClickListener {
-                    RemoteFormDialog.show(activity, r.type, r) { cfg -> upsertRemote(cfg) }
+                    openRemoteEditor(r)
                 }
                 h.delete.setOnClickListener {
                     MvDialog.show(
@@ -149,6 +175,13 @@ class ScrapeDirectoriesPanelController(
                     )
                 }
             }
+        }
+    }
+
+    private fun openRemoteEditor(remote: RemoteConfig, saveImmediately: Boolean = false) {
+        RemoteFormDialog.show(activity, remote.type, remote) { cfg ->
+            upsertRemote(cfg)
+            if (saveImmediately) saveRemotes()
         }
     }
 

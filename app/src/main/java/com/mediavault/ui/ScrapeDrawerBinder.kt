@@ -302,6 +302,9 @@ object ScrapeDrawerBinder {
         directoriesPanel?.reload()
     }
 
+    fun promptCredentialCompletion(remoteIds: List<String>): Boolean =
+        directoriesPanel?.promptCredentialCompletion(remoteIds) == true
+
     fun reloadOptions(activity: AppCompatActivity, panelRoot: View) {
         val modeLocal = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeLocal)
         val modeOnline = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeOnline)
