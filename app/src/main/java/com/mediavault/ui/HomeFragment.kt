@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
@@ -25,6 +26,8 @@ import kotlinx.coroutines.launch
 
 class HomeFragment : Fragment() {
     private lateinit var adapter: VideoCardAdapter
+    private lateinit var continueAdapter: VideoCardAdapter
+    private lateinit var recentAdapter: VideoCardAdapter
     private var homeFilter = "recommend"
     private var page = 1
     private var lastChipRootsKey: String? = null
@@ -63,6 +66,8 @@ class HomeFragment : Fragment() {
             progressStore = progressStore,
         )
         grid.adapter = adapter
+        continueAdapter = setupShelf(view.findViewById(R.id.continueRecycler))
+        recentAdapter = setupShelf(view.findViewById(R.id.recentRecycler))
 
         view.findViewById<MaterialButton>(R.id.prevPageBtn).setOnClickListener { changePage(-1) }
         view.findViewById<MaterialButton>(R.id.nextPageBtn).setOnClickListener { changePage(1) }
@@ -93,6 +98,23 @@ class HomeFragment : Fragment() {
         grid.descendantFocusability = if (fusion) ViewGroup.FOCUS_AFTER_DESCENDANTS else ViewGroup.FOCUS_BEFORE_DESCENDANTS
     }
 
+    private fun setupShelf(recycler: RecyclerView): VideoCardAdapter {
+        recycler.layoutManager = LinearLayoutManager(requireContext(), RecyclerView.HORIZONTAL, false)
+        recycler.setHasFixedSize(true)
+        recycler.setItemViewCacheSize(8)
+        recycler.descendantFocusability =
+            if (HomeUiPrefs.useTvFusionUi(requireContext())) ViewGroup.FOCUS_AFTER_DESCENDANTS else ViewGroup.FOCUS_BEFORE_DESCENDANTS
+        val shelfAdapter = VideoCardAdapter(
+            scope = viewLifecycleOwner.lifecycleScope,
+            onCoverClick = { openDetail(it) },
+            onInfoClick = { openDetail(it) },
+            progressStore = progressStore,
+            fixedCardWidthPx = resources.getDimensionPixelSize(R.dimen.home_shelf_card_width),
+        )
+        recycler.adapter = shelfAdapter
+        return shelfAdapter
+    }
+
     fun onFusionUiChanged() {
         view?.let { FusionLandscapeShell.applyFragmentRoot(it, FusionUiMetrics.SidebarKind.Home) }
         view?.findViewById<RecyclerView>(R.id.gridRecycler)?.let { applyHomeGrid(it) }
@@ -114,6 +136,7 @@ class HomeFragment : Fragment() {
         view.findViewById<TextView>(R.id.statItems).text = items.size.toString()
         view.findViewById<TextView>(R.id.statRoots).text = LibraryUi.distinctRoots(items).size.toString()
 
+        bindWorkflowSections(view, items)
         rebuildFilterChipsIfNeeded(view, items)
         val list = currentList(items)
         val slice = displaySlice(list)
@@ -169,6 +192,48 @@ class HomeFragment : Fragment() {
             }
         }
     }
+
+    private fun bindWorkflowSections(view: View, items: List<MediaItem>) {
+        val continueItems = continueWatchingItems(items)
+        val recentItems = recentlyAddedItems(items)
+        bindShelf(
+            continueAdapter,
+            view.findViewById(R.id.continueRecycler),
+            view.findViewById(R.id.continueEmpty),
+            continueItems,
+        )
+        bindShelf(
+            recentAdapter,
+            view.findViewById(R.id.recentRecycler),
+            view.findViewById(R.id.recentEmpty),
+            recentItems,
+        )
+    }
+
+    private fun bindShelf(
+        shelfAdapter: VideoCardAdapter,
+        recycler: RecyclerView,
+        empty: TextView,
+        items: List<MediaItem>,
+    ) {
+        shelfAdapter.submitList(items) {
+            if (items.isNotEmpty()) recycler.scrollToPosition(0)
+        }
+        recycler.isVisible = items.isNotEmpty()
+        empty.isVisible = items.isEmpty()
+    }
+
+    private fun continueWatchingItems(items: List<MediaItem>): List<MediaItem> =
+        items.mapNotNull { item ->
+            progressStore.getEntry(item.path)?.let { entry -> item to entry.updatedAt }
+        }
+            .sortedByDescending { it.second }
+            .map { it.first }
+            .take(WORKFLOW_SHELF_COUNT)
+
+    private fun recentlyAddedItems(items: List<MediaItem>): List<MediaItem> =
+        items.sortedWith(compareByDescending<MediaItem> { it.modified }.thenBy { it.displayTitle().lowercase() })
+            .take(WORKFLOW_SHELF_COUNT)
 
     private fun displaySlice(list: List<MediaItem>): List<MediaItem> {
         if (homeFilter == "recommend") {
@@ -324,6 +389,8 @@ class HomeFragment : Fragment() {
         super.onResume()
         view?.findViewById<RecyclerView>(R.id.gridRecycler)?.let { applyHomeGrid(it) }
         if (::adapter.isInitialized) adapter.refreshProgressHints()
+        if (::continueAdapter.isInitialized) continueAdapter.refreshProgressHints()
+        if (::recentAdapter.isInitialized) recentAdapter.refreshProgressHints()
     }
 
     private fun openDetail(item: MediaItem) {
@@ -333,5 +400,6 @@ class HomeFragment : Fragment() {
     companion object {
         private const val STATE_FILTER = "home_filter"
         private const val STATE_PAGE = "home_page"
+        private const val WORKFLOW_SHELF_COUNT = 12
     }
 }

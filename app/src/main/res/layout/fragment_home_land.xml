@@ -203,12 +203,118 @@
         </LinearLayout>
     </ScrollView>
 
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/fusionMediaPanel"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:minHeight="120dp">
+        android:minHeight="120dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/homeWorkflowSections"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:orientation="horizontal"
+            android:paddingHorizontal="6dp"
+            android:paddingTop="4dp">
+
+            <LinearLayout
+                android:id="@+id/continueSection"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/continueTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="6dp"
+                    android:text="@string/home_continue_watching"
+                    android:textColor="@color/mv_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/continueRecycler"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/home_shelf_height"
+                    android:clipToPadding="false"
+                    android:descendantFocusability="afterDescendants"
+                    android:paddingTop="2dp" />
+
+                <TextView
+                    android:id="@+id/continueEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/home_continue_empty"
+                    android:textColor="@color/mv_muted"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/recentSection"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/recentTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="6dp"
+                    android:text="@string/home_recently_added"
+                    android:textColor="@color/mv_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recentRecycler"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/home_shelf_height"
+                    android:clipToPadding="false"
+                    android:descendantFocusability="afterDescendants"
+                    android:paddingTop="2dp" />
+
+                <TextView
+                    android:id="@+id/recentEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/home_recent_empty"
+                    android:textColor="@color/mv_muted"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/homeLibraryTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="2dp"
+            android:text="@string/home_library_section"
+            android:textColor="@color/mv_text"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:id="@+id/homeGridPanel"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/gridRecycler"
@@ -228,5 +334,6 @@
             android:text="@string/no_items"
             android:textColor="@color/mv_muted"
             android:visibility="gone" />
-    </FrameLayout>
+        </FrameLayout>
+    </LinearLayout>
 </LinearLayout>

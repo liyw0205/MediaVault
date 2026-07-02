@@ -15,4 +15,6 @@
     <dimen name="mv_fusion_meta_band_max">118dp</dimen>
     <dimen name="mv_fusion_stat_num_text">14sp</dimen>
     <dimen name="mv_fusion_stat_label_text">9sp</dimen>
+    <dimen name="home_shelf_card_width">132dp</dimen>
+    <dimen name="home_shelf_height">150dp</dimen>
 </resources>

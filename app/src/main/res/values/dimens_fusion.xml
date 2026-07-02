@@ -10,4 +10,6 @@
     <item name="mv_fusion_card_cover_ratio" format="float" type="dimen">1.35</item>
     <dimen name="mv_fusion_btn_min_height">48dp</dimen>
     <dimen name="mv_fusion_pager_btn_text">12sp</dimen>
+    <dimen name="home_shelf_card_width">156dp</dimen>
+    <dimen name="home_shelf_height">218dp</dimen>
 </resources>

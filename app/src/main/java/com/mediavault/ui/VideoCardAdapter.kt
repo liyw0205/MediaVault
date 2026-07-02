@@ -22,15 +22,16 @@ class VideoCardAdapter(
     private val onInfoClick: (MediaItem) -> Unit,
     private val progressStore: PlaybackProgressStore? = null,
     private val sidebarKind: FusionUiMetrics.SidebarKind = FusionUiMetrics.SidebarKind.Home,
+    private val fixedCardWidthPx: Int? = null,
 ) : ListAdapter<MediaItem, VideoCardAdapter.VH>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_video_card, parent, false)
         val ctx = parent.context
         val fusion = HomeUiPrefs.useTvFusionUi(ctx)
-        val coverW = FusionUiMetrics.videoCardCellWidthPx(ctx, sidebarKind)
+        val coverW = fixedCardWidthPx ?: FusionUiMetrics.videoCardCellWidthPx(ctx, sidebarKind)
         val coverH = FusionUiMetrics.videoCardCoverHeightPx(ctx, coverW)
-        return VH(v, scope, coverW, coverH, fusion, onCoverClick, onInfoClick, progressStore)
+        return VH(v, scope, coverW, coverH, fusion, onCoverClick, onInfoClick, progressStore, fixedCardWidthPx)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
@@ -53,6 +54,7 @@ class VideoCardAdapter(
         private val onCoverClick: (MediaItem) -> Unit,
         private val onInfoClick: (MediaItem) -> Unit,
         private val progressStore: PlaybackProgressStore?,
+        private val fixedCardWidthPx: Int?,
     ) : RecyclerView.ViewHolder(itemView) {
         private val card = itemView as? MaterialCardView
         private val title: TextView = itemView.findViewById(R.id.titleText)
@@ -88,6 +90,13 @@ class VideoCardAdapter(
         fun bind(item: MediaItem) {
             boundPath = item.path
             boundItem = item
+            fixedCardWidthPx?.let { width ->
+                val lp = itemView.layoutParams
+                if (lp != null && lp.width != width) {
+                    lp.width = width
+                    itemView.layoutParams = lp
+                }
+            }
             val fusion = HomeUiPrefs.useTvFusionUi(itemView.context)
             val coverLp = coverArea.layoutParams
             if (fusion) {
