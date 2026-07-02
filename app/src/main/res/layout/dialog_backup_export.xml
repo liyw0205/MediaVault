@@ -59,4 +59,12 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="@string/backup_import_pick" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/backupRollbackManageBtn"
+        style="@style/Widget.MediaVault.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/backup_rollback_manage" />
 </LinearLayout>

@@ -32,9 +32,19 @@ data class BackupImportResult(
     val itemCount: Int,
     val localRootCount: Int,
     val remoteCount: Int,
+    val redactedRemotePasswords: Int,
     val restoredRemotePasswords: Int,
+    val missingRemotePasswords: Int,
     val restoredTmdbKey: Boolean,
+    val tmdbKeyStillMissing: Boolean,
     val rollbackSnapshotPath: String,
+)
+
+data class BackupRollbackSnapshot(
+    val name: String,
+    val createdAt: String,
+    val bytes: Long,
+    val lastModified: Long,
 )
 
 class BackupImportRolledBackException(cause: Throwable) :
@@ -84,8 +94,11 @@ class BackupImportManager(context: Context) {
                 itemCount = precheck.itemCount,
                 localRootCount = precheck.localRootCount,
                 remoteCount = precheck.remoteCount,
+                redactedRemotePasswords = precheck.redactedRemotePasswordCount,
                 restoredRemotePasswords = remotes.restoredPasswords,
+                missingRemotePasswords = precheck.missingRemotePasswordCount,
                 restoredTmdbKey = scrapeSettings.restoredTmdbKey,
+                tmdbKeyStillMissing = precheck.tmdbKeyRedacted && !scrapeSettings.restoredTmdbKey,
                 rollbackSnapshotPath = rollbackSnapshot.absolutePath,
             )
         } catch (e: Throwable) {
@@ -100,6 +113,31 @@ class BackupImportManager(context: Context) {
         } finally {
             extracted.delete()
         }
+    }
+
+    fun listRollbackSnapshots(): List<BackupRollbackSnapshot> =
+        rollbackDir()
+            .listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".zip") }
+            ?.map { file ->
+                BackupRollbackSnapshot(
+                    name = file.name,
+                    createdAt = readRollbackCreatedAt(file) ?: formatFileTime(file.lastModified()),
+                    bytes = file.length(),
+                    lastModified = file.lastModified(),
+                )
+            }
+            ?.sortedByDescending { it.lastModified }
+            ?: emptyList()
+
+    fun clearRollbackSnapshots(): Int {
+        var count = 0
+        rollbackDir().listFiles()?.forEach { file ->
+            if (file.isFile && file.name.endsWith(".zip") && file.delete()) {
+                count++
+            }
+        }
+        return count
     }
 
     private fun parsePrecheck(extracted: ExtractedZip): BackupImportPrecheck {
@@ -393,6 +431,32 @@ class BackupImportManager(context: Context) {
 
     private fun nowText(): String =
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+    private fun formatFileTime(timeMs: Long): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(timeMs))
+
+    private fun readRollbackCreatedAt(file: File): String? = runCatching {
+        ZipInputStream(file.inputStream().buffered()).use { zip ->
+            var entry = zip.nextEntry
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (entry != null) {
+                if (!entry.isDirectory && entry.name == "manifest.json") {
+                    val bytes = java.io.ByteArrayOutputStream()
+                    while (true) {
+                        val n = zip.read(buffer)
+                        if (n <= 0) break
+                        bytes.write(buffer, 0, n)
+                    }
+                    return@runCatching JSONObject(bytes.toString(Charsets.UTF_8.name()))
+                        .optString("createdAt", "")
+                        .takeIf { it.isNotBlank() }
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+            null
+        }
+    }.getOrNull()
 
     private data class ExtractedZip(val dir: File, val files: Map<String, File>) {
         fun file(path: String): File? = files[path]

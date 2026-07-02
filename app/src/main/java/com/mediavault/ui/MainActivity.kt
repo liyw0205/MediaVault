@@ -25,6 +25,8 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.BackupImportManager
 import com.mediavault.data.BackupImportPrecheck
+import com.mediavault.data.BackupImportResult
+import com.mediavault.data.BackupRollbackSnapshot
 import com.mediavault.data.ExportArchive
 import com.mediavault.data.MediaItem
 import kotlinx.coroutines.Dispatchers
@@ -461,6 +463,29 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    fun showBackupRollbackSnapshots() {
+        val manager = BackupImportManager(this)
+        val snapshots = manager.listRollbackSnapshots()
+        if (snapshots.isEmpty()) {
+            MvDialog.show(
+                MvDialog.builder(this)
+                    .setTitle(R.string.backup_rollback_title)
+                    .setMessage(R.string.backup_rollback_empty)
+                    .setPositiveButton(android.R.string.ok, null),
+            )
+            return
+        }
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.backup_rollback_title)
+                .setMessage(rollbackSnapshotsText(snapshots))
+                .setPositiveButton(R.string.backup_rollback_clear) { _, _ ->
+                    confirmClearRollbackSnapshots()
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
+    }
+
     private fun precheckBackupImport(uri: Uri) {
         Toast.makeText(this, R.string.backup_import_prechecking, Toast.LENGTH_SHORT).show()
         lifecycleScope.launch {
@@ -540,24 +565,83 @@ class MainActivity : AppCompatActivity() {
                     refreshHome(recommendPathsOnly = false)
                     refreshSearch()
                     scrapeFragment()?.refreshRootsFromOutside()
-                    Toast.makeText(
-                        this@MainActivity,
-                        getString(
-                            R.string.backup_import_done_fmt,
-                            imported.itemCount,
-                            imported.localRootCount,
-                            imported.remoteCount,
-                        ) + "\n" + getString(
-                            R.string.backup_import_done_detail_fmt,
-                            imported.restoredRemotePasswords,
-                        ),
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    showBackupImportResult(imported)
                 }
                 .onFailure { e ->
                     Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
                 }
         }
+    }
+
+    private fun showBackupImportResult(imported: BackupImportResult) {
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.backup_import_result_title)
+                .setMessage(backupImportResultText(imported))
+                .setPositiveButton(android.R.string.ok, null)
+                .setNeutralButton(R.string.backup_import_open_settings) { _, _ ->
+                    syncNavSelection(R.id.nav_scrape)
+                    showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+                    openScrapeDrawer()
+                },
+        )
+    }
+
+    private fun backupImportResultText(imported: BackupImportResult): String = buildString {
+        append(getString(R.string.backup_import_done_fmt, imported.itemCount, imported.localRootCount, imported.remoteCount))
+        append('\n')
+        append("刮削记录、播放进度、历史记录和基础偏好已恢复。")
+        append('\n')
+        append("远程密码：备份脱敏 ")
+        append(imported.redactedRemotePasswords)
+        append(" 个，已保留当前密码 ")
+        append(imported.restoredRemotePasswords)
+        append(" 个，仍需补充 ")
+        append(imported.missingRemotePasswords)
+        append(" 个。")
+        append('\n')
+        append("TMDB Key：")
+        append(
+            when {
+                imported.restoredTmdbKey -> "备份已脱敏，已保留当前 Key。"
+                imported.tmdbKeyStillMissing -> "备份已脱敏，当前没有可保留的 Key，需要重新填写。"
+                else -> "已恢复。"
+            },
+        )
+        append('\n')
+        append("回滚快照：")
+        append(imported.rollbackSnapshotPath)
+        if (imported.missingRemotePasswords > 0 || imported.tmdbKeyStillMissing) {
+            append("\n\n需要补充凭据：打开刮削设置后，在“管理媒体目录”编辑远程配置；TMDB Key 在“刮削”配置区填写。")
+        }
+    }
+
+    private fun rollbackSnapshotsText(snapshots: List<BackupRollbackSnapshot>): String = buildString {
+        append("保留 ")
+        append(snapshots.size)
+        append(" 个内部回滚快照。导入失败时会自动使用最新快照回滚；清空不会影响当前媒体库。")
+        snapshots.forEachIndexed { index, snapshot ->
+            append("\n\n")
+            append(index + 1)
+            append(". ")
+            append(snapshot.createdAt)
+            append('\n')
+            append(snapshot.name)
+            append(" · ")
+            append(LibraryUi.formatBytes(snapshot.bytes))
+        }
+    }
+
+    private fun confirmClearRollbackSnapshots() {
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setMessage(R.string.backup_rollback_clear_confirm)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val count = BackupImportManager(this).clearRollbackSnapshots()
+                    Toast.makeText(this, getString(R.string.backup_rollback_cleared_fmt, count), Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
     }
 
     private fun onTopMenu(item: MenuItem): Boolean = when (item.itemId) {

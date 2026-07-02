@@ -291,6 +291,9 @@ object ScrapeDrawerBinder {
                 onImportRequested = {
                     (activity as? MainActivity)?.openBackupImportDocument()
                 },
+                onRollbackManageRequested = {
+                    (activity as? MainActivity)?.showBackupRollbackSnapshots()
+                },
             )
         }
     }

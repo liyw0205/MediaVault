@@ -176,6 +176,14 @@
     <string name="backup_import_importing">正在导入并创建回滚快照…</string>
     <string name="backup_import_done_fmt">导入完成：库 %1$d 条 · 本机目录 %2$d · 远程 %3$d</string>
     <string name="backup_import_done_detail_fmt">已保留远程密码 %1$d 个；回滚快照已保存到应用私有目录。</string>
+    <string name="backup_import_result_title">导入结果</string>
+    <string name="backup_import_open_settings">打开刮削设置</string>
+    <string name="backup_rollback_manage">管理导入回滚快照</string>
+    <string name="backup_rollback_title">导入回滚快照</string>
+    <string name="backup_rollback_empty">当前没有内部回滚快照</string>
+    <string name="backup_rollback_clear">清空快照</string>
+    <string name="backup_rollback_cleared_fmt">已清空 %1$d 个回滚快照</string>
+    <string name="backup_rollback_clear_confirm">清空全部导入回滚快照？这不会影响当前媒体库，但导入失败后的旧回滚点将不可用。</string>
     <string name="play">播放</string>
     <string name="detail">详情</string>
     <string name="player_title">播放</string>
