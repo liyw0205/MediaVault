@@ -21,8 +21,11 @@ import com.google.android.material.navigation.NavigationBarView
 import com.google.android.material.navigationrail.NavigationRailView
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
+import com.mediavault.data.ExportArchive
 import com.mediavault.data.MediaItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -51,10 +54,43 @@ class MainActivity : AppCompatActivity() {
     private var scrapeDirectoriesPanelCreated = false
     /** 下一次 wire 主壳时恢复 Tab（横竖屏 setContentView 后）。 */
     private var pendingOrientationShellRestore = false
+    private var pendingExportArchive: ExportArchive? = null
 
     private val pickLocalTreeLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             ScrapeDrawerBinder.onLocalTreePicked(uri)
+        }
+
+    private val createZipDocumentLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            val archive = pendingExportArchive ?: return@registerForActivityResult
+            pendingExportArchive = null
+            if (uri == null) {
+                archive.file.delete()
+                Toast.makeText(this, R.string.backup_export_save_cancelled, Toast.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
+            lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        contentResolver.openOutputStream(uri)?.use { out ->
+                            archive.file.inputStream().use { input -> input.copyTo(out) }
+                        } ?: error("无法写入导出文件")
+                    }
+                }
+                archive.file.delete()
+                result
+                    .onSuccess {
+                        Toast.makeText(
+                            this@MainActivity,
+                            getString(R.string.backup_export_save_done, archive.suggestedName),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                    .onFailure { e ->
+                        Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
+                    }
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -390,6 +426,12 @@ class MainActivity : AppCompatActivity() {
             drawerLayout.closeDrawer(GravityCompat.END, animate)
         } catch (_: IllegalArgumentException) {
         }
+    }
+
+    fun saveExportArchive(archive: ExportArchive) {
+        pendingExportArchive?.file?.delete()
+        pendingExportArchive = archive
+        createZipDocumentLauncher.launch(archive.suggestedName)
     }
 
     private fun onTopMenu(item: MenuItem): Boolean = when (item.itemId) {

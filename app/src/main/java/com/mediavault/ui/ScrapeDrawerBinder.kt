@@ -126,6 +126,7 @@ object ScrapeDrawerBinder {
         val clearTmdbCacheBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerClearTmdbCacheBtn)
         val subtitleLangGroup = panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
+        val backupExportBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenBackupExportBtn)
         val maintenanceSummary = panelRoot.findViewById<TextView>(R.id.drawerLibraryMaintenanceSummary)
         val maintenanceIssues = panelRoot.findViewById<TextView>(R.id.drawerLibraryMaintenanceIssues)
         val maintenanceRefreshBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerRefreshLibraryMaintenanceBtn)
@@ -277,6 +278,13 @@ object ScrapeDrawerBinder {
         dataBtn.setOnClickListener {
             drawer?.closeDrawer(GravityCompat.END, false)
             DataStorageDialog.show(activity, repository) { onRootsMayHaveChanged() }
+        }
+
+        backupExportBtn.setOnClickListener {
+            drawer?.closeDrawer(GravityCompat.END, false)
+            BackupExportDialog.show(activity, repository) { archive ->
+                (activity as? MainActivity)?.saveExportArchive(archive)
+            }
         }
     }
 

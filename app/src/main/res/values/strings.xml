@@ -158,6 +158,16 @@
     <string name="data_clear_scrape">清空刮削记录</string>
     <string name="data_clear_remote_stream">清空远程播放缓存</string>
     <string name="data_clear_library">清空媒体库列表</string>
+    <string name="backup_export_menu">备份与诊断包</string>
+    <string name="backup_export_title">备份与诊断包</string>
+    <string name="backup_export_stats_fmt">库 %1$d 条 · 本机目录 %2$d · 远程 %3$d · 问题 %4$d\n媒体库 %5$s · 刮削记录 %6$s</string>
+    <string name="backup_export_hint">备份包包含媒体库、目录配置、远程配置、刮削记录、播放进度和基础偏好；远程密码和 TMDB Key 默认脱敏。诊断包包含版本、设备、配置摘要、库诊断、源健康和最近远程错误，不主动触网。</string>
+    <string name="backup_export_backup">导出备份包</string>
+    <string name="backup_export_diagnostics">生成诊断包</string>
+    <string name="backup_export_generating_backup">正在生成备份包…</string>
+    <string name="backup_export_generating_diagnostics">正在生成诊断包…</string>
+    <string name="backup_export_save_cancelled">已取消保存</string>
+    <string name="backup_export_save_done">已保存：%1$s</string>
     <string name="play">播放</string>
     <string name="detail">详情</string>
     <string name="player_title">播放</string>

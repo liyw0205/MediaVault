@@ -335,5 +335,14 @@
             android:layout_marginTop="8dp"
             android:text="@string/data_menu"
             android:textSize="15sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/drawerOpenBackupExportBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/backup_export_menu"
+            android:textSize="15sp" />
     </LinearLayout>
 </ScrollView>
