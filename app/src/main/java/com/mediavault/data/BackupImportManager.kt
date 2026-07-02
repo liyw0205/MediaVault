@@ -23,6 +23,12 @@ data class BackupImportPrecheck(
     val itemCount: Int,
     val localRootCount: Int,
     val remoteCount: Int,
+    val scrapeRecordCount: Int,
+    val playbackProgressEntryCount: Int,
+    val historyEntryCount: Int,
+    val subtitlePrefsEntryCount: Int,
+    val playbackUiEntryCount: Int,
+    val missingOptionalEntries: List<String>,
     val redactedRemotePasswordCount: Int,
     val preservedRemotePasswordCount: Int,
     val missingRemotePasswordCount: Int,
@@ -64,6 +70,11 @@ data class BackupRollbackSnapshotPreview(
     val schemaVersion: Int,
     val fileEntryCount: Int,
     val prefEntryCount: Int,
+    val itemCount: Int,
+    val localRootCount: Int,
+    val remoteCount: Int,
+    val scrapeRecordCount: Int,
+    val prefEntryCounts: Map<String, Int>,
     val missingFileEntries: List<String>,
     val missingPrefEntries: List<String>,
     val warnings: List<String>,
@@ -201,6 +212,14 @@ class BackupImportManager(context: Context) {
             ?.map { it.trim() }
             ?.count { it.isNotBlank() && !it.startsWith("#") }
             ?: 0
+        val scrapeRecordCount = lineEntryCount(extracted.text("data/scrape-record.tsv"))
+        val playbackProgressEntryCount = sharedPrefsEntryCount(extracted.text("data/playback-progress.json"))
+        val historyEntryCount = sharedPrefsEntryCount(extracted.text("data/history.json"))
+        val subtitlePrefsEntryCount = sharedPrefsEntryCount(extracted.text("config/subtitle-prefs.json"))
+        val playbackUiEntryCount = sharedPrefsEntryCount(extracted.text("config/playback-ui.json"))
+        val missingOptionalEntries = IMPORT_OPTIONAL_ENTRIES
+            .filter { extracted.file(it) == null }
+            .map(::importEntryLabel)
         val currentPasswords = currentRemotePasswordsById()
         val importedRemotes = JSONArray(remotesText)
         var redactedPasswords = 0
@@ -238,6 +257,9 @@ class BackupImportManager(context: Context) {
         if (contents == null) {
             warnings += "备份包缺少内容清单，已按实际 ZIP 条目预检。"
         }
+        if (missingOptionalEntries.isNotEmpty()) {
+            warnings += "备份包缺少可选内容：${missingOptionalEntries.joinToString("、")}。"
+        }
         if (redactedPasswords > 0) {
             warnings += "远程密码已脱敏：$redactedPasswords 个；可保留当前密码 $preservedPasswords 个，需导入后手动补 $missingPasswords 个。"
         }
@@ -266,6 +288,12 @@ class BackupImportManager(context: Context) {
             itemCount = library.items.size,
             localRootCount = localRootCount,
             remoteCount = remotes.size,
+            scrapeRecordCount = scrapeRecordCount,
+            playbackProgressEntryCount = playbackProgressEntryCount,
+            historyEntryCount = historyEntryCount,
+            subtitlePrefsEntryCount = subtitlePrefsEntryCount,
+            playbackUiEntryCount = playbackUiEntryCount,
+            missingOptionalEntries = missingOptionalEntries,
             redactedRemotePasswordCount = redactedPasswords,
             preservedRemotePasswordCount = preservedPasswords,
             missingRemotePasswordCount = missingPasswords,
@@ -369,6 +397,17 @@ class BackupImportManager(context: Context) {
         val prefPaths = PREF_NAMES.map { "prefs/$it.json" }
         val missingFiles = filePaths.filter { extracted.file(it) == null }
         val missingPrefs = prefPaths.filter { extracted.file(it) == null }
+        val itemCount = extracted.text("files/library.json")
+            ?.let { runCatching { MediaLibrary.parse(it, snapshot.name).items.size }.getOrDefault(0) }
+            ?: 0
+        val localRootCount = rootCount(extracted.text("files/roots.list"))
+        val remoteCount = extracted.text("files/remotes.json")
+            ?.let { runCatching { RemoteConfig.listFromJson(it).size }.getOrDefault(0) }
+            ?: 0
+        val scrapeRecordCount = lineEntryCount(extracted.text("files/scrape-record.tsv"))
+        val prefEntryCounts = PREF_NAMES.associateWith { prefName ->
+            sharedPrefsEntryCount(extracted.text("prefs/$prefName.json"))
+        }
         val warnings = mutableListOf<String>()
         if (schema == 0) {
             warnings += "快照缺少 schema 信息，已按兼容模式读取。"
@@ -383,6 +422,11 @@ class BackupImportManager(context: Context) {
             schemaVersion = schema,
             fileEntryCount = filePaths.size - missingFiles.size,
             prefEntryCount = prefPaths.size - missingPrefs.size,
+            itemCount = itemCount,
+            localRootCount = localRootCount,
+            remoteCount = remoteCount,
+            scrapeRecordCount = scrapeRecordCount,
+            prefEntryCounts = prefEntryCounts,
             missingFileEntries = missingFiles,
             missingPrefEntries = missingPrefs,
             warnings = warnings,
@@ -487,6 +531,37 @@ class BackupImportManager(context: Context) {
         buildSet {
             for (i in 0 until arr.length()) add(arr.optString(i))
         }
+
+    private fun rootCount(text: String?): Int =
+        text
+            ?.lineSequence()
+            ?.map { it.trim() }
+            ?.count { it.isNotBlank() && !it.startsWith("#") }
+            ?: 0
+
+    private fun lineEntryCount(text: String?): Int =
+        text
+            ?.lineSequence()
+            ?.map { it.trim() }
+            ?.count { it.isNotBlank() }
+            ?: 0
+
+    private fun sharedPrefsEntryCount(text: String?): Int =
+        runCatching {
+            val root = JSONObject(text ?: return@runCatching 0)
+            (root.optJSONObject("entries") ?: root).length()
+        }.getOrDefault(0)
+
+    private fun importEntryLabel(path: String): String = when (path) {
+        "data/roots.list" -> "本机目录列表"
+        "data/scrape-record.tsv" -> "刮削记录"
+        "data/library-diagnostics.json" -> "库诊断快照"
+        "data/playback-progress.json" -> "播放进度"
+        "data/history.json" -> "观看历史"
+        "config/subtitle-prefs.json" -> "字幕偏好"
+        "config/playback-ui.json" -> "播放 UI 偏好"
+        else -> path
+    }
 
     private fun currentRemotePasswordsById(): Map<String, String> =
         runCatching { store.readRemotesList().associate { it.id to it.password } }
@@ -630,6 +705,15 @@ class BackupImportManager(context: Context) {
             "data/playback-progress.json",
             "data/history.json",
             "config/scrape-settings.redacted.json",
+            "config/subtitle-prefs.json",
+            "config/playback-ui.json",
+        )
+        private val IMPORT_OPTIONAL_ENTRIES = setOf(
+            "data/roots.list",
+            "data/scrape-record.tsv",
+            "data/library-diagnostics.json",
+            "data/playback-progress.json",
+            "data/history.json",
             "config/subtitle-prefs.json",
             "config/playback-ui.json",
         )

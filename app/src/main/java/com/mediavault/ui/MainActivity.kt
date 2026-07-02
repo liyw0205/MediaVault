@@ -543,6 +543,24 @@ class MainActivity : AppCompatActivity() {
         append("远程配置：")
         append(precheck.remoteCount)
         append(" 个")
+        append('\n')
+        append("刮削记录：")
+        append(precheck.scrapeRecordCount)
+        append(" 条")
+        append('\n')
+        append("偏好条目：播放进度 ")
+        append(precheck.playbackProgressEntryCount)
+        append("，历史 ")
+        append(precheck.historyEntryCount)
+        append("，字幕 ")
+        append(precheck.subtitlePrefsEntryCount)
+        append("，播放 UI ")
+        append(precheck.playbackUiEntryCount)
+        if (precheck.missingOptionalEntries.isNotEmpty()) {
+            append('\n')
+            append("缺少可选内容：")
+            append(precheck.missingOptionalEntries.joinToString("、"))
+        }
         if (precheck.redactedRemotePasswordCount > 0) {
             append('\n')
             append("远程密码：脱敏 ")
@@ -741,6 +759,19 @@ class MainActivity : AppCompatActivity() {
         append(" 个文件项、")
         append(preview.prefEntryCount)
         append(" 组偏好。")
+        append('\n')
+        append("快照内容：库 ")
+        append(preview.itemCount)
+        append(" 条，本机目录 ")
+        append(preview.localRootCount)
+        append("，远程 ")
+        append(preview.remoteCount)
+        append("，刮削记录 ")
+        append(preview.scrapeRecordCount)
+        append(" 条。")
+        append('\n')
+        append("偏好条目：")
+        append(rollbackPrefCountText(preview.prefEntryCounts))
         if (preview.missingFileEntries.isNotEmpty()) {
             append("\n\n快照未包含，将恢复为不存在：")
             preview.missingFileEntries.take(4).forEach { path ->
@@ -764,6 +795,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun rollbackPrefCountText(counts: Map<String, Int>): String =
+        listOf(
+            "播放进度 ${counts["mediavault_playback_progress"] ?: 0}",
+            "历史 ${counts["mediavault_history"] ?: 0}",
+            "字幕 ${counts["subtitle_prefs"] ?: 0}",
+            "播放 UI ${counts["playback_ui"] ?: 0}",
+        ).joinToString("，")
 
     private fun rollbackEntryLabel(path: String): String = when (path) {
         "files/library.json" -> "媒体库"
