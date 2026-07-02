@@ -16,6 +16,7 @@ data class LibraryDiagnosticsSnapshot(
     val remoteCount: Int,
     val issueCounts: Map<String, Int>,
     val sampleIssues: List<LibraryIssue>,
+    val issues: List<LibraryIssue> = sampleIssues,
 ) {
     val totalIssues: Int = issueCounts.values.sum()
 
@@ -27,6 +28,7 @@ data class LibraryDiagnosticsSnapshot(
             remoteCount = 0,
             issueCounts = emptyMap(),
             sampleIssues = emptyList(),
+            issues = emptyList(),
         )
     }
 }
@@ -69,20 +71,26 @@ class LibraryDiagnosticsStore(context: Context) {
             val key = keys.next()
             counts[key] = countsObj.optInt(key, 0)
         }
-        val issues = mutableListOf<LibraryIssue>()
-        val arr = root.optJSONArray("sampleIssues") ?: JSONArray()
-        for (i in 0 until arr.length()) {
-            issues.add(LibraryIssue.fromJson(arr.optJSONObject(i) ?: continue))
-        }
+        val issues = readIssues(root.optJSONArray("issues") ?: root.optJSONArray("sampleIssues") ?: JSONArray())
+        val sampleIssues = readIssues(root.optJSONArray("sampleIssues") ?: JSONArray()).ifEmpty { issues.take(20) }
         LibraryDiagnosticsSnapshot(
             scannedAt = root.optString("scannedAt", "--"),
             itemCount = root.optInt("itemCount", 0),
             localCount = root.optInt("localCount", 0),
             remoteCount = root.optInt("remoteCount", 0),
             issueCounts = counts,
-            sampleIssues = issues,
+            sampleIssues = sampleIssues,
+            issues = issues,
         )
     }.getOrNull()
+
+    private fun readIssues(arr: JSONArray): List<LibraryIssue> {
+        val issues = mutableListOf<LibraryIssue>()
+        for (i in 0 until arr.length()) {
+            issues.add(LibraryIssue.fromJson(arr.optJSONObject(i) ?: continue))
+        }
+        return issues
+    }
 
     fun scanAndPersist(store: MediaStore, items: List<MediaItem>): LibraryDiagnosticsSnapshot {
         val snapshot = scan(store, items)
@@ -135,6 +143,7 @@ class LibraryDiagnosticsStore(context: Context) {
             remoteCount = items.count { RemotePath.isRemote(it.path) },
             issueCounts = counts,
             sampleIssues = issues.take(20),
+            issues = issues,
         )
     }
 
@@ -143,6 +152,8 @@ class LibraryDiagnosticsStore(context: Context) {
         for ((kind, count) in snapshot.issueCounts) counts.put(kind, count)
         val sample = JSONArray()
         for (issue in snapshot.sampleIssues) sample.put(issue.toJson())
+        val issues = JSONArray()
+        for (issue in snapshot.issues) issues.put(issue.toJson())
         val root = JSONObject().apply {
             put("schema", 1)
             put("scannedAt", snapshot.scannedAt)
@@ -151,6 +162,7 @@ class LibraryDiagnosticsStore(context: Context) {
             put("remoteCount", snapshot.remoteCount)
             put("issueCounts", counts)
             put("sampleIssues", sample)
+            put("issues", issues)
         }
         file.writeText(root.toString(2), Charsets.UTF_8)
     }

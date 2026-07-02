@@ -260,6 +260,7 @@
     <string name="library_maintenance_refreshed">库维护统计已更新</string>
     <string name="library_maintenance_open">查看问题</string>
     <string name="library_maintenance_sample_hint">显示样本问题 %1$d 条</string>
+    <string name="library_maintenance_list_hint">显示问题 %1$d 条</string>
     <string name="library_issue_missing_path">无路径</string>
     <string name="library_issue_duplicate_path">重复路径</string>
     <string name="library_issue_duplicate_title">疑似重复</string>
@@ -269,6 +270,8 @@
     <string name="library_issue_low_confidence_match">低置信匹配</string>
     <string name="library_issue_meta_fmt">%1$s · %2$s\n%3$s</string>
     <string name="library_issue_open">详情</string>
+    <string name="library_issue_evidence">证据</string>
+    <string name="library_issue_evidence_fmt">类型：%1$s\n标题：%2$s\n原因：%3$s\n路径：%4$s</string>
     <string name="library_issue_remove">移除</string>
     <string name="library_issue_remove_confirm">从媒体库移除“%1$s”？不会删除源文件、目录或远程配置。</string>
     <string name="library_issue_removed">条目已移除</string>

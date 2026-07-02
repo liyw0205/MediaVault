@@ -21,6 +21,28 @@ object LibraryMaintenanceDialog {
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_library_maintenance, null, false)
         val summary = root.findViewById<TextView>(R.id.libraryMaintenanceSummary)
         val recycler = root.findViewById<RecyclerView>(R.id.libraryMaintenanceRecycler)
+        recycler.layoutManager = LinearLayoutManager(activity)
+        val adapter = IssueAdapter(activity, repository, onChanged) {
+            val next = repository.refreshDiagnostics()
+            renderSummary(activity, summary, next)
+        }
+        recycler.adapter = adapter
+        renderSummary(activity, summary, snapshot)
+        adapter.submit(snapshot.issues)
+        MvDialog.showStyled(
+            MvDialog.builder(activity)
+                .setTitle(R.string.library_maintenance_title)
+                .setView(root)
+                .setNegativeButton(android.R.string.cancel, null),
+            inputRoot = root,
+        )
+    }
+
+    private fun renderSummary(
+        activity: AppCompatActivity,
+        summary: TextView,
+        snapshot: com.mediavault.data.LibraryDiagnosticsSnapshot,
+    ) {
         summary.text = buildString {
             append(activity.getString(
                 R.string.library_maintenance_summary_fmt,
@@ -32,25 +54,23 @@ object LibraryMaintenanceDialog {
             append('\n')
             append(activity.getString(R.string.library_maintenance_scanned_fmt, snapshot.scannedAt))
             append('\n')
-            append(activity.getString(R.string.library_maintenance_sample_hint, snapshot.sampleIssues.size))
+            append(activity.getString(R.string.library_maintenance_list_hint, snapshot.issues.size))
         }
-        recycler.layoutManager = LinearLayoutManager(activity)
-        recycler.adapter = IssueAdapter(activity, repository, snapshot.sampleIssues, onChanged)
-        MvDialog.showStyled(
-            MvDialog.builder(activity)
-                .setTitle(R.string.library_maintenance_title)
-                .setView(root)
-                .setNegativeButton(android.R.string.cancel, null),
-            inputRoot = root,
-        )
     }
 
     private class IssueAdapter(
         private val activity: AppCompatActivity,
         private val repository: LibraryRepository,
-        private val issues: List<LibraryIssue>,
         private val onChanged: () -> Unit,
+        private val onRefresh: () -> Unit,
     ) : RecyclerView.Adapter<IssueVH>() {
+        private var issues: List<LibraryIssue> = emptyList()
+
+        fun submit(next: List<LibraryIssue>) {
+            issues = next
+            notifyDataSetChanged()
+        }
+
         override fun getItemCount(): Int = issues.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): IssueVH {
@@ -70,9 +90,28 @@ object LibraryMaintenanceDialog {
             holder.open.setOnClickListener {
                 activity.startActivity(VideoDetailActivity.intent(activity, issue.path))
             }
+            holder.evidence.setOnClickListener {
+                showEvidence(issue)
+            }
             holder.remove.setOnClickListener {
                 confirmRemove(issue)
             }
+        }
+
+        private fun showEvidence(issue: LibraryIssue) {
+            val msg = activity.getString(
+                R.string.library_issue_evidence_fmt,
+                issueLabel(activity, issue.kind),
+                issue.title.ifBlank { issue.path.substringAfterLast('/') },
+                issue.detail,
+                issue.path,
+            )
+            MvDialog.show(
+                MvDialog.builder(activity)
+                    .setTitle(R.string.library_issue_evidence)
+                    .setMessage(msg)
+                    .setPositiveButton(android.R.string.ok, null),
+            )
         }
 
         private fun confirmRemove(issue: LibraryIssue) {
@@ -86,6 +125,9 @@ object LibraryMaintenanceDialog {
                                     val msg = if (removed) R.string.library_issue_removed else R.string.library_issue_not_found
                                     Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show()
                                     onChanged()
+                                    val next = repository.diagnostics.value.issues
+                                    submit(next)
+                                    onRefresh()
                                 }
                                 .onFailure { e ->
                                     Toast.makeText(activity, e.message ?: activity.getString(R.string.action_failed), Toast.LENGTH_LONG).show()
@@ -101,6 +143,7 @@ object LibraryMaintenanceDialog {
         val title: TextView = view.findViewById(R.id.libraryIssueTitle)
         val meta: TextView = view.findViewById(R.id.libraryIssueMeta)
         val open: MaterialButton = view.findViewById(R.id.libraryIssueOpen)
+        val evidence: MaterialButton = view.findViewById(R.id.libraryIssueEvidence)
         val remove: MaterialButton = view.findViewById(R.id.libraryIssueRemove)
     }
 
