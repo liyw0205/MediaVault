@@ -370,6 +370,8 @@ object ScrapeDrawerBinder {
             append('\n')
             append(sourceText)
             append('\n')
+            append(RemoteDiagnosticsText.capabilityText(activity, snapshot.remoteCapabilities))
+            append('\n')
             append(activity.getString(R.string.library_maintenance_scanned_fmt, snapshot.scannedAt))
         }
     }

@@ -74,15 +74,24 @@ class LibraryRepository(context: Context) {
         items: List<MediaItem> = _library.value.items,
         probeSources: Boolean = false,
     ): LibraryDiagnosticsSnapshot {
+        val persistedCapabilities = diagnosticsStore.readSnapshot()?.remoteCapabilities.orEmpty()
+        val previousCapabilities = (_diagnostics.value.remoteCapabilities + persistedCapabilities)
+            .distinctBy { it.key }
         val snapshot = diagnosticsStore.scanAndPersist(
             store,
             items,
             probeSources = probeSources,
             previousSourceHealth = _diagnostics.value.sourceHealth,
+            previousRemoteCapabilities = previousCapabilities,
         )
         _diagnostics.value = snapshot
         return snapshot
     }
+
+    fun reloadDiagnosticsSnapshot(): LibraryDiagnosticsSnapshot =
+        (diagnosticsStore.readSnapshot() ?: LibraryDiagnosticsSnapshot.EMPTY).also {
+            _diagnostics.value = it
+        }
 
     private fun mergeAndPersist(batch: List<MediaItem>): Int {
         val existing = _library.value.items

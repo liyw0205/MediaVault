@@ -147,6 +147,8 @@ object LibraryMaintenanceDialog {
             append('\n')
             append(sourceHealthSummary(activity, snapshot.sourceHealth))
             append('\n')
+            append(RemoteDiagnosticsText.capabilityText(activity, snapshot.remoteCapabilities))
+            append('\n')
             append(activity.getString(R.string.library_maintenance_list_hint, visibleCount))
         }
     }

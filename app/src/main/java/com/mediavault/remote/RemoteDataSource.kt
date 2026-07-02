@@ -6,11 +6,17 @@ import androidx.media3.common.C
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
+import com.mediavault.data.LibraryDiagnosticsStore
 import com.mediavault.data.MediaStore
+import com.mediavault.data.RemoteCapability
 import java.io.IOException
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class RemoteDataSource(
@@ -22,12 +28,14 @@ class RemoteDataSource(
     private var uri: Uri? = null
     private var bytesRemaining: Long = C.LENGTH_UNSET.toLong()
     private val readerAlive = AtomicBoolean(true)
+    private val readerError = AtomicReference<IOException?>(null)
 
     override fun addTransferListener(transferListener: TransferListener) {}
 
     override fun open(dataSpec: DataSpec): Long {
         closeQuietPipe()
         readerAlive.set(true)
+        readerError.set(null)
         uri = dataSpec.uri
         val u = dataSpec.uri
         if (u.scheme != "mediavault-remote") {
@@ -43,19 +51,66 @@ class RemoteDataSource(
 
         val position = dataSpec.position
         val requestLength = dataSpec.length
-        val totalSize = client.fileSize(rel)
+        val totalSize = try {
+            client.fileSize(rel)
+        } catch (t: Throwable) {
+            recordPlaybackCapability(
+                cfg = cfg,
+                rel = rel,
+                cacheKey = cacheKey,
+                trigger = "playback_prepare",
+                fileSize = C.LENGTH_UNSET.toLong(),
+                canOpen = false,
+                supportsRange = null,
+                error = t,
+            )
+            throw toRemoteIOException(t)
+        }
+        recordPlaybackCapability(
+            cfg = cfg,
+            rel = rel,
+            cacheKey = cacheKey,
+            trigger = "playback_prepare",
+            fileSize = totalSize,
+            canOpen = null,
+            supportsRange = null,
+        )
 
         val pipeIn = PipedInputStream(256 * 1024)
         val pipeOut = PipedOutputStream(pipeIn)
         val alive = readerAlive
+        val readStartedAt = System.currentTimeMillis()
         thread(name = "mv-remote-read", isDaemon = true) {
             try {
                 fillFromCacheAndNetwork(
                     client, rel, cacheKey, position, requestLength, pipeOut, alive,
                 )
-            } catch (e: IOException) {
+                val elapsed = (System.currentTimeMillis() - readStartedAt).coerceAtLeast(0L)
+                recordPlaybackCapability(
+                    cfg = cfg,
+                    rel = rel,
+                    cacheKey = cacheKey,
+                    trigger = "playback_read",
+                    fileSize = totalSize,
+                    canOpen = true,
+                    supportsRange = if (position > 0L) true else null,
+                    firstByteMs = if (position <= 0L) elapsed else -1L,
+                    seekReadMs = if (position > 0L) elapsed else -1L,
+                )
+            } catch (t: Throwable) {
                 if (alive.get()) {
-                    // 非主动 close 时的网络/协议错误，交给读端 EOF
+                    val io = toRemoteIOException(t)
+                    readerError.set(io)
+                    recordPlaybackCapability(
+                        cfg = cfg,
+                        rel = rel,
+                        cacheKey = cacheKey,
+                        trigger = "playback_read",
+                        fileSize = totalSize,
+                        canOpen = false,
+                        supportsRange = if (position > 0L) false else null,
+                        error = io,
+                    )
                 }
             } finally {
                 runCatching { pipeOut.close() }
@@ -124,7 +179,10 @@ class RemoteDataSource(
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         val s = stream ?: throw IOException(RemoteErrorMessages.userMessage(context, IOException("not opened")))
         val n = s.read(buffer, offset, length)
-        if (n == -1) return C.RESULT_END_OF_INPUT
+        if (n == -1) {
+            readerError.get()?.let { throw it }
+            return C.RESULT_END_OF_INPUT
+        }
         if (bytesRemaining != C.LENGTH_UNSET.toLong()) bytesRemaining -= n.toLong()
         return n
     }
@@ -142,6 +200,54 @@ class RemoteDataSource(
         runCatching { stream?.close() }
         stream = null
     }
+
+    private fun toRemoteIOException(t: Throwable): IOException =
+        if (t is IOException && !t.message.isNullOrBlank()) {
+            t
+        } else {
+            IOException(RemoteErrorMessages.userMessage(context, t), t)
+        }
+
+    private fun recordPlaybackCapability(
+        cfg: RemoteConfig,
+        rel: String,
+        cacheKey: String,
+        trigger: String,
+        fileSize: Long,
+        canOpen: Boolean?,
+        supportsRange: Boolean?,
+        firstByteMs: Long = -1L,
+        seekReadMs: Long = -1L,
+        error: Throwable? = null,
+    ) {
+        val cache = RemoteStreamCache.cacheSummaryForKey(context, cacheKey)
+        LibraryDiagnosticsStore(context).recordRemoteCapability(
+            RemoteCapability(
+                key = RemoteCapability.keyFor(cfg.id, rel, trigger),
+                sourceId = cfg.id,
+                sourceType = cfg.type.ifBlank { "remote" },
+                name = cfg.name,
+                relativePath = rel,
+                lastCheckedAt = nowText(),
+                trigger = trigger,
+                canList = null,
+                canOpen = canOpen,
+                supportsRange = supportsRange,
+                fileSize = fileSize,
+                firstByteMs = firstByteMs,
+                seekReadMs = seekReadMs,
+                cachePrefixBytes = cache.prefixBytes,
+                cacheRangeFiles = cache.rangeFiles,
+                cacheRangeBytes = cache.rangeBytes,
+                cacheTotalBytes = cache.totalBytes,
+                lastErrorKind = error?.let { it::class.java.simpleName }.orEmpty(),
+                lastErrorMessage = error?.let { RemoteErrorMessages.userMessage(context, it) }.orEmpty(),
+            ),
+        )
+    }
+
+    private fun nowText(): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 }
 
 class RemoteDataSourceFactory(

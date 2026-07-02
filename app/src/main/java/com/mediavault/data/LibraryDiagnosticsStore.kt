@@ -8,6 +8,7 @@ import com.mediavault.remote.RemoteClients
 import com.mediavault.remote.RemoteConfig
 import com.mediavault.remote.RemoteErrorMessages
 import com.mediavault.remote.RemotePath
+import com.mediavault.remote.RemoteStreamCache
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -25,6 +26,7 @@ data class LibraryDiagnosticsSnapshot(
     val issues: List<LibraryIssue> = sampleIssues,
     val sourceHealth: List<SourceHealth> = emptyList(),
     val scrapeEvidence: Map<String, ScrapeEvidence> = emptyMap(),
+    val remoteCapabilities: List<RemoteCapability> = emptyList(),
 ) {
     val totalIssues: Int = issueCounts.values.sum()
 
@@ -39,6 +41,7 @@ data class LibraryDiagnosticsSnapshot(
             issues = emptyList(),
             sourceHealth = emptyList(),
             scrapeEvidence = emptyMap(),
+            remoteCapabilities = emptyList(),
         )
     }
 }
@@ -110,6 +113,77 @@ data class SourceHealth(
     }
 }
 
+data class RemoteCapability(
+    val key: String,
+    val sourceId: String,
+    val sourceType: String,
+    val name: String,
+    val relativePath: String,
+    val lastCheckedAt: String,
+    val trigger: String,
+    val canList: Boolean?,
+    val canOpen: Boolean?,
+    val supportsRange: Boolean?,
+    val fileSize: Long,
+    val firstByteMs: Long,
+    val seekReadMs: Long,
+    val cachePrefixBytes: Long,
+    val cacheRangeFiles: Int,
+    val cacheRangeBytes: Long,
+    val cacheTotalBytes: Long,
+    val lastErrorKind: String,
+    val lastErrorMessage: String,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("key", key)
+        put("sourceId", sourceId)
+        put("sourceType", sourceType)
+        put("name", name)
+        put("relativePath", relativePath)
+        put("lastCheckedAt", lastCheckedAt)
+        put("trigger", trigger)
+        put("canList", canList ?: JSONObject.NULL)
+        put("canOpen", canOpen ?: JSONObject.NULL)
+        put("supportsRange", supportsRange ?: JSONObject.NULL)
+        put("fileSize", fileSize)
+        put("firstByteMs", firstByteMs)
+        put("seekReadMs", seekReadMs)
+        put("cachePrefixBytes", cachePrefixBytes)
+        put("cacheRangeFiles", cacheRangeFiles)
+        put("cacheRangeBytes", cacheRangeBytes)
+        put("cacheTotalBytes", cacheTotalBytes)
+        put("lastErrorKind", lastErrorKind)
+        put("lastErrorMessage", lastErrorMessage)
+    }
+
+    companion object {
+        fun keyFor(sourceId: String, relativePath: String, trigger: String): String =
+            listOf(sourceId, relativePath, trigger).joinToString("|")
+
+        fun fromJson(o: JSONObject): RemoteCapability = RemoteCapability(
+            key = o.optString("key", ""),
+            sourceId = o.optString("sourceId", ""),
+            sourceType = o.optString("sourceType", ""),
+            name = o.optString("name", ""),
+            relativePath = o.optString("relativePath", ""),
+            lastCheckedAt = o.optString("lastCheckedAt", "--"),
+            trigger = o.optString("trigger", ""),
+            canList = o.optNullableBoolean("canList"),
+            canOpen = o.optNullableBoolean("canOpen"),
+            supportsRange = o.optNullableBoolean("supportsRange"),
+            fileSize = o.optLong("fileSize", C.LENGTH_UNSET.toLong()),
+            firstByteMs = o.optLong("firstByteMs", -1L),
+            seekReadMs = o.optLong("seekReadMs", -1L),
+            cachePrefixBytes = o.optLong("cachePrefixBytes", 0L),
+            cacheRangeFiles = o.optInt("cacheRangeFiles", 0),
+            cacheRangeBytes = o.optLong("cacheRangeBytes", 0L),
+            cacheTotalBytes = o.optLong("cacheTotalBytes", 0L),
+            lastErrorKind = o.optString("lastErrorKind", ""),
+            lastErrorMessage = o.optString("lastErrorMessage", ""),
+        )
+    }
+}
+
 class LibraryDiagnosticsStore(context: Context) {
     private val app = context.applicationContext
     private val file: File
@@ -129,6 +203,7 @@ class LibraryDiagnosticsStore(context: Context) {
         val sampleIssues = readIssues(root.optJSONArray("sampleIssues") ?: JSONArray()).ifEmpty { issues.take(20) }
         val sourceHealth = readSourceHealth(root.optJSONArray("sourceHealth") ?: JSONArray())
         val scrapeEvidence = readScrapeEvidence(root.optJSONObject("scrapeEvidence") ?: JSONObject())
+        val remoteCapabilities = readRemoteCapabilities(root.optJSONArray("remoteCapabilities") ?: JSONArray())
         LibraryDiagnosticsSnapshot(
             scannedAt = root.optString("scannedAt", "--"),
             itemCount = root.optInt("itemCount", 0),
@@ -139,6 +214,7 @@ class LibraryDiagnosticsStore(context: Context) {
             issues = issues,
             sourceHealth = sourceHealth,
             scrapeEvidence = scrapeEvidence,
+            remoteCapabilities = remoteCapabilities,
         )
     }.getOrNull()
 
@@ -168,15 +244,35 @@ class LibraryDiagnosticsStore(context: Context) {
         return out
     }
 
+    private fun readRemoteCapabilities(arr: JSONArray): List<RemoteCapability> {
+        val out = mutableListOf<RemoteCapability>()
+        for (i in 0 until arr.length()) {
+            out.add(RemoteCapability.fromJson(arr.optJSONObject(i) ?: continue))
+        }
+        return out
+    }
+
     fun scanAndPersist(
         store: MediaStore,
         items: List<MediaItem>,
         probeSources: Boolean = false,
         previousSourceHealth: List<SourceHealth> = emptyList(),
+        previousRemoteCapabilities: List<RemoteCapability> = emptyList(),
     ): LibraryDiagnosticsSnapshot {
-        val snapshot = scan(store, items, probeSources, previousSourceHealth)
+        val snapshot = scan(store, items, probeSources, previousSourceHealth, previousRemoteCapabilities)
         writeSnapshot(snapshot)
         return snapshot
+    }
+
+    @Synchronized
+    fun recordRemoteCapability(capability: RemoteCapability): LibraryDiagnosticsSnapshot {
+        val current = readSnapshot() ?: LibraryDiagnosticsSnapshot.EMPTY
+        val merged = (current.remoteCapabilities.filter { it.key != capability.key } + capability)
+            .sortedByDescending { it.lastCheckedAt }
+            .take(80)
+        val next = current.copy(remoteCapabilities = merged)
+        writeSnapshot(next)
+        return next
     }
 
     private fun scan(
@@ -184,6 +280,7 @@ class LibraryDiagnosticsStore(context: Context) {
         items: List<MediaItem>,
         probeSources: Boolean,
         previousSourceHealth: List<SourceHealth>,
+        previousRemoteCapabilities: List<RemoteCapability>,
     ): LibraryDiagnosticsSnapshot {
         val scannedAt = nowText()
         val remoteIds = store.readRemotesList().map { it.id }.toSet()
@@ -224,6 +321,7 @@ class LibraryDiagnosticsStore(context: Context) {
 
         val counts = issues.groupingBy { it.kind }.eachCount().toSortedMap()
         val evidenceByPath = items.associate { it.path to ScrapeEvidence.fromItem(it) }
+        val remotes = store.readRemotesList()
         return LibraryDiagnosticsSnapshot(
             scannedAt = scannedAt,
             itemCount = items.size,
@@ -232,8 +330,14 @@ class LibraryDiagnosticsStore(context: Context) {
             issueCounts = counts,
             sampleIssues = issues.take(20),
             issues = issues,
-            sourceHealth = buildSourceHealth(store, items, scannedAt, probeSources, previousSourceHealth),
+            sourceHealth = buildSourceHealth(store, items, scannedAt, probeSources, previousSourceHealth, remotes),
             scrapeEvidence = evidenceByPath,
+            remoteCapabilities = buildRemoteCapabilities(
+                remotes,
+                items,
+                probeSources,
+                previousRemoteCapabilities,
+            ),
         )
     }
 
@@ -248,8 +352,10 @@ class LibraryDiagnosticsStore(context: Context) {
         for (source in snapshot.sourceHealth) sources.put(source.toJson())
         val evidence = JSONObject()
         for ((path, itemEvidence) in snapshot.scrapeEvidence) evidence.put(path, itemEvidence.toJson())
+        val remoteCapabilities = JSONArray()
+        for (capability in snapshot.remoteCapabilities) remoteCapabilities.put(capability.toJson())
         val root = JSONObject().apply {
-            put("schema", 3)
+            put("schema", 4)
             put("scannedAt", snapshot.scannedAt)
             put("itemCount", snapshot.itemCount)
             put("localCount", snapshot.localCount)
@@ -259,6 +365,7 @@ class LibraryDiagnosticsStore(context: Context) {
             put("issues", issues)
             put("sourceHealth", sources)
             put("scrapeEvidence", evidence)
+            put("remoteCapabilities", remoteCapabilities)
         }
         file.writeText(root.toString(2), Charsets.UTF_8)
     }
@@ -269,6 +376,7 @@ class LibraryDiagnosticsStore(context: Context) {
         scannedAt: String,
         probeSources: Boolean,
         previous: List<SourceHealth>,
+        remotes: List<RemoteConfig> = store.readRemotesList(),
     ): List<SourceHealth> {
         val previousByKey = previous.associateBy { it.sourceType + "|" + it.sourceId }
         val out = mutableListOf<SourceHealth>()
@@ -277,7 +385,7 @@ class LibraryDiagnosticsStore(context: Context) {
             val prev = previousByKey["local|$uri"]
             out.add(if (probeSources) probeLocal(uri, scannedAt, sample) else carrySource(prev, uri, "local", localName(uri), scannedAt, sample))
         }
-        for (cfg in store.readRemotesList()) {
+        for (cfg in remotes) {
             val sample = items.firstOrNull { RemotePath.parse(it.path)?.configId == cfg.id }?.let {
                 RemotePath.parse(it.path)?.relativePath
             }.orEmpty()
@@ -285,6 +393,33 @@ class LibraryDiagnosticsStore(context: Context) {
             out.add(if (probeSources) probeRemote(cfg, scannedAt, sample) else carrySource(prev, cfg.id, cfg.type.ifBlank { "remote" }, cfg.name, scannedAt, sample))
         }
         return out
+    }
+
+    private fun buildRemoteCapabilities(
+        remotes: List<RemoteConfig>,
+        items: List<MediaItem>,
+        probeSources: Boolean,
+        previous: List<RemoteCapability>,
+    ): List<RemoteCapability> {
+        val remoteIds = remotes.map { it.id }.toSet()
+        val out = mutableListOf<RemoteCapability>()
+        for (cfg in remotes) {
+            val sample = items.firstOrNull { RemotePath.parse(it.path)?.configId == cfg.id }?.let {
+                RemotePath.parse(it.path)?.relativePath
+            }.orEmpty()
+            val prev = previous.firstOrNull { it.sourceId == cfg.id && it.trigger == "diagnostic" }
+            out.add(
+                if (probeSources) {
+                    probeRemoteCapability(cfg, sample)
+                } else {
+                    carryRemoteCapability(prev, cfg, sample)
+                },
+            )
+        }
+        val playback = previous
+            .filter { it.sourceId in remoteIds && it.trigger.startsWith("playback") }
+            .takeLast(60)
+        return (out + playback).distinctBy { it.key }.take(80)
     }
 
     private fun carrySource(
@@ -390,6 +525,160 @@ class LibraryDiagnosticsStore(context: Context) {
                 samplePath = samplePath,
             )
         }
+    }
+
+    private fun carryRemoteCapability(
+        previous: RemoteCapability?,
+        cfg: RemoteConfig,
+        samplePath: String,
+    ): RemoteCapability {
+        val rel = samplePath.ifBlank { previous?.relativePath.orEmpty() }
+        return previous?.copy(
+            key = RemoteCapability.keyFor(cfg.id, rel, previous.trigger),
+            sourceId = cfg.id,
+            sourceType = cfg.type.ifBlank { "remote" },
+            name = cfg.name,
+            relativePath = rel,
+        ) ?: RemoteCapability(
+            key = RemoteCapability.keyFor(cfg.id, rel, "diagnostic"),
+            sourceId = cfg.id,
+            sourceType = cfg.type.ifBlank { "remote" },
+            name = cfg.name,
+            relativePath = rel,
+            lastCheckedAt = "--",
+            trigger = "diagnostic",
+            canList = null,
+            canOpen = null,
+            supportsRange = null,
+            fileSize = C.LENGTH_UNSET.toLong(),
+            firstByteMs = -1L,
+            seekReadMs = -1L,
+            cachePrefixBytes = 0L,
+            cacheRangeFiles = 0,
+            cacheRangeBytes = 0L,
+            cacheTotalBytes = 0L,
+            lastErrorKind = "unchecked",
+            lastErrorMessage = "",
+        )
+    }
+
+    private fun probeRemoteCapability(cfg: RemoteConfig, samplePath: String): RemoteCapability {
+        val checkedAt = nowText()
+        val client = runCatching { RemoteClients.create(cfg) }.getOrElse { e ->
+            return remoteCapability(
+                cfg = cfg,
+                relativePath = samplePath,
+                checkedAt = checkedAt,
+                trigger = "diagnostic",
+                canList = false,
+                canOpen = false,
+                supportsRange = null,
+                error = e,
+            )
+        }
+        val entries = runCatching { client.list("") }.getOrElse { e ->
+            return remoteCapability(
+                cfg = cfg,
+                relativePath = samplePath,
+                checkedAt = checkedAt,
+                trigger = "diagnostic",
+                canList = false,
+                canOpen = false,
+                supportsRange = null,
+                error = e,
+            )
+        }
+        val sample = samplePath.ifBlank { entries.firstOrNull { !it.directory }?.path.orEmpty() }
+        if (sample.isBlank()) {
+            return remoteCapability(
+                cfg = cfg,
+                relativePath = "",
+                checkedAt = checkedAt,
+                trigger = "diagnostic",
+                canList = true,
+                canOpen = null,
+                supportsRange = null,
+            )
+        }
+        val size = runCatching { client.fileSize(sample) }.getOrDefault(C.LENGTH_UNSET.toLong())
+        val firstRead = measureRemoteRead(client, sample, 0L, 1L)
+        if (firstRead.isFailure) {
+            return remoteCapability(
+                cfg = cfg,
+                relativePath = sample,
+                checkedAt = checkedAt,
+                trigger = "diagnostic",
+                canList = true,
+                canOpen = false,
+                supportsRange = null,
+                fileSize = size,
+                error = firstRead.exceptionOrNull(),
+            )
+        }
+        val rangeRead = if (size > 1L) measureRemoteRead(client, sample, 1L, 1L) else null
+        return remoteCapability(
+            cfg = cfg,
+            relativePath = sample,
+            checkedAt = checkedAt,
+            trigger = "diagnostic",
+            canList = true,
+            canOpen = true,
+            supportsRange = rangeRead?.isSuccess,
+            fileSize = size,
+            firstByteMs = firstRead.getOrDefault(-1L),
+            seekReadMs = rangeRead?.getOrDefault(-1L) ?: -1L,
+            error = rangeRead?.exceptionOrNull(),
+        )
+    }
+
+    private fun measureRemoteRead(client: com.mediavault.remote.RemoteClient, relativePath: String, offset: Long, length: Long): Result<Long> =
+        runCatching {
+            val start = System.currentTimeMillis()
+            client.openRead(relativePath, offset, length).use { input ->
+                input.read()
+            }
+            (System.currentTimeMillis() - start).coerceAtLeast(0L)
+        }
+
+    private fun remoteCapability(
+        cfg: RemoteConfig,
+        relativePath: String,
+        checkedAt: String,
+        trigger: String,
+        canList: Boolean?,
+        canOpen: Boolean?,
+        supportsRange: Boolean?,
+        fileSize: Long = C.LENGTH_UNSET.toLong(),
+        firstByteMs: Long = -1L,
+        seekReadMs: Long = -1L,
+        error: Throwable? = null,
+    ): RemoteCapability {
+        val cache = if (relativePath.isBlank()) {
+            RemoteStreamCache.ItemCacheSummary(0L, 0, 0L)
+        } else {
+            RemoteStreamCache.cacheSummaryForItem(app, cfg, relativePath)
+        }
+        return RemoteCapability(
+            key = RemoteCapability.keyFor(cfg.id, relativePath, trigger),
+            sourceId = cfg.id,
+            sourceType = cfg.type.ifBlank { "remote" },
+            name = cfg.name,
+            relativePath = relativePath,
+            lastCheckedAt = checkedAt,
+            trigger = trigger,
+            canList = canList,
+            canOpen = canOpen,
+            supportsRange = supportsRange,
+            fileSize = fileSize,
+            firstByteMs = firstByteMs,
+            seekReadMs = seekReadMs,
+            cachePrefixBytes = cache.prefixBytes,
+            cacheRangeFiles = cache.rangeFiles,
+            cacheRangeBytes = cache.rangeBytes,
+            cacheTotalBytes = cache.totalBytes,
+            lastErrorKind = error?.let { it::class.java.simpleName }.orEmpty(),
+            lastErrorMessage = error?.let { RemoteErrorMessages.userMessage(app, it) }.orEmpty(),
+        )
     }
 
     private fun normalizedTitleKey(item: MediaItem): String? {

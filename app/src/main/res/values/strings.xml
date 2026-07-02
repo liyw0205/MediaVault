@@ -269,6 +269,11 @@
     <string name="library_maintenance_next">下一页</string>
     <string name="source_health_summary_fmt">源状态：%1$d 个，可达 %2$d，异常 %3$d，未检查 %4$d</string>
     <string name="source_health_issue_fmt">%1$s：%2$s</string>
+    <string name="remote_capability_empty">远程能力：暂无记录</string>
+    <string name="remote_capability_summary_fmt">远程能力：%1$d 条，可打开 %2$d，Range %3$d，受限/异常 %4$d</string>
+    <string name="remote_capability_cache_fmt">缓存索引：prefix %1$s，range %2$d 个 / %3$s</string>
+    <string name="remote_capability_issue_fmt">%1$s · %2$s：%3$s</string>
+    <string name="remote_capability_range_no">不支持 Range，拖动到未缓存位置可能失败</string>
     <string name="library_issue_missing_path">无路径</string>
     <string name="library_issue_duplicate_path">重复路径</string>
     <string name="library_issue_duplicate_title">疑似重复</string>

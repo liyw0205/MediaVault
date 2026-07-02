@@ -121,6 +121,26 @@ object RemoteStreamCache {
         return sum
     }
 
+    data class ItemCacheSummary(
+        val prefixBytes: Long,
+        val rangeFiles: Int,
+        val rangeBytes: Long,
+    ) {
+        val totalBytes: Long = prefixBytes + rangeBytes
+    }
+
+    fun cacheSummaryForItem(context: Context, cfg: RemoteConfig, relativePath: String): ItemCacheSummary =
+        cacheSummaryForKey(context, cacheKey(cfg, relativePath))
+
+    fun cacheSummaryForKey(context: Context, key: String): ItemCacheSummary {
+        val ranges = listRangeEntries(context, key)
+        return ItemCacheSummary(
+            prefixBytes = prefixLength(context, key),
+            rangeFiles = ranges.size,
+            rangeBytes = ranges.sumOf { it.file.length() },
+        )
+    }
+
     private fun writeOut(out: OutputStream, buf: ByteArray, off: Int, len: Int, alive: AtomicBoolean): Boolean {
         if (!alive.get()) return false
         return try {
