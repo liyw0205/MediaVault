@@ -189,6 +189,8 @@
     <string name="backup_rollback_title">导入回滚快照</string>
     <string name="backup_rollback_empty">当前没有内部回滚快照</string>
     <string name="backup_rollback_restore">恢复快照</string>
+    <string name="backup_rollback_inspecting">正在检查回滚快照…</string>
+    <string name="backup_rollback_restore_preview_title">恢复快照预览</string>
     <string name="backup_rollback_restore_confirm_fmt">恢复到 %1$s 的内部快照？\n\n%2$s\n\n当前媒体库、目录配置、远程配置、刮削记录、播放进度和基础偏好会被该快照覆盖。</string>
     <string name="backup_rollback_restoring">正在恢复回滚快照…</string>
     <string name="backup_rollback_restored_fmt">已恢复回滚快照：%1$s</string>
@@ -219,6 +221,7 @@
     <string name="edit">编辑</string>
     <string name="delete">删除</string>
     <string name="save">保存</string>
+    <string name="remote_credential_missing_fmt">%1$s · 需补密码</string>
     <string name="test_webdav">测试 WebDAV</string>
     <string name="test_ftp">测试 FTP</string>
     <string name="test_smb">测试 SMB</string>

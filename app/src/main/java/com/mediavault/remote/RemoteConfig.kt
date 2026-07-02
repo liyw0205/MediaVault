@@ -12,6 +12,7 @@ data class RemoteConfig(
     val password: String,
     val basePath: String,
     val name: String,
+    val credentialMissing: Boolean = false,
 ) {
     companion object {
         fun fromJson(o: JSONObject): RemoteConfig = RemoteConfig(
@@ -33,6 +34,7 @@ data class RemoteConfig(
                 }
             },
             name = o.optString("name", o.optString("id", "remote")),
+            credentialMissing = o.optBoolean("credentialMissing", false) && o.optString("password", "").isBlank(),
         )
 
         fun listFromJson(text: String): List<RemoteConfig> {

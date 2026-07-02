@@ -100,6 +100,7 @@ object RemoteFormDialog {
                         basePath = base.text?.toString()?.trim().orEmpty()
                             .ifBlank { RemoteBrowseDialogHelper.defaultBaseForType(type) },
                         name = name.text?.toString()?.trim().orEmpty().ifBlank { h },
+                        credentialMissing = existing?.credentialMissing == true && password.text?.toString().isNullOrBlank(),
                     )
                     onSaved(cfg)
                 },

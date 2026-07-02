@@ -28,6 +28,7 @@ import com.mediavault.data.BackupImportPrecheck
 import com.mediavault.data.BackupImportResult
 import com.mediavault.data.BackupMissingRemoteCredential
 import com.mediavault.data.BackupRollbackSnapshot
+import com.mediavault.data.BackupRollbackSnapshotPreview
 import com.mediavault.data.ExportArchive
 import com.mediavault.data.MediaItem
 import kotlinx.coroutines.Dispatchers
@@ -518,8 +519,18 @@ class MainActivity : AppCompatActivity() {
         append("备份时间：")
         append(precheck.createdAt)
         append('\n')
+        append("备份 schema：")
+        append(if (precheck.schemaVersion > 0) precheck.schemaVersion else "--")
+        append('\n')
         append("来源版本：")
         append(precheck.sourceVersionName)
+        if (precheck.sourceVersionCode > 0) {
+            append(" / ")
+            append(precheck.sourceVersionCode)
+        }
+        append('\n')
+        append("内容条目：")
+        append(precheck.contentEntryCount)
         append('\n')
         append("媒体库：")
         append(precheck.itemCount)
@@ -686,21 +697,82 @@ class MainActivity : AppCompatActivity() {
             MvDialog.builder(this)
                 .setTitle(R.string.backup_rollback_restore)
                 .setItems(labels) { _, which ->
-                    snapshots.getOrNull(which)?.let { confirmRestoreRollbackSnapshot(it) }
+                    snapshots.getOrNull(which)?.let { inspectRollbackSnapshotBeforeRestore(it) }
                 }
                 .setNegativeButton(android.R.string.cancel, null),
         )
     }
 
-    private fun confirmRestoreRollbackSnapshot(snapshot: BackupRollbackSnapshot) {
+    private fun inspectRollbackSnapshotBeforeRestore(snapshot: BackupRollbackSnapshot) {
+        Toast.makeText(this, R.string.backup_rollback_inspecting, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { BackupImportManager(this@MainActivity).inspectRollbackSnapshot(snapshot.name) }
+            }
+            result
+                .onSuccess { preview -> confirmRestoreRollbackSnapshot(preview) }
+                .onFailure { e ->
+                    Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    private fun confirmRestoreRollbackSnapshot(preview: BackupRollbackSnapshotPreview) {
         MvDialog.show(
             MvDialog.builder(this)
-                .setMessage(getString(R.string.backup_rollback_restore_confirm_fmt, snapshot.createdAt, snapshot.name))
+                .setTitle(R.string.backup_rollback_restore_preview_title)
+                .setMessage(rollbackSnapshotPreviewText(preview))
                 .setPositiveButton(android.R.string.ok) { _, _ ->
-                    restoreRollbackSnapshot(snapshot)
+                    restoreRollbackSnapshot(preview.snapshot)
                 }
                 .setNegativeButton(android.R.string.cancel, null),
         )
+    }
+
+    private fun rollbackSnapshotPreviewText(preview: BackupRollbackSnapshotPreview): String = buildString {
+        val snapshot = preview.snapshot
+        append(getString(R.string.backup_rollback_restore_confirm_fmt, snapshot.createdAt, snapshot.name))
+        append("\n\n")
+        append("快照 schema：")
+        append(if (preview.schemaVersion > 0) preview.schemaVersion else "--")
+        append('\n')
+        append("将恢复：")
+        append(preview.fileEntryCount)
+        append(" 个文件项、")
+        append(preview.prefEntryCount)
+        append(" 组偏好。")
+        if (preview.missingFileEntries.isNotEmpty()) {
+            append("\n\n快照未包含，将恢复为不存在：")
+            preview.missingFileEntries.take(4).forEach { path ->
+                append('\n')
+                append("- ")
+                append(rollbackEntryLabel(path))
+            }
+            if (preview.missingFileEntries.size > 4) {
+                append('\n')
+                append("- 另有 ")
+                append(preview.missingFileEntries.size - 4)
+                append(" 项")
+            }
+        }
+        if (preview.warnings.isNotEmpty()) {
+            append("\n\n注意：")
+            preview.warnings.forEach { warning ->
+                append('\n')
+                append("- ")
+                append(warning)
+            }
+        }
+    }
+
+    private fun rollbackEntryLabel(path: String): String = when (path) {
+        "files/library.json" -> "媒体库"
+        "files/roots.list" -> "本机目录配置"
+        "files/remotes.json" -> "远程配置"
+        "files/scrape-record.tsv" -> "刮削记录"
+        "files/library-diagnostics.json" -> "库诊断快照"
+        "files/scrape-config.json" -> "刮削设置"
+        else -> path
     }
 
     private fun restoreRollbackSnapshot(snapshot: BackupRollbackSnapshot) {

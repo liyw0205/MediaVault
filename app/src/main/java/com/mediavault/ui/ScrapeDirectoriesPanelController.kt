@@ -159,7 +159,14 @@ class ScrapeDirectoriesPanelController(
             override fun onBindViewHolder(h: RemoteVH, position: Int) {
                 val r = remotes[position]
                 h.name.text = r.name.ifBlank { r.id }
-                h.meta.text = "${r.type.uppercase()} ${r.host}:${r.port} ${r.basePath}"
+                val meta = "${r.type.uppercase()} ${r.host}:${r.port} ${r.basePath}"
+                if (r.credentialMissing) {
+                    h.meta.text = activity.getString(R.string.remote_credential_missing_fmt, meta)
+                    h.meta.setTextColor(activity.getColor(R.color.mv_amber))
+                } else {
+                    h.meta.text = meta
+                    h.meta.setTextColor(activity.getColor(R.color.mv_text_secondary))
+                }
                 h.edit.setOnClickListener {
                     openRemoteEditor(r)
                 }

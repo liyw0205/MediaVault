@@ -79,6 +79,9 @@ class MediaStore(private val context: Context) {
                 put("password", r.password)
                 put("basePath", r.basePath)
                 put("name", r.name)
+                if (r.credentialMissing && r.password.isBlank()) {
+                    put("credentialMissing", true)
+                }
             })
         }
         remotesFile.writeText(arr.toString(2), Charsets.UTF_8)

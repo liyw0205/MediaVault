@@ -211,7 +211,13 @@ class ExportBundleWriter(context: Context) {
             val arr = JSONArray(store.readRemotesJsonText())
             JSONArray().apply {
                 for (i in 0 until arr.length()) {
-                    put(redactJson(arr.optJSONObject(i) ?: JSONObject()))
+                    val source = arr.optJSONObject(i) ?: JSONObject()
+                    val redacted = redactJson(source)
+                    if (source.optBoolean("credentialMissing", false) && source.optString("password", "").isBlank()) {
+                        redacted.put("credentialMissing", true)
+                        redacted.put("passwordRedacted", true)
+                    }
+                    put(redacted)
                 }
             }
         }.getOrDefault(JSONArray())
@@ -228,7 +234,8 @@ class ExportBundleWriter(context: Context) {
                     put("basePath", remote.basePath)
                     put("userConfigured", remote.user.isNotBlank())
                     put("passwordConfigured", remote.password.isNotBlank())
-                    put("passwordRedacted", remote.password.isNotBlank())
+                    put("passwordRedacted", remote.password.isNotBlank() || remote.credentialMissing)
+                    put("credentialMissing", remote.credentialMissing)
                 })
             }
         }

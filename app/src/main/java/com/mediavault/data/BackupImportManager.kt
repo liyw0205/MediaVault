@@ -15,8 +15,11 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 data class BackupImportPrecheck(
+    val schemaVersion: Int,
     val createdAt: String,
     val sourceVersionName: String,
+    val sourceVersionCode: Long,
+    val contentEntryCount: Int,
     val itemCount: Int,
     val localRootCount: Int,
     val remoteCount: Int,
@@ -54,6 +57,16 @@ data class BackupRollbackSnapshot(
     val createdAt: String,
     val bytes: Long,
     val lastModified: Long,
+)
+
+data class BackupRollbackSnapshotPreview(
+    val snapshot: BackupRollbackSnapshot,
+    val schemaVersion: Int,
+    val fileEntryCount: Int,
+    val prefEntryCount: Int,
+    val missingFileEntries: List<String>,
+    val missingPrefEntries: List<String>,
+    val warnings: List<String>,
 )
 
 class BackupImportRolledBackException(cause: Throwable) :
@@ -151,18 +164,21 @@ class BackupImportManager(context: Context) {
     }
 
     fun restoreRollbackSnapshot(snapshotName: String, repository: LibraryRepository): BackupRollbackSnapshot {
-        val snapshot = rollbackDir()
-            .listFiles()
-            ?.firstOrNull { it.isFile && it.name == snapshotName && it.name.endsWith(".zip") }
-            ?: error("找不到回滚快照：$snapshotName")
-        val info = BackupRollbackSnapshot(
-            name = snapshot.name,
-            createdAt = readRollbackCreatedAt(snapshot) ?: formatFileTime(snapshot.lastModified()),
-            bytes = snapshot.length(),
-            lastModified = snapshot.lastModified(),
-        )
+        inspectRollbackSnapshot(snapshotName)
+        val snapshot = rollbackSnapshotFile(snapshotName)
+        val info = rollbackSnapshotInfo(snapshot)
         restoreRollbackSnapshot(snapshot, repository)
         return info
+    }
+
+    fun inspectRollbackSnapshot(snapshotName: String): BackupRollbackSnapshotPreview {
+        val snapshot = rollbackSnapshotFile(snapshotName)
+        val extracted = extractZip("rollback_preview", ROLLBACK_ALLOWED_ENTRIES) { snapshot.inputStream() }
+        return try {
+            parseRollbackPreview(snapshot, extracted)
+        } finally {
+            extracted.delete()
+        }
     }
 
     private fun parsePrecheck(extracted: ExtractedZip): BackupImportPrecheck {
@@ -171,6 +187,9 @@ class BackupImportManager(context: Context) {
         if (kind != "backup") {
             error("这不是备份包，不能导入：kind=$kind")
         }
+        val schema = manifest.optInt("schema", 0)
+        val appInfo = manifest.optJSONObject("app")
+        val contents = manifest.optJSONArray("contents")
         val libraryText = extracted.textRequired("data/library.json")
         val library = MediaLibrary.parse(libraryText, "import")
         val remotesText = extracted.textRequired("data/remotes.redacted.json")
@@ -189,7 +208,9 @@ class BackupImportManager(context: Context) {
         val missingCredentials = mutableListOf<BackupMissingRemoteCredential>()
         for (i in 0 until importedRemotes.length()) {
             val remote = importedRemotes.optJSONObject(i) ?: continue
-            if (remote.optBoolean("passwordRedacted", false) && remote.optString("password", "").isBlank()) {
+            val needsCredential = remote.optBoolean("passwordRedacted", false) ||
+                remote.optBoolean("credentialMissing", false)
+            if (needsCredential && remote.optString("password", "").isBlank()) {
                 redactedPasswords++
                 if (!currentPasswords[remote.optString("id", "")].isNullOrBlank()) {
                     preservedPasswords++
@@ -209,6 +230,14 @@ class BackupImportManager(context: Context) {
             scrapeSettings.optString("tmdbApiKey", "").isBlank()
         val tmdbPreserved = tmdbRedacted && ScrapeConfig.readSettings(app).tmdbApiKey.isNotBlank()
         val warnings = mutableListOf<String>()
+        if (schema == 0) {
+            warnings += "备份包缺少 schema 信息，已按兼容模式读取。"
+        } else if (schema > SUPPORTED_BACKUP_SCHEMA) {
+            warnings += "备份包 schema=$schema，高于当前支持的 $SUPPORTED_BACKUP_SCHEMA；导入前建议先确认已保留当前数据。"
+        }
+        if (contents == null) {
+            warnings += "备份包缺少内容清单，已按实际 ZIP 条目预检。"
+        }
         if (redactedPasswords > 0) {
             warnings += "远程密码已脱敏：$redactedPasswords 个；可保留当前密码 $preservedPasswords 个，需导入后手动补 $missingPasswords 个。"
         }
@@ -222,9 +251,18 @@ class BackupImportManager(context: Context) {
         if (extracted.file("data/playback-progress.json") == null) {
             warnings += "备份包缺少播放进度，导入时不会覆盖当前播放进度。"
         }
+        if (extracted.file("data/roots.list") == null) {
+            warnings += "备份包缺少本机目录列表，导入后本机目录配置会被清空。"
+        }
+        if (extracted.file("data/history.json") == null) {
+            warnings += "备份包缺少观看历史，导入时不会覆盖当前观看历史。"
+        }
         return BackupImportPrecheck(
+            schemaVersion = schema,
             createdAt = manifest.optString("createdAt", "--"),
-            sourceVersionName = manifest.optJSONObject("app")?.optString("versionName", "--") ?: "--",
+            sourceVersionName = appInfo?.optString("versionName", "--") ?: "--",
+            sourceVersionCode = appInfo?.optLong("versionCode", 0L) ?: 0L,
+            contentEntryCount = contents?.length() ?: extracted.files.size,
             itemCount = library.items.size,
             localRootCount = localRootCount,
             remoteCount = remotes.size,
@@ -246,12 +284,16 @@ class BackupImportManager(context: Context) {
         for (i in 0 until arr.length()) {
             val remote = JSONObject(arr.getJSONObject(i).toString())
             val id = remote.optString("id", "")
-            val redacted = remote.optBoolean("passwordRedacted", false)
+            val redacted = remote.optBoolean("passwordRedacted", false) ||
+                remote.optBoolean("credentialMissing", false)
             if (redacted && remote.optString("password", "").isBlank()) {
                 val current = currentPasswords[id].orEmpty()
                 if (current.isNotBlank()) {
                     remote.put("password", current)
+                    remote.remove("credentialMissing")
                     restored++
+                } else {
+                    remote.put("credentialMissing", true)
                 }
             }
             remote.remove("passwordRedacted")
@@ -300,6 +342,7 @@ class BackupImportManager(context: Context) {
     private fun restoreRollbackSnapshot(snapshot: File, repository: LibraryRepository) {
         val extracted = extractZip("rollback_restore", ROLLBACK_ALLOWED_ENTRIES) { snapshot.inputStream() }
         try {
+            parseRollbackPreview(snapshot, extracted)
             for ((path, target) in rollbackFiles()) {
                 val source = extracted.file(path)
                 if (source != null) copyFile(source, target) else target.delete()
@@ -313,6 +356,37 @@ class BackupImportManager(context: Context) {
         } finally {
             extracted.delete()
         }
+    }
+
+    private fun parseRollbackPreview(snapshot: File, extracted: ExtractedZip): BackupRollbackSnapshotPreview {
+        val manifest = JSONObject(extracted.textRequired("manifest.json"))
+        val kind = manifest.optString("kind", "")
+        if (kind != "internal_rollback") {
+            error("这不是内部回滚快照，不能恢复：kind=$kind")
+        }
+        val schema = manifest.optInt("schema", 0)
+        val filePaths = rollbackFiles().keys.toList()
+        val prefPaths = PREF_NAMES.map { "prefs/$it.json" }
+        val missingFiles = filePaths.filter { extracted.file(it) == null }
+        val missingPrefs = prefPaths.filter { extracted.file(it) == null }
+        val warnings = mutableListOf<String>()
+        if (schema == 0) {
+            warnings += "快照缺少 schema 信息，已按兼容模式读取。"
+        } else if (schema > SUPPORTED_ROLLBACK_SCHEMA) {
+            warnings += "快照 schema=$schema，高于当前支持的 $SUPPORTED_ROLLBACK_SCHEMA；恢复前请确认该快照来源。"
+        }
+        if (missingPrefs.isNotEmpty()) {
+            warnings += "快照缺少 ${missingPrefs.size} 组偏好数据，恢复时这些偏好不会覆盖当前值。"
+        }
+        return BackupRollbackSnapshotPreview(
+            snapshot = rollbackSnapshotInfo(snapshot),
+            schemaVersion = schema,
+            fileEntryCount = filePaths.size - missingFiles.size,
+            prefEntryCount = prefPaths.size - missingPrefs.size,
+            missingFileEntries = missingFiles,
+            missingPrefEntries = missingPrefs,
+            warnings = warnings,
+        )
     }
 
     private fun extractZip(
@@ -449,6 +523,20 @@ class BackupImportManager(context: Context) {
     private fun rollbackDir(): File =
         File(app.filesDir, "mediavault/import-backups")
 
+    private fun rollbackSnapshotFile(snapshotName: String): File =
+        rollbackDir()
+            .listFiles()
+            ?.firstOrNull { it.isFile && it.name == snapshotName && it.name.endsWith(".zip") }
+            ?: error("找不到回滚快照：$snapshotName")
+
+    private fun rollbackSnapshotInfo(file: File): BackupRollbackSnapshot =
+        BackupRollbackSnapshot(
+            name = file.name,
+            createdAt = readRollbackCreatedAt(file) ?: formatFileTime(file.lastModified()),
+            bytes = file.length(),
+            lastModified = file.lastModified(),
+        )
+
     private fun cleanupOldRollbackSnapshots() {
         val files = rollbackDir().listFiles()?.filter { it.isFile && it.name.endsWith(".zip") } ?: return
         files.sortedByDescending { it.lastModified() }
@@ -524,6 +612,8 @@ class BackupImportManager(context: Context) {
         private const val MAX_ENTRY_BYTES = 64L * 1024L * 1024L
         private const val MAX_TOTAL_BYTES = 192L * 1024L * 1024L
         private const val MAX_ROLLBACK_SNAPSHOTS = 3
+        private const val SUPPORTED_BACKUP_SCHEMA = 1
+        private const val SUPPORTED_ROLLBACK_SCHEMA = 1
         private val PREF_NAMES = listOf(
             "mediavault_playback_progress",
             "mediavault_history",
