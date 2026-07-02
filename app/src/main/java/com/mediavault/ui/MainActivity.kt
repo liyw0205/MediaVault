@@ -532,6 +532,15 @@ class MainActivity : AppCompatActivity() {
         append("内容条目：")
         append(precheck.contentEntryCount)
         append('\n')
+        append("清单校验：匹配 ")
+        append(precheck.verifiedContentEntryCount)
+        append(" 项")
+        if (precheck.ignoredContentEntryCount > 0) {
+            append("，忽略额外 ")
+            append(precheck.ignoredContentEntryCount)
+            append(" 项")
+        }
+        append('\n')
         append("媒体库：")
         append(precheck.itemCount)
         append(" 条")

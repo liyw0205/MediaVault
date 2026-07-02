@@ -20,6 +20,8 @@ data class BackupImportPrecheck(
     val sourceVersionName: String,
     val sourceVersionCode: Long,
     val contentEntryCount: Int,
+    val verifiedContentEntryCount: Int,
+    val ignoredContentEntryCount: Int,
     val itemCount: Int,
     val localRootCount: Int,
     val remoteCount: Int,
@@ -102,48 +104,50 @@ class BackupImportManager(context: Context) {
         val extracted = extractZip("import_apply", IMPORT_ALLOWED_ENTRIES) {
             app.contentResolver.openInputStream(uri) ?: error("无法打开备份包")
         }
-        val rollbackSnapshot = createRollbackSnapshot()
         return try {
             val precheck = parsePrecheck(extracted)
             val remotes = prepareRemotesForImport(extracted.textRequired("data/remotes.redacted.json"))
             val scrapeSettings = prepareScrapeSettingsForImport(extracted.textRequired("config/scrape-settings.redacted.json"))
+            val rollbackSnapshot = createRollbackSnapshot()
 
-            copyRequired(extracted, "data/library.json", store.libraryFile)
-            copyOptional(extracted, "data/roots.list", store.rootsListFile, deleteIfMissing = true)
-            writeText(store.remotesFile, remotes.text)
-            copyOptional(extracted, "data/scrape-record.tsv", store.scrapeRecordFile, deleteIfMissing = true)
-            copyOptional(extracted, "data/library-diagnostics.json", diagnosticsFile(), deleteIfMissing = true)
-            writeText(scrapeConfigFile(), scrapeSettings.text)
-            extracted.text("data/playback-progress.json")?.let { applySharedPrefs("mediavault_playback_progress", it) }
-            extracted.text("data/history.json")?.let { applySharedPrefs("mediavault_history", it) }
-            extracted.text("config/subtitle-prefs.json")?.let { applySharedPrefs("subtitle_prefs", it) }
-            extracted.text("config/playback-ui.json")?.let { applySharedPrefs("playback_ui", it) }
+            try {
+                copyRequired(extracted, "data/library.json", store.libraryFile)
+                copyOptional(extracted, "data/roots.list", store.rootsListFile, deleteIfMissing = true)
+                writeText(store.remotesFile, remotes.text)
+                copyOptional(extracted, "data/scrape-record.tsv", store.scrapeRecordFile, deleteIfMissing = true)
+                copyOptional(extracted, "data/library-diagnostics.json", diagnosticsFile(), deleteIfMissing = true)
+                writeText(scrapeConfigFile(), scrapeSettings.text)
+                extracted.text("data/playback-progress.json")?.let { applySharedPrefs("mediavault_playback_progress", it) }
+                extracted.text("data/history.json")?.let { applySharedPrefs("mediavault_history", it) }
+                extracted.text("config/subtitle-prefs.json")?.let { applySharedPrefs("subtitle_prefs", it) }
+                extracted.text("config/playback-ui.json")?.let { applySharedPrefs("playback_ui", it) }
 
-            repository.reloadDiagnosticsSnapshot()
-            repository.reload().getOrThrow()
-            repository.refreshDiagnostics(probeSources = false)
-            cleanupOldRollbackSnapshots()
-            BackupImportResult(
-                itemCount = precheck.itemCount,
-                localRootCount = precheck.localRootCount,
-                remoteCount = precheck.remoteCount,
-                redactedRemotePasswords = precheck.redactedRemotePasswordCount,
-                restoredRemotePasswords = remotes.restoredPasswords,
-                missingRemotePasswords = precheck.missingRemotePasswordCount,
-                missingRemoteCredentials = precheck.missingRemoteCredentials,
-                restoredTmdbKey = scrapeSettings.restoredTmdbKey,
-                tmdbKeyStillMissing = precheck.tmdbKeyRedacted && !scrapeSettings.restoredTmdbKey,
-                rollbackSnapshotPath = rollbackSnapshot.absolutePath,
-            )
-        } catch (e: Throwable) {
-            runCatching { restoreRollbackSnapshot(rollbackSnapshot, repository) }
-                .onFailure { rollbackError ->
-                    throw IllegalStateException(
-                        "导入失败，且自动回滚失败：${e.message.orEmpty()}；${rollbackError.message.orEmpty()}",
-                        e,
-                    )
-                }
-            throw BackupImportRolledBackException(e)
+                repository.reloadDiagnosticsSnapshot()
+                repository.reload().getOrThrow()
+                repository.refreshDiagnostics(probeSources = false)
+                cleanupOldRollbackSnapshots()
+                BackupImportResult(
+                    itemCount = precheck.itemCount,
+                    localRootCount = precheck.localRootCount,
+                    remoteCount = precheck.remoteCount,
+                    redactedRemotePasswords = precheck.redactedRemotePasswordCount,
+                    restoredRemotePasswords = remotes.restoredPasswords,
+                    missingRemotePasswords = precheck.missingRemotePasswordCount,
+                    missingRemoteCredentials = precheck.missingRemoteCredentials,
+                    restoredTmdbKey = scrapeSettings.restoredTmdbKey,
+                    tmdbKeyStillMissing = precheck.tmdbKeyRedacted && !scrapeSettings.restoredTmdbKey,
+                    rollbackSnapshotPath = rollbackSnapshot.absolutePath,
+                )
+            } catch (e: Throwable) {
+                runCatching { restoreRollbackSnapshot(rollbackSnapshot, repository) }
+                    .onFailure { rollbackError ->
+                        throw IllegalStateException(
+                            "导入失败，且自动回滚失败：${e.message.orEmpty()}；${rollbackError.message.orEmpty()}",
+                            e,
+                        )
+                    }
+                throw BackupImportRolledBackException(e)
+            }
         } finally {
             extracted.delete()
         }
@@ -193,18 +197,22 @@ class BackupImportManager(context: Context) {
     }
 
     private fun parsePrecheck(extracted: ExtractedZip): BackupImportPrecheck {
-        val manifest = JSONObject(extracted.textRequired("manifest.json"))
+        validateRequiredImportEntries(extracted)
+        val manifest = parseJsonObject(extracted.textRequired("manifest.json"), "manifest.json")
         val kind = manifest.optString("kind", "")
         if (kind != "backup") {
-            error("这不是备份包，不能导入：kind=$kind")
+            importError("这不是备份包，不能导入：kind=$kind")
         }
         val schema = manifest.optInt("schema", 0)
         val appInfo = manifest.optJSONObject("app")
         val contents = manifest.optJSONArray("contents")
+        val contentValidation = validateImportContents(extracted, contents)
         val libraryText = extracted.textRequired("data/library.json")
-        val library = MediaLibrary.parse(libraryText, "import")
+        val library = runCatching { MediaLibrary.parse(libraryText, "import") }
+            .getOrElse { importError("data/library.json 不是有效媒体库 JSON") }
         val remotesText = extracted.textRequired("data/remotes.redacted.json")
-        val remotes = RemoteConfig.listFromJson(remotesText)
+        val remotes = runCatching { RemoteConfig.listFromJson(remotesText) }
+            .getOrElse { importError("data/remotes.redacted.json 不是有效远程配置 JSON") }
         extracted.textRequired("config/scrape-settings.redacted.json")
 
         val localRootCount = extracted.text("data/roots.list")
@@ -257,6 +265,10 @@ class BackupImportManager(context: Context) {
         if (contents == null) {
             warnings += "备份包缺少内容清单，已按实际 ZIP 条目预检。"
         }
+        warnings += contentValidation.warnings
+        if (extracted.ignoredEntries.isNotEmpty()) {
+            warnings += "ZIP 包含 ${extracted.ignoredEntries.size} 个当前版本不会导入的额外条目。"
+        }
         if (missingOptionalEntries.isNotEmpty()) {
             warnings += "备份包缺少可选内容：${missingOptionalEntries.joinToString("、")}。"
         }
@@ -285,6 +297,8 @@ class BackupImportManager(context: Context) {
             sourceVersionName = appInfo?.optString("versionName", "--") ?: "--",
             sourceVersionCode = appInfo?.optLong("versionCode", 0L) ?: 0L,
             contentEntryCount = contents?.length() ?: extracted.files.size,
+            verifiedContentEntryCount = contentValidation.verifiedEntries,
+            ignoredContentEntryCount = contentValidation.ignoredEntries,
             itemCount = library.items.size,
             localRootCount = localRootCount,
             remoteCount = remotes.size,
@@ -332,7 +346,7 @@ class BackupImportManager(context: Context) {
     }
 
     private fun prepareScrapeSettingsForImport(text: String): PreparedScrapeSettings {
-        val settings = JSONObject(text)
+        val settings = parseJsonObject(text, "config/scrape-settings.redacted.json")
         var restoredTmdbKey = false
         if (settings.optBoolean("tmdbApiKeyRedacted", false) && settings.optString("tmdbApiKey", "").isBlank()) {
             val currentKey = ScrapeConfig.readSettings(app).tmdbApiKey
@@ -344,6 +358,65 @@ class BackupImportManager(context: Context) {
         settings.remove("tmdbApiKeyRedacted")
         return PreparedScrapeSettings(settings.toString(2), restoredTmdbKey)
     }
+
+    private fun validateRequiredImportEntries(extracted: ExtractedZip) {
+        IMPORT_REQUIRED_ENTRIES.forEach { path ->
+            if (extracted.file(path) == null) importError("备份包缺少必要文件：$path")
+        }
+    }
+
+    private fun validateImportContents(
+        extracted: ExtractedZip,
+        contents: JSONArray?,
+    ): ImportContentValidation {
+        if (contents == null) {
+            return ImportContentValidation(
+                verifiedEntries = extracted.files.keys.count { it != "manifest.json" },
+                ignoredEntries = 0,
+                warnings = emptyList(),
+            )
+        }
+        val manifestPaths = linkedSetOf<String>()
+        var verified = 0
+        var ignored = 0
+        val warnings = mutableListOf<String>()
+        for (i in 0 until contents.length()) {
+            val obj = contents.optJSONObject(i)
+                ?: importError("内容清单第 ${i + 1} 项不是有效对象")
+            val path = obj.optString("path", "")
+            if (path.isBlank()) importError("内容清单第 ${i + 1} 项缺少 path")
+            if (!manifestPaths.add(path)) importError("内容清单包含重复条目：$path")
+            if (path !in IMPORT_ALLOWED_ENTRIES) {
+                ignored++
+                continue
+            }
+            val actualBytes = extracted.entryBytes[path]
+                ?: importError("内容清单列出但 ZIP 缺少文件：$path")
+            val declaredBytes = obj.optLong("bytes", -1L)
+            if (declaredBytes < 0L) importError("内容清单条目缺少 bytes：$path")
+            if (declaredBytes != actualBytes) {
+                importError("内容清单字节数不匹配：$path")
+            }
+            if (path != "manifest.json") verified++
+        }
+        val unlisted = extracted.files.keys
+            .filter { it != "manifest.json" && !manifestPaths.contains(it) }
+        if (unlisted.isNotEmpty()) {
+            warnings += "ZIP 有 ${unlisted.size} 个已识别文件未列入内容清单，已按实际文件预检。"
+        }
+        return ImportContentValidation(
+            verifiedEntries = verified,
+            ignoredEntries = ignored,
+            warnings = warnings,
+        )
+    }
+
+    private fun parseJsonObject(text: String, path: String): JSONObject =
+        runCatching { JSONObject(text) }
+            .getOrElse { importError("$path 不是有效 JSON") }
+
+    private fun importError(message: String): Nothing =
+        throw IllegalStateException(message)
 
     private fun createRollbackSnapshot(): File {
         val dir = rollbackDir().also { it.mkdirs() }
@@ -442,6 +515,8 @@ class BackupImportManager(context: Context) {
             it.mkdirs()
         }
         val files = linkedMapOf<String, File>()
+        val entryBytes = linkedMapOf<String, Long>()
+        val ignoredEntries = mutableListOf<String>()
         var totalBytes = 0L
         input().use { raw ->
             ZipInputStream(raw.buffered()).use { zip ->
@@ -450,30 +525,43 @@ class BackupImportManager(context: Context) {
                 while (entry != null) {
                     val name = entry.name.orEmpty()
                     validateEntryName(name)
-                    if (!entry.isDirectory && name in allowedEntries) {
-                        if (name in files) error("备份包里包含重复条目：$name")
-                        val outFile = File(dir, name.replace('/', '_'))
-                        var entryBytes = 0L
-                        outFile.outputStream().use { out ->
+                    if (!entry.isDirectory) {
+                        if (name in allowedEntries) {
+                            if (name in files) error("备份包里包含重复条目：$name")
+                            val outFile = File(dir, name.replace('/', '_'))
+                            var bytes = 0L
+                            outFile.outputStream().use { out ->
+                                while (true) {
+                                    val n = zip.read(buffer)
+                                    if (n <= 0) break
+                                    bytes += n.toLong()
+                                    totalBytes += n.toLong()
+                                    if (bytes > MAX_ENTRY_BYTES || totalBytes > MAX_TOTAL_BYTES) {
+                                        error("备份包过大，已停止导入")
+                                    }
+                                    out.write(buffer, 0, n)
+                                }
+                            }
+                            files[name] = outFile
+                            entryBytes[name] = bytes
+                        } else {
+                            ignoredEntries += name
                             while (true) {
                                 val n = zip.read(buffer)
                                 if (n <= 0) break
-                                entryBytes += n.toLong()
                                 totalBytes += n.toLong()
-                                if (entryBytes > MAX_ENTRY_BYTES || totalBytes > MAX_TOTAL_BYTES) {
+                                if (totalBytes > MAX_TOTAL_BYTES) {
                                     error("备份包过大，已停止导入")
                                 }
-                                out.write(buffer, 0, n)
                             }
                         }
-                        files[name] = outFile
                     }
                     zip.closeEntry()
                     entry = zip.nextEntry
                 }
             }
         }
-        return ExtractedZip(dir, files)
+        return ExtractedZip(dir, files, entryBytes, ignoredEntries)
     }
 
     private fun validateEntryName(name: String) {
@@ -657,7 +745,12 @@ class BackupImportManager(context: Context) {
         }
     }.getOrNull()
 
-    private data class ExtractedZip(val dir: File, val files: Map<String, File>) {
+    private data class ExtractedZip(
+        val dir: File,
+        val files: Map<String, File>,
+        val entryBytes: Map<String, Long>,
+        val ignoredEntries: List<String>,
+    ) {
         fun file(path: String): File? = files[path]
         fun text(path: String): String? = file(path)?.readText(Charsets.UTF_8)
         fun textRequired(path: String): String = text(path) ?: error("备份包缺少必要文件：$path")
@@ -669,6 +762,12 @@ class BackupImportManager(context: Context) {
     private data class PreparedRemotes(val text: String, val restoredPasswords: Int)
 
     private data class PreparedScrapeSettings(val text: String, val restoredTmdbKey: Boolean)
+
+    private data class ImportContentValidation(
+        val verifiedEntries: Int,
+        val ignoredEntries: Int,
+        val warnings: List<String>,
+    )
 
     private fun ZipOutputStream.putFile(path: String, file: File) {
         if (!file.isFile) return
@@ -707,6 +806,12 @@ class BackupImportManager(context: Context) {
             "config/scrape-settings.redacted.json",
             "config/subtitle-prefs.json",
             "config/playback-ui.json",
+        )
+        private val IMPORT_REQUIRED_ENTRIES = setOf(
+            "manifest.json",
+            "data/library.json",
+            "data/remotes.redacted.json",
+            "config/scrape-settings.redacted.json",
         )
         private val IMPORT_OPTIONAL_ENTRIES = setOf(
             "data/roots.list",
