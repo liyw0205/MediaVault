@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="@color/mv_player_canvas">
 
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
@@ -18,7 +18,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:background="#CC000000"
+        android:background="@color/mv_player_scrim"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="12dp"
@@ -71,7 +71,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:background="#99000000"
+        android:background="@color/mv_player_scrim_mid"
         android:paddingHorizontal="20dp"
         android:paddingVertical="12dp"
         android:textColor="@color/mv_text"
@@ -91,7 +91,7 @@
             android:id="@+id/playerProgressExpanded"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#CC000000"
+            android:background="@color/mv_player_scrim"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingHorizontal="10dp"
@@ -132,7 +132,7 @@
             android:id="@+id/playerButtonRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#CC000000"
+            android:background="@color/mv_player_scrim"
             android:gravity="center"
             android:orientation="horizontal"
             android:paddingHorizontal="4dp"

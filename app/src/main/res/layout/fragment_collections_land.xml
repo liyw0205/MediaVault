@@ -1,35 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/collectionsFusionRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/mv_bg"
-    android:baselineAligned="false"
-    android:orientation="horizontal">
+    android:orientation="vertical">
 
-    <LinearLayout
-        android:id="@+id/collectionsFusionSidebar"
-        android:layout_width="260dp"
-        android:layout_height="match_parent"
+    <ScrollView
+        android:id="@+id/fusionMetaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:background="@color/mv_surface"
-        android:orientation="vertical"
-        android:paddingHorizontal="12dp"
-        android:paddingTop="10dp">
+        android:fillViewport="false"
+        android:maxHeight="@dimen/mv_fusion_meta_band_max"
+        android:overScrollMode="never"
+        android:scrollbars="none"
+        android:paddingHorizontal="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/collectionsTabLayout"
+        <LinearLayout
+            android:id="@+id/fusionTagInfoPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:tabGravity="fill"
-            app:tabMode="fixed" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <include layout="@layout/include_list_pager" />
-    </LinearLayout>
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/collectionsTabLayout"
+                style="@style/Widget.MediaVault.TabLayout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:tabGravity="fill"
+                app:tabMode="fixed"
+                app:tabMinWidth="52dp"
+                app:tabPaddingEnd="6dp"
+                app:tabPaddingStart="6dp" />
+
+            <include layout="@layout/include_list_pager_compact_land" />
+        </LinearLayout>
+    </ScrollView>
 
     <FrameLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1">
+        android:id="@+id/fusionMediaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="120dp">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/collectionsRecycler"
@@ -37,8 +56,7 @@
             android:layout_height="match_parent"
             android:clipToPadding="false"
             android:descendantFocusability="afterDescendants"
-            android:nextFocusLeft="@id/collectionsFusionSidebar"
-            android:padding="8dp" />
+            android:padding="@dimen/mv_fusion_content_pad" />
 
         <TextView
             android:id="@+id/collectionsEmpty"

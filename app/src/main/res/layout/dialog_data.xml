@@ -7,7 +7,8 @@
     android:paddingStart="20dp"
     android:paddingTop="8dp"
     android:paddingEnd="20dp"
-    android:paddingBottom="4dp">
+    android:paddingBottom="4dp"
+    android:background="@color/mv_dialog_bg">
 
     <TextView
         android:id="@+id/dataDialogStats"

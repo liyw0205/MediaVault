@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="HomeStatCellLand">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:paddingVertical">0dp</item>
+    </style>
+    <style name="HomeStatNumLand">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/mv_text</item>
+        <item name="android:textSize">@dimen/mv_fusion_stat_num_text</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    <style name="HomeStatLabelLand">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/mv_text_secondary</item>
+        <item name="android:textSize">@dimen/mv_fusion_stat_label_text</item>
+        <item name="android:maxLines">1</item>
+    </style>
+</resources>

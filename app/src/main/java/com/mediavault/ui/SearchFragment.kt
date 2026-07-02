@@ -4,10 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import android.view.inputmethod.EditorInfo
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
@@ -81,6 +82,7 @@ class SearchFragment : Fragment() {
             onCoverClick = { openDetail(it) },
             onInfoClick = { openDetail(it) },
             progressStore = progressStore,
+            sidebarKind = FusionUiMetrics.SidebarKind.Search,
         )
         grid.adapter = adapter
 
@@ -113,6 +115,9 @@ class SearchFragment : Fragment() {
         if (initial.isNotBlank()) input.setText(initial)
         showInitialTagsOrRun(view, initial)
         FusionFocusHelper.applyFusionToolbarFocus(view)
+        if (HomeUiPrefs.useTvFusionUi(requireContext())) {
+            FusionLandscapeShell.applyFragmentRoot(view, FusionUiMetrics.SidebarKind.Search)
+        }
     }
 
     private fun showInitialTagsOrRun(view: View, query: String) {
@@ -123,6 +128,7 @@ class SearchFragment : Fragment() {
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
         bindTagChips(view, tagGroup, LibraryUi.allTags(all))
         tagGroup.visibility = View.VISIBLE
+        resizeTagScroller(view, tagGroup)
         if (query.isBlank()) {
             grid.visibility = View.GONE
             listPager.resetPage()
@@ -155,6 +161,7 @@ class SearchFragment : Fragment() {
             adapter.submitList(emptyList())
             countTv.text = getString(R.string.search_tags_only_hint, LibraryUi.allTags(all).size)
             bindTagChips(view, tagGroup, LibraryUi.allTags(all))
+            resizeTagScroller(view, tagGroup)
             lastQueryForTags = ""
             lastHits = emptyList()
             return
@@ -167,6 +174,7 @@ class SearchFragment : Fragment() {
         adapter.submitList(emptyList())
         countTv.text = getString(R.string.search_running_fmt, 0)
         bindTagChips(view, tagGroup, LibraryUi.matchedTags(all, query))
+        resizeTagScroller(view, tagGroup)
         lastQueryForTags = query
 
         val curSort = sort
@@ -227,15 +235,16 @@ class SearchFragment : Fragment() {
             SearchOptions.Sort.Modified,
         )
         val checked = values.indexOf(sort).coerceAtLeast(0)
-        AlertDialog.Builder(requireContext())
+        MvDialog.show(
+            MvDialog.builder(requireContext())
             .setTitle(R.string.search_sort_title)
             .setSingleChoiceItems(labels, checked) { d, which ->
                 sort = values[which]
                 d.dismiss()
                 refreshFilterLabels(view)
                 runSearchKeepQuery(view)
-            }
-            .show()
+            },
+        )
     }
 
     private fun showSourceMenu(view: View) {
@@ -250,15 +259,16 @@ class SearchFragment : Fragment() {
             SearchOptions.Source.Remote,
         )
         val checked = values.indexOf(source).coerceAtLeast(0)
-        AlertDialog.Builder(requireContext())
+        MvDialog.show(
+            MvDialog.builder(requireContext())
             .setTitle(R.string.search_source_title)
             .setSingleChoiceItems(labels, checked) { d, which ->
                 source = values[which]
                 d.dismiss()
                 refreshFilterLabels(view)
                 runSearchKeepQuery(view)
-            }
-            .show()
+            },
+        )
     }
 
     private fun showTypeMenu(view: View) {
@@ -273,15 +283,16 @@ class SearchFragment : Fragment() {
             SearchOptions.Type.Movie,
         )
         val checked = values.indexOf(typeFilter).coerceAtLeast(0)
-        AlertDialog.Builder(requireContext())
+        MvDialog.show(
+            MvDialog.builder(requireContext())
             .setTitle(R.string.search_type_title)
             .setSingleChoiceItems(labels, checked) { d, which ->
                 typeFilter = values[which]
                 d.dismiss()
                 refreshFilterLabels(view)
                 runSearchKeepQuery(view)
-            }
-            .show()
+            },
+        )
     }
 
     private fun runSearchKeepQuery(view: View) {
@@ -314,16 +325,39 @@ class SearchFragment : Fragment() {
     }
 
     private fun bindTagChips(view: View, tagGroup: ChipGroup, tags: List<String>) {
+        val fusion = HomeUiPrefs.useTvFusionUi(requireContext())
+        FusionTagLayoutHelper.applyFusionChipGroup(tagGroup, fusion)
         tagGroup.removeAllViews()
         for (t in tags) {
             val chip = Chip(requireContext(), null, R.style.Widget_MediaVault_Chip_Tag)
             chip.text = t
             chip.isClickable = true
+            FusionTagLayoutHelper.styleTagChip(chip, fusion)
             chip.setOnClickListener {
                 view.findViewById<TextInputEditText>(R.id.searchInput)?.setText(t)
                 runSearch(view, t)
             }
             tagGroup.addView(chip)
+        }
+        resizeTagScroller(view, tagGroup)
+    }
+
+    private fun resizeTagScroller(view: View, tagGroup: ChipGroup) {
+        val scroll = view.findViewById<ScrollView>(R.id.searchTagsScroll) ?: return
+        scroll.visibility = if (tagGroup.childCount == 0) View.GONE else View.VISIBLE
+        if (tagGroup.childCount == 0) return
+        val gridVisible = view.findViewById<RecyclerView>(R.id.searchRecycler)?.isVisible == true
+        scroll.post {
+            val rootHeight = view.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+            val maxHeight = (rootHeight * if (gridVisible) 0.22f else 0.58f).toInt()
+                .coerceAtLeast(if (gridVisible) 96.dp() else 220.dp())
+            val contentHeight = tagGroup.measuredHeight + scroll.paddingTop + scroll.paddingBottom
+            val target = contentHeight.coerceAtMost(maxHeight).coerceAtLeast(0)
+            val lp = scroll.layoutParams
+            if (target > 0 && lp.height != target) {
+                lp.height = target
+                scroll.layoutParams = lp
+            }
         }
     }
 
@@ -334,7 +368,7 @@ class SearchFragment : Fragment() {
     private fun applySearchGrid(grid: RecyclerView) {
         val ctx = requireContext()
         val fusion = HomeUiPrefs.useTvFusionUi(ctx)
-        val span = HomeUiPrefs.gridSpanCount(ctx)
+        val span = FusionUiMetrics.gridSpanCount(ctx, FusionUiMetrics.SidebarKind.Search)
         if (grid.layoutManager !is GridLayoutManager || (grid.layoutManager as GridLayoutManager).spanCount != span) {
             grid.layoutManager = GridLayoutManager(ctx, span)
         }
@@ -342,6 +376,7 @@ class SearchFragment : Fragment() {
     }
 
     fun onFusionUiChanged() {
+        view?.let { FusionLandscapeShell.applyFragmentRoot(it, FusionUiMetrics.SidebarKind.Search) }
         view?.findViewById<RecyclerView>(R.id.searchRecycler)?.let { applySearchGrid(it) }
         if (::adapter.isInitialized) adapter.notifyDataSetChanged()
     }
@@ -358,4 +393,7 @@ class SearchFragment : Fragment() {
         val input = v.findViewById<TextInputEditText>(R.id.searchInput)
         runSearch(v, input.text?.toString().orEmpty())
     }
+
+    private fun Int.dp(): Int =
+        (this * resources.displayMetrics.density).toInt()
 }

@@ -1,150 +1,179 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/searchFusionRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/mv_bg"
-    android:baselineAligned="false"
-    android:orientation="horizontal">
+    android:orientation="vertical">
 
-    <LinearLayout
-        android:id="@+id/searchFusionSidebar"
-        android:layout_width="300dp"
-        android:layout_height="match_parent"
+    <ScrollView
+        android:id="@+id/fusionMetaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:background="@color/mv_surface"
-        android:orientation="vertical"
-        android:paddingHorizontal="12dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="8dp">
+        android:fillViewport="false"
+        android:maxHeight="@dimen/mv_fusion_meta_band_max"
+        android:overScrollMode="never"
+        android:paddingHorizontal="10dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="2dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
             android:orientation="vertical">
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/search_hint">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/searchInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:imeOptions="actionSearch"
-                    android:inputType="text"
-                    android:minHeight="48dp"
-                    android:textColor="@color/mv_text" />
-            </com.google.android.material.textfield.TextInputLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/search_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/searchInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:imeOptions="actionSearch"
+                        android:inputType="text"
+                        android:minHeight="40dp"
+                        android:textColor="@color/mv_text" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/searchGoBtn"
                     style="@style/Widget.MediaVault.Button"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
                     android:focusable="true"
                     android:focusableInTouchMode="true"
-                    android:minHeight="44dp"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
                     android:text="@string/search_go"
-                    android:textSize="14sp" />
+                    android:textSize="12sp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/clearSearchBtn"
                     style="@style/Widget.MediaVault.Button"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
-                    android:layout_weight="1"
                     android:focusable="true"
                     android:focusableInTouchMode="true"
-                    android:minHeight="44dp"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
                     android:text="@string/clear_search"
-                    android:textSize="14sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/searchProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:layout_marginTop="4dp"
+                android:indeterminate="true"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/searchSortBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/search_sort_default_label"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/searchSourceBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/search_source_default_label"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/searchTypeBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/search_type_default_label"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/searchCount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/mv_muted"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:id="@+id/fusionTagInfoPanel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/matchedTags"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:chipSpacingHorizontal="4dp"
+                    app:chipSpacingVertical="4dp"
+                    app:singleLine="false" />
+            </LinearLayout>
+
+            <include layout="@layout/include_list_pager_land" />
         </LinearLayout>
+    </ScrollView>
 
-        <ProgressBar
-            android:id="@+id/searchProgress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:layout_marginTop="6dp"
-            android:indeterminate="true"
-            android:visibility="gone" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/searchSortBtn"
-            style="@style/Widget.MediaVault.Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:minHeight="44dp"
-            android:text="@string/search_sort_default_label"
-            android:textSize="14sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/searchSourceBtn"
-            style="@style/Widget.MediaVault.Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:minHeight="44dp"
-            android:text="@string/search_source_default_label"
-            android:textSize="14sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/searchTypeBtn"
-            style="@style/Widget.MediaVault.Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:minHeight="44dp"
-            android:text="@string/search_type_default_label"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/searchCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="@color/mv_muted"
-            android:textSize="13sp" />
-
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/matchedTags"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            app:chipSpacingHorizontal="4dp"
-            app:chipSpacingVertical="4dp"
-            app:singleLine="false" />
-
-        <include layout="@layout/include_list_pager" />
-    </LinearLayout>
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/searchRecycler"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
+    <FrameLayout
+        android:id="@+id/fusionMediaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipToPadding="false"
-        android:descendantFocusability="afterDescendants"
-        android:nextFocusLeft="@id/searchFusionSidebar"
-        android:padding="10dp" />
+        android:minHeight="120dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/searchRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:descendantFocusability="afterDescendants"
+            android:padding="@dimen/mv_fusion_content_pad" />
+    </FrameLayout>
 </LinearLayout>

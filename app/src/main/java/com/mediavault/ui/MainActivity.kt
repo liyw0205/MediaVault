@@ -4,10 +4,13 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
+import android.view.Gravity
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
+import androidx.core.view.isVisible
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -40,40 +43,30 @@ class MainActivity : AppCompatActivity() {
     private var currentTabTag: String = TAG_HOME
     private var bottomNav: BottomNavigationView? = null
     private var navRail: NavigationRailView? = null
+    /** 防止 setSelectedItemId 再次触发 OnItemSelectedListener 导致栈溢出。 */
+    private var syncNavReentrant = false
+    /** 当前主壳是否为横屏侧栏布局（与 [layout-land] 一致）。 */
+    private var shellOrientation = Configuration.ORIENTATION_UNDEFINED
+    /** 刮削侧栏目录面板是否已在 Activity 生命周期内创建（旋转重载视图时不可再 register）。 */
+    private var scrapeDirectoriesPanelCreated = false
+    /** 下一次 wire 主壳时恢复 Tab（横竖屏 setContentView 后）。 */
+    private var pendingOrientationShellRestore = false
+
+    private val pickLocalTreeLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            ScrapeDrawerBinder.onLocalTreePicked(uri)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        drawerLayout = findViewById(R.id.mainDrawer)
-        drawerPanel = findViewById(R.id.scrapeDrawerPanel)
-        val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
-
-        ScrapeDrawerBinder.bind(
-            activity = this,
-            drawer = drawerLayout,
-            panelRoot = drawerContent,
-            repository = repository,
-            onRootsMayHaveChanged = {
-                refreshHome(recommendPathsOnly = false)
-                scrapeFragment()?.refreshRootsFromOutside()
-            },
-        )
-
-        drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
-        drawerLayout.setScrimColor(0x66000000)
-
-        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
-        toolbar.title = getString(R.string.app_name)
-        toolbar.inflateMenu(R.menu.main_top_home)
-        toolbar.setOnMenuItemClickListener { onTopMenu(it) }
+        setContentView(MainShellLayouts.mainActivityLayout(this))
+        shellOrientation = resources.configuration.orientation
 
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
-                        drawerLayout.closeDrawer(GravityCompat.END, false)
+                    if (safeCloseScrapeDrawer()) {
                     } else {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
@@ -83,11 +76,27 @@ class MainActivity : AppCompatActivity() {
             },
         )
 
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                repository.library.collect {
+                    refreshHome(recommendPathsOnly = true)
+                    refreshSearch()
+                }
+            }
+        }
+
+        wireMainActivityShell(savedInstanceState)
+    }
+
+    private fun wireMainActivityShell(savedInstanceState: Bundle?) {
+        wireMainActivityViews()
+
         ensureAllTabFragments()
 
         bottomNav = findViewById(R.id.bottomNav)
         navRail = findViewById(R.id.navRail)
         val navListener = NavigationBarView.OnItemSelectedListener { item ->
+            if (syncNavReentrant) return@OnItemSelectedListener true
             val currentId = bottomNav?.selectedItemId ?: navRail?.selectedItemId ?: return@OnItemSelectedListener false
             if (item.itemId == currentId) return@OnItemSelectedListener true
             val ok = when (item.itemId) {
@@ -97,48 +106,203 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
                 else -> false
             }
-            if (ok) syncNavSelection(item.itemId)
             ok
         }
         bottomNav?.setOnItemSelectedListener(navListener)
         navRail?.setOnItemSelectedListener(navListener)
-
+        applyFusionNavVisibility()
+        FusionLandscapeShell.wireMainActivity(this)
         if (savedInstanceState == null) {
-            val tag = intent.getStringExtra(EXTRA_SEARCH_TAG)
-            if (!tag.isNullOrBlank()) {
-                syncNavSelection(R.id.nav_search)
-                showTab(TAG_SEARCH, getString(R.string.tab_search))
+            if (pendingOrientationShellRestore) {
+                pendingOrientationShellRestore = false
+                restoreTabAfterShellRecreate()
             } else {
-                syncNavSelection(R.id.nav_home)
-                showTab(TAG_HOME, getString(R.string.tab_home))
-            }
-        } else {
-            when (bottomNav?.selectedItemId ?: navRail?.selectedItemId) {
-                R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
-                R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
-                R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
-                else -> showTab(TAG_HOME, getString(R.string.tab_home))
-            }
-        }
-
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                repository.library.collect {
-                    refreshHome(recommendPathsOnly = true)
-                    refreshSearch()
+                val tag = intent.getStringExtra(EXTRA_SEARCH_TAG)
+                if (!tag.isNullOrBlank()) {
+                    syncNavSelection(R.id.nav_search)
+                    showTab(TAG_SEARCH, getString(R.string.tab_search))
+                } else {
+                    syncNavSelection(R.id.nav_home)
+                    showTab(TAG_HOME, getString(R.string.tab_home))
                 }
             }
+        } else {
+            restoreNavTabSelection()
+        }
+    }
+
+    /** 横竖屏重载主壳后：Fragment 仍附着，仅恢复当前 Tab 与顶栏菜单。 */
+    private fun restoreTabAfterShellRecreate() {
+        val (tag, titleRes) = when (currentTabTag) {
+            TAG_SEARCH -> TAG_SEARCH to R.string.tab_search
+            TAG_COLLECTIONS -> TAG_COLLECTIONS to R.string.tab_collections
+            TAG_SCRAPE -> TAG_SCRAPE to R.string.tab_scrape
+            else -> TAG_HOME to R.string.tab_home
+        }
+        val navId = when (tag) {
+            TAG_SEARCH -> R.id.nav_search
+            TAG_COLLECTIONS -> R.id.nav_collections
+            TAG_SCRAPE -> R.id.nav_scrape
+            else -> R.id.nav_home
+        }
+        syncNavSelection(navId)
+        applyTabChrome(tag, getString(titleRes))
+    }
+
+    private fun applyFusionNavVisibility() {
+        val fusion = HomeUiPrefs.useTvFusionUi(this)
+        bottomNav?.isVisible = !fusion
+        navRail?.isVisible = fusion
+        findViewById<View>(R.id.fusionNavRailWrap)?.isVisible = fusion
+    }
+
+    private fun applyTabChrome(tag: String, title: String) {
+        currentTabTag = tag
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.title = title
+        toolbar.navigationIcon = null
+        toolbar.setNavigationOnClickListener(null)
+        toolbar.menu.clear()
+        val menuRes = when (tag) {
+            TAG_HOME -> R.menu.main_top_home
+            TAG_SCRAPE -> R.menu.main_top_scrape
+            else -> R.menu.main_top_other
+        }
+        toolbar.inflateMenu(menuRes)
+        if (tag == TAG_SCRAPE) {
+            if (HomeUiPrefs.useTvFusionUi(this)) {
+                toolbar.menu.removeItem(R.id.action_scrape_drawer)
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
+            } else {
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.END)
+            }
+        } else {
+            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
+        }
+    }
+
+    /** 刮削设置里「添加本地目录」与侧栏抽屉共用同一 launcher。 */
+    fun openScrapePickLocalTree() {
+        pickLocalTreeLauncher.launch(null)
+    }
+
+    private fun wireMainActivityViews() {
+        drawerLayout = findViewById(R.id.mainDrawer)
+        drawerPanel = findViewById(R.id.scrapeDrawerPanel)
+        layoutDrawerGravity()
+        val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+
+        if (!scrapeDirectoriesPanelCreated) {
+            ScrapeDrawerBinder.bind(
+                activity = this,
+                panelRoot = drawerContent,
+                repository = repository,
+                onRootsMayHaveChanged = {
+                    refreshHome(recommendPathsOnly = false)
+                    scrapeFragment()?.refreshRootsFromOutside()
+                },
+                pickLocalTree = { pickLocalTreeLauncher.launch(null) },
+                drawer = drawerLayout,
+            )
+            scrapeDirectoriesPanelCreated = true
+        } else {
+            ScrapeDrawerBinder.rebindViews(
+                activity = this,
+                drawer = drawerLayout,
+                panelRoot = drawerContent,
+            )
+        }
+
+        drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
+        drawerLayout.setScrimColor(getColor(R.color.mv_player_scrim_mid))
+
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.title = getString(R.string.app_name)
+        toolbar.inflateMenu(R.menu.main_top_home)
+        toolbar.setOnMenuItemClickListener { onTopMenu(it) }
+    }
+
+    private fun restoreNavTabSelection() {
+        when (bottomNav?.selectedItemId ?: navRail?.selectedItemId) {
+            R.id.nav_search -> showTab(TAG_SEARCH, getString(R.string.tab_search))
+            R.id.nav_collections -> showTab(TAG_COLLECTIONS, getString(R.string.tab_collections))
+            R.id.nav_scrape -> showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+            else -> showTab(TAG_HOME, getString(R.string.tab_home))
         }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        if (newConfig.orientation != shellOrientation) {
+            recreateMainActivityShellForOrientation(newConfig.orientation)
+        } else {
+            notifyFusionUiChanged()
+        }
+    }
+
+    /** @deprecated 折叠按钮已移除 */
+    @Deprecated("No-op", level = DeprecationLevel.HIDDEN)
+    fun onFusionLandscapeChromeChanged() {
+        notifyFusionUiChanged()
+    }
+
+    private fun recreateMainActivityShellForOrientation(orientation: Int) {
+        val fm = supportFragmentManager
+        val fragments = listOfNotNull(
+            fm.findFragmentByTag(TAG_HOME),
+            fm.findFragmentByTag(TAG_SEARCH),
+            fm.findFragmentByTag(TAG_COLLECTIONS),
+            fm.findFragmentByTag(TAG_SCRAPE),
+        )
+        val txDetach = fm.beginTransaction()
+        for (f in fragments) txDetach.detach(f)
+        txDetach.commitNowAllowingStateLoss()
+
+        setContentView(MainShellLayouts.mainActivityLayout(this))
+        shellOrientation = orientation
+        pendingOrientationShellRestore = true
+        wireMainActivityShell(savedInstanceState = null)
+
+        val txAttach = fm.beginTransaction()
+        for (f in fragments) txAttach.attach(f)
+        txAttach.commitNowAllowingStateLoss()
+
         notifyFusionUiChanged()
     }
 
     private fun syncNavSelection(itemId: Int) {
-        if (bottomNav?.selectedItemId != itemId) bottomNav?.selectedItemId = itemId
-        if (navRail?.selectedItemId != itemId) navRail?.selectedItemId = itemId
+        if (syncNavReentrant) return
+        syncNavReentrant = true
+        try {
+            if (bottomNav?.selectedItemId != itemId) bottomNav?.selectedItemId = itemId
+            if (navRail?.selectedItemId != itemId) navRail?.selectedItemId = itemId
+        } finally {
+            syncNavReentrant = false
+        }
+    }
+
+    /** DrawerLayout 要求抽屉子 View 带 layout_gravity；部分机型在 XML 未生效时需代码补全。 */
+    private fun layoutDrawerGravity() {
+        val lp = drawerPanel.layoutParams
+        if (lp is DrawerLayout.LayoutParams && lp.gravity == Gravity.NO_GRAVITY) {
+            lp.gravity = GravityCompat.END
+            drawerPanel.layoutParams = lp
+        }
+    }
+
+    private fun safeCloseScrapeDrawer(): Boolean {
+        val lp = drawerPanel.layoutParams as? DrawerLayout.LayoutParams ?: return false
+        if (lp.gravity == Gravity.NO_GRAVITY) return false
+        return try {
+            if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
+                drawerLayout.closeDrawer(GravityCompat.END, false)
+                true
+            } else {
+                false
+            }
+        } catch (_: IllegalArgumentException) {
+            false
+        }
     }
 
     private fun notifyFusionUiChanged() {
@@ -191,10 +355,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showTab(tag: String, title: String): Boolean {
-        if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
-            drawerLayout.closeDrawer(GravityCompat.END, false)
-        }
-        currentTabTag = tag
+        safeCloseScrapeDrawer()
         val fm = supportFragmentManager
         val tx = fm.beginTransaction()
         for (t in listOf(TAG_HOME, TAG_SEARCH, TAG_COLLECTIONS, TAG_SCRAPE)) {
@@ -202,22 +363,15 @@ class MainActivity : AppCompatActivity() {
             if (t == tag) tx.show(f) else tx.hide(f)
         }
         tx.commit()
-        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
-        toolbar.title = title
-        toolbar.navigationIcon = null
-        toolbar.setNavigationOnClickListener(null)
-        toolbar.menu.clear()
-        val menuRes = when (tag) {
-            TAG_HOME -> R.menu.main_top_home
-            TAG_SCRAPE -> R.menu.main_top_scrape
-            else -> R.menu.main_top_other
+        applyTabChrome(tag, title)
+        val navItemId = when (tag) {
+            TAG_HOME -> R.id.nav_home
+            TAG_SEARCH -> R.id.nav_search
+            TAG_COLLECTIONS -> R.id.nav_collections
+            TAG_SCRAPE -> R.id.nav_scrape
+            else -> return true
         }
-        toolbar.inflateMenu(menuRes)
-        if (tag == TAG_SCRAPE) {
-            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.END)
-        } else {
-            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
-        }
+        syncNavSelection(navItemId)
         return true
     }
 
@@ -230,7 +384,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun closeScrapeDrawer(animate: Boolean = false) {
-        drawerLayout.closeDrawer(GravityCompat.END, animate)
+        val lp = drawerPanel.layoutParams as? DrawerLayout.LayoutParams ?: return
+        if (lp.gravity == Gravity.NO_GRAVITY) return
+        try {
+            drawerLayout.closeDrawer(GravityCompat.END, animate)
+        } catch (_: IllegalArgumentException) {
+        }
     }
 
     private fun onTopMenu(item: MenuItem): Boolean = when (item.itemId) {

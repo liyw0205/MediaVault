@@ -1,168 +1,214 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/homeFusionRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/mv_bg"
-    android:baselineAligned="false"
-    android:orientation="horizontal">
+    android:orientation="vertical">
 
-    <LinearLayout
-        android:id="@+id/homeFusionSidebar"
-        android:layout_width="280dp"
-        android:layout_height="match_parent"
+    <ScrollView
+        android:id="@+id/fusionMetaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:background="@color/mv_surface"
-        android:orientation="vertical"
-        android:paddingHorizontal="14dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="10dp">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/tab_home"
-            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+        android:fillViewport="false"
+        android:maxHeight="@dimen/mv_fusion_meta_band_max"
+        android:overScrollMode="never"
+        android:scrollbars="none">
 
         <LinearLayout
-            android:id="@+id/summaryRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingHorizontal="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
 
             <LinearLayout
+                android:id="@+id/summaryRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingVertical="4dp">
+                android:weightSum="4">
 
-                <TextView
-                    android:id="@+id/statCollections"
-                    style="@style/HomeStatNum"
+                <LinearLayout
+                    style="@style/HomeStatCellLand"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="0" />
-
-                <TextView
-                    android:id="@+id/statItems"
-                    style="@style/HomeStatNum"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingVertical="0dp">
+                    <TextView
+                        android:id="@+id/statCollections"
+                        style="@style/HomeStatNumLand"
+                        android:text="0" />
+                    <TextView
+                        style="@style/HomeStatLabelLand"
+                        android:text="@string/stat_collections" />
+                </LinearLayout>
+                <LinearLayout
+                    style="@style/HomeStatCellLand"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="0" />
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingVertical="0dp">
+                    <TextView
+                        android:id="@+id/statItems"
+                        style="@style/HomeStatNumLand"
+                        android:text="0" />
+                    <TextView
+                        style="@style/HomeStatLabelLand"
+                        android:text="@string/stat_items" />
+                </LinearLayout>
+                <LinearLayout
+                    style="@style/HomeStatCellLand"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingVertical="0dp">
+                    <TextView
+                        android:id="@+id/statRoots"
+                        style="@style/HomeStatNumLand"
+                        android:text="0" />
+                    <TextView
+                        style="@style/HomeStatLabelLand"
+                        android:text="@string/stat_roots" />
+                </LinearLayout>
+                <LinearLayout
+                    style="@style/HomeStatCellLand"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingVertical="0dp">
+                    <TextView
+                        android:id="@+id/statTime"
+                        style="@style/HomeStatNumLand"
+                        android:text="--" />
+                    <TextView
+                        style="@style/HomeStatLabelLand"
+                        android:text="@string/stat_updated" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/fusionTagInfoPanel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingVertical="4dp">
+                android:paddingTop="2dp">
 
-                <TextView
-                    android:id="@+id/statRoots"
-                    style="@style/HomeStatNum"
+                <HorizontalScrollView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="0" />
+                    android:fillViewport="false"
+                    android:overScrollMode="never"
+                    android:scrollbars="none">
 
-                <TextView
-                    android:id="@+id/statTime"
-                    style="@style/HomeStatNum"
-                    android:layout_width="0dp"
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/homeFilterChips"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:chipSpacingHorizontal="4dp"
+                        app:singleLine="true"
+                        app:singleSelection="true" />
+                </HorizontalScrollView>
+
+                <LinearLayout
+                    android:id="@+id/homePager"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="--" />
+                    android:layout_marginStart="6dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/prevPageBtn"
+                        style="@style/Widget.MediaVault.Button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:minHeight="@dimen/mv_fusion_btn_min_height"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="8dp"
+                        android:text="@string/prev_page"
+                        android:textSize="@dimen/mv_fusion_pager_btn_text" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/nextPageBtn"
+                        style="@style/Widget.MediaVault.Button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:minHeight="@dimen/mv_fusion_btn_min_height"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="8dp"
+                        android:text="@string/next_page"
+                        android:textSize="@dimen/mv_fusion_pager_btn_text" />
+
+                    <TextView
+                        android:id="@+id/pageInfo"
+                        android:layout_width="76dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="4dp"
+                        android:clickable="true"
+                        android:ellipsize="end"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:minHeight="@dimen/mv_fusion_btn_min_height"
+                        android:textColor="@color/mv_primary"
+                        android:textSize="12sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/homePagerActionBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="@color/mv_green"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:minHeight="@dimen/mv_fusion_btn_min_height"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="8dp"
+                        android:text="@string/refresh_recommend"
+                        android:textColor="@color/mv_bg"
+                        android:textSize="@dimen/mv_fusion_pager_btn_text" />
+                </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
-
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:scrollbars="none">
-
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/homeFilterChips"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:chipSpacingHorizontal="6dp"
-                app:singleLine="true"
-                app:singleSelection="true" />
-        </HorizontalScrollView>
-
-        <LinearLayout
-            android:id="@+id/homePager"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center_vertical"
-            android:orientation="vertical">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/prevPageBtn"
-                style="@style/Widget.MediaVault.Button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:minHeight="44dp"
-                android:text="@string/prev_page"
-                android:textSize="14sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/nextPageBtn"
-                style="@style/Widget.MediaVault.Button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:minHeight="44dp"
-                android:text="@string/next_page"
-                android:textSize="14sp" />
 
             <TextView
-                android:id="@+id/pageInfo"
+                android:id="@+id/statusText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                android:gravity="center"
-                android:minHeight="44dp"
-                android:textColor="@color/mv_primary"
-                android:textSize="15sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/homePagerActionBtn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:backgroundTint="@color/mv_green"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:minHeight="44dp"
-                android:text="@string/refresh_recommend"
-                android:textColor="@color/mv_bg"
-                android:textSize="14sp" />
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/mv_muted"
+                android:textSize="10sp"
+                android:visibility="gone" />
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="@color/mv_muted"
-            android:textSize="13sp" />
-    </LinearLayout>
+    </ScrollView>
 
     <FrameLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1">
+        android:id="@+id/fusionMediaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="120dp">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/gridRecycler"
@@ -170,8 +216,7 @@
             android:layout_height="match_parent"
             android:clipToPadding="false"
             android:descendantFocusability="afterDescendants"
-            android:nextFocusLeft="@id/homeFusionSidebar"
-            android:padding="10dp" />
+            android:padding="@dimen/mv_fusion_content_pad" />
 
         <TextView
             android:id="@+id/emptyText"

@@ -14,7 +14,7 @@
         app:navigationIcon="@android:drawable/ic_menu_revert"
         app:titleTextColor="@color/mv_text" />
 
-    <androidx.core.widget.NestedScrollView
+    <ScrollView
         android:id="@+id/detailScroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
@@ -188,5 +188,5 @@
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false" />
         </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+    </ScrollView>
 </LinearLayout>

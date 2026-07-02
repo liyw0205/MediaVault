@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
+import androidx.core.view.isVisible
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -77,12 +78,15 @@ class HomeFragment : Fragment() {
         // 库变更由 MainActivity 统一 refreshHome，避免与 collect 双通道重复刷 UI
         refreshFromParent()
         FusionFocusHelper.applyFusionToolbarFocus(view)
+        if (HomeUiPrefs.useTvFusionUi(requireContext())) {
+            FusionLandscapeShell.applyFragmentRoot(view, FusionUiMetrics.SidebarKind.Home)
+        }
     }
 
     private fun applyHomeGrid(grid: RecyclerView) {
         val ctx = requireContext()
         val fusion = HomeUiPrefs.useTvFusionUi(ctx)
-        val span = HomeUiPrefs.gridSpanCount(ctx)
+        val span = FusionUiMetrics.gridSpanCount(ctx, FusionUiMetrics.SidebarKind.Home)
         if (grid.layoutManager !is GridLayoutManager || (grid.layoutManager as GridLayoutManager).spanCount != span) {
             grid.layoutManager = GridLayoutManager(ctx, span)
         }
@@ -90,6 +94,7 @@ class HomeFragment : Fragment() {
     }
 
     fun onFusionUiChanged() {
+        view?.let { FusionLandscapeShell.applyFragmentRoot(it, FusionUiMetrics.SidebarKind.Home) }
         view?.findViewById<RecyclerView>(R.id.gridRecycler)?.let { applyHomeGrid(it) }
         if (::adapter.isInitialized) adapter.notifyDataSetChanged()
     }
@@ -213,6 +218,8 @@ class HomeFragment : Fragment() {
 
     private fun rebuildFilterChips(view: View, items: List<MediaItem>) {
         val group = view.findViewById<ChipGroup>(R.id.homeFilterChips)
+        val fusion = HomeUiPrefs.useTvFusionUi(requireContext())
+        FusionTagLayoutHelper.applyFusionChipGroup(group, fusion)
         group.isSingleSelection = true
         group.removeAllViews()
         val ctx = requireContext()
@@ -222,6 +229,7 @@ class HomeFragment : Fragment() {
             chip.text = label
             chip.isCheckable = true
             chip.isChecked = homeFilter == filterId
+            FusionTagLayoutHelper.styleFilterChip(chip, fusion)
             chip.setOnClickListener {
                 if (homeFilter == filterId) return@setOnClickListener
                 homeFilter = filterId

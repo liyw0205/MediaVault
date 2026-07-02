@@ -28,9 +28,17 @@ class CollectionAdapter(
             v.isFocusableInTouchMode = true
         }
         if (coverW <= 0) {
-            val dm = parent.resources.displayMetrics
-            coverW = (120 * dm.density).toInt().coerceAtLeast(96)
-            coverH = (72 * dm.density).toInt().coerceAtLeast(64)
+            val ctx = parent.context
+            val fusion = HomeUiPrefs.useTvFusionUi(ctx)
+            if (fusion) {
+                val cell = FusionUiMetrics.listAreaWidthPx(ctx, FusionUiMetrics.SidebarKind.Collections) / 2
+                coverW = (cell * 0.42f).toInt().coerceIn(96, 160)
+                coverH = (coverW * 0.62f).toInt().coerceAtLeast(64)
+            } else {
+                val dm = parent.resources.displayMetrics
+                coverW = (120 * dm.density).toInt().coerceAtLeast(96)
+                coverH = (72 * dm.density).toInt().coerceAtLeast(64)
+            }
         }
         return VH(v, scope, coverW, coverH, fusion, onClick)
     }
@@ -67,14 +75,19 @@ class CollectionAdapter(
             CoverThumbnailLoader.load(scope, cover, local, coverW, coverH)
             chips.removeAllViews()
             val ctx = itemView.context
-            val tags = g.items.flatMap { it.tags + it.genres }.distinct().take(5)
+            val fusion = HomeUiPrefs.useTvFusionUi(ctx)
+            FusionTagLayoutHelper.applyFusionChipGroup(chips, fusion)
+            chips.isSingleLine = !fusion
+            val tagLimit = if (fusion) 12 else 5
+            val tags = g.items.flatMap { it.tags + it.genres }.distinct().take(tagLimit)
             for (t in tags) {
                 val chip = com.google.android.material.chip.Chip(ctx)
                 chip.text = t
                 chip.isClickable = false
                 chip.chipBackgroundColor = ctx.getColorStateList(R.color.mv_surface2)
                 chip.setTextColor(ctx.getColor(R.color.mv_text_secondary))
-                chip.textSize = 10f
+                chip.textSize = if (fusion) 10f else 10f
+                FusionTagLayoutHelper.styleTagChip(chip, fusion)
                 chips.addView(chip)
             }
             itemView.setOnClickListener { onClick(g) }

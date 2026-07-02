@@ -74,6 +74,20 @@ class ScrapeFragment : Fragment() {
         refreshRoots()
         bindScrapeState(view)
         FusionFocusHelper.applyFusionToolbarFocus(view)
+        if (HomeUiPrefs.useTvFusionUi(requireContext())) {
+            val settingsPanel = view.findViewById<View>(R.id.scrapeLandSettingsPanel)
+            if (settingsPanel != null) {
+                ScrapeDrawerBinder.bind(
+                    act,
+                    settingsPanel,
+                    act.repository,
+                    onRootsMayHaveChanged = { refreshRootsFromOutside() },
+                    pickLocalTree = { act.openScrapePickLocalTree() },
+                    drawer = null,
+                    includeDirectories = true,
+                )
+            }
+        }
     }
 
     fun onFusionUiChanged() {
@@ -115,69 +129,73 @@ class ScrapeFragment : Fragment() {
     }
 
     private fun confirmRescanLocal(uri: String) {
-        MvDialog.builder(requireContext())
-            .setMessage(R.string.scrape_root_rescan_confirm)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val act = activity as? MainActivity ?: return@setPositiveButton
-                act.repository.store.clearScrapeRecordsUnderRoot(uri)
-                act.repository.removeItemsUnderRoot(uri).onFailure {
-                    Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show()
-                    return@setPositiveButton
+        MvDialog.show(
+            MvDialog.builder(requireContext())
+                .setMessage(R.string.scrape_root_rescan_confirm)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val act = activity as? MainActivity ?: return@setPositiveButton
+                    act.repository.store.clearScrapeRecordsUnderRoot(uri)
+                    act.repository.removeItemsUnderRoot(uri).onFailure {
+                        Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                    startScrape(rebuild = true, localRoots = listOf(uri), remoteIds = null)
                 }
-                startScrape(rebuild = true, localRoots = listOf(uri), remoteIds = null)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+                .setNegativeButton(android.R.string.cancel, null),
+        )
     }
 
     private fun confirmRescanRemote(remoteId: String) {
-        MvDialog.builder(requireContext())
-            .setMessage(R.string.scrape_root_rescan_confirm)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val act = activity as? MainActivity ?: return@setPositiveButton
-                act.repository.store.clearScrapeRecordsUnderRemote(remoteId)
-                act.repository.removeItemsUnderRemote(remoteId).onFailure {
-                    Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show()
-                    return@setPositiveButton
+        MvDialog.show(
+            MvDialog.builder(requireContext())
+                .setMessage(R.string.scrape_root_rescan_confirm)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val act = activity as? MainActivity ?: return@setPositiveButton
+                    act.repository.store.clearScrapeRecordsUnderRemote(remoteId)
+                    act.repository.removeItemsUnderRemote(remoteId).onFailure {
+                        Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                    startScrape(rebuild = true, localRoots = null, remoteIds = listOf(remoteId))
                 }
-                startScrape(rebuild = true, localRoots = null, remoteIds = listOf(remoteId))
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+                .setNegativeButton(android.R.string.cancel, null),
+        )
     }
 
     private fun confirmRemoveLocal(uri: String, n: Int) {
-        MvDialog.builder(requireContext())
-            .setMessage(getString(R.string.scrape_root_clear_confirm, n))
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val act = activity as? MainActivity ?: return@setPositiveButton
-                act.repository.store.clearScrapeRecordsUnderRoot(uri)
-                act.repository.removeItemsUnderRoot(uri)
-                    .onSuccess { removed ->
-                        refreshRoots()
-                        Toast.makeText(requireContext(), getString(R.string.scrape_root_cleared_fmt, removed), Toast.LENGTH_SHORT).show()
-                    }
-                    .onFailure { Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show() }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        MvDialog.show(
+            MvDialog.builder(requireContext())
+                .setMessage(getString(R.string.scrape_root_clear_confirm, n))
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val act = activity as? MainActivity ?: return@setPositiveButton
+                    act.repository.store.clearScrapeRecordsUnderRoot(uri)
+                    act.repository.removeItemsUnderRoot(uri)
+                        .onSuccess { removed ->
+                            refreshRoots()
+                            Toast.makeText(requireContext(), getString(R.string.scrape_root_cleared_fmt, removed), Toast.LENGTH_SHORT).show()
+                        }
+                        .onFailure { Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show() }
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
     }
 
     private fun confirmRemoveRemote(remoteId: String, n: Int) {
-        MvDialog.builder(requireContext())
-            .setMessage(getString(R.string.scrape_root_clear_confirm, n))
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val act = activity as? MainActivity ?: return@setPositiveButton
-                act.repository.store.clearScrapeRecordsUnderRemote(remoteId)
-                act.repository.removeItemsUnderRemote(remoteId)
-                    .onSuccess { removed ->
-                        refreshRoots()
-                        Toast.makeText(requireContext(), getString(R.string.scrape_root_cleared_fmt, removed), Toast.LENGTH_SHORT).show()
-                    }
-                    .onFailure { Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show() }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        MvDialog.show(
+            MvDialog.builder(requireContext())
+                .setMessage(getString(R.string.scrape_root_clear_confirm, n))
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val act = activity as? MainActivity ?: return@setPositiveButton
+                    act.repository.store.clearScrapeRecordsUnderRemote(remoteId)
+                    act.repository.removeItemsUnderRemote(remoteId)
+                        .onSuccess { removed ->
+                            refreshRoots()
+                            Toast.makeText(requireContext(), getString(R.string.scrape_root_cleared_fmt, removed), Toast.LENGTH_SHORT).show()
+                        }
+                        .onFailure { Toast.makeText(requireContext(), it.message, Toast.LENGTH_LONG).show() }
+                }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
     }
 
     private fun startScrape(rebuild: Boolean, localRoots: List<String>?, remoteIds: List<String>?) {

@@ -19,7 +19,9 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/mv_surface"
             android:elevation="4dp"
-            app:titleTextColor="@color/mv_text" />
+            app:titleTextColor="@color/mv_text"
+            app:navigationIconTint="@color/mv_toolbar_icon"
+            app:subtitleTextColor="@color/mv_text_secondary" />
 
         <FrameLayout
             android:id="@+id/fragmentContainer"

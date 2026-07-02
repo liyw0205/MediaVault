@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="mv_dialog_list_divider">1dp</dimen>
+</resources>

@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/mv_bg">
 
-    <androidx.core.widget.NestedScrollView
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true">
@@ -111,7 +111,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/weakTmdbListBtn"
-                        style="@style/Widget.Material3.Button.TextButton"
+                        style="@style/Widget.MediaVault.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
@@ -121,7 +121,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+    </ScrollView>
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/scrapeProgressCollapsed"
@@ -169,7 +169,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/expandScrapeOverlayBtn"
-                style="@style/Widget.Material3.Button.TextButton"
+                style="@style/Widget.MediaVault.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="0dp"
@@ -215,7 +215,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/collapseScrapeOverlayBtn"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/Widget.MediaVault.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:minWidth="0dp"

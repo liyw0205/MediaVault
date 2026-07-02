@@ -18,4 +18,9 @@
     <color name="mv_hint">#9ca3af</color>
     <color name="mv_input_bg">#1a2332</color>
     <color name="mv_dialog_bg">#111827</color>
+    <!-- 播放器顶/底栏半透明遮罩（与 mv_bg 同色系） -->
+    <color name="mv_player_scrim">#CC0b1220</color>
+    <color name="mv_player_scrim_mid">#990b1220</color>
+    <color name="mv_player_canvas">#000000</color>
+    <color name="mv_toolbar_icon">@color/mv_text</color>
 </resources>

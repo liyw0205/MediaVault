@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <LinearLayout
+        android:id="@+id/listPager"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:visibility="gone">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/listPrevPageBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/mv_fusion_btn_min_height"
+            android:minWidth="0dp"
+            android:paddingHorizontal="8dp"
+            android:text="@string/prev_page"
+            android:textSize="@dimen/mv_fusion_pager_btn_text" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/listNextPageBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:minHeight="@dimen/mv_fusion_btn_min_height"
+            android:minWidth="0dp"
+            android:paddingHorizontal="8dp"
+            android:text="@string/next_page"
+            android:textSize="@dimen/mv_fusion_pager_btn_text" />
+
+        <TextView
+            android:id="@+id/listPageInfo"
+            android:layout_width="76dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:clickable="true"
+            android:ellipsize="end"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center"
+            android:maxLines="1"
+            android:minHeight="@dimen/mv_fusion_btn_min_height"
+            android:textColor="@color/mv_primary"
+            android:textSize="12sp" />
+    </LinearLayout>
+</merge>

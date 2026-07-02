@@ -21,17 +21,15 @@ class VideoCardAdapter(
     private val onCoverClick: (MediaItem) -> Unit,
     private val onInfoClick: (MediaItem) -> Unit,
     private val progressStore: PlaybackProgressStore? = null,
+    private val sidebarKind: FusionUiMetrics.SidebarKind = FusionUiMetrics.SidebarKind.Home,
 ) : ListAdapter<MediaItem, VideoCardAdapter.VH>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_video_card, parent, false)
         val ctx = parent.context
         val fusion = HomeUiPrefs.useTvFusionUi(ctx)
-        val span = HomeUiPrefs.gridSpanCount(ctx)
-        val dm = parent.resources.displayMetrics
-        val coverW = (dm.widthPixels / span).coerceAtLeast(120)
-        val ratio = HomeUiPrefs.coverHeightRatio(fusion)
-        val coverH = (coverW * ratio).toInt().coerceAtLeast(if (fusion) 90 else 80)
+        val coverW = FusionUiMetrics.videoCardCellWidthPx(ctx, sidebarKind)
+        val coverH = FusionUiMetrics.videoCardCoverHeightPx(ctx, coverW)
         return VH(v, scope, coverW, coverH, fusion, onCoverClick, onInfoClick, progressStore)
     }
 
@@ -90,8 +88,18 @@ class VideoCardAdapter(
         fun bind(item: MediaItem) {
             boundPath = item.path
             boundItem = item
-            if (tvFocus) {
-                coverArea.layoutParams = coverArea.layoutParams.apply { height = coverH }
+            val fusion = HomeUiPrefs.useTvFusionUi(itemView.context)
+            val coverLp = coverArea.layoutParams
+            if (fusion) {
+                coverLp.width = ViewGroup.LayoutParams.MATCH_PARENT
+                coverLp.height = coverH
+                coverArea.layoutParams = coverLp
+                cover.scaleType = ImageView.ScaleType.FIT_CENTER
+            } else if (coverLp.height != ViewGroup.LayoutParams.WRAP_CONTENT) {
+                val px = (120 * itemView.resources.displayMetrics.density).toInt()
+                coverLp.height = px
+                coverArea.layoutParams = coverLp
+                cover.scaleType = ImageView.ScaleType.CENTER_CROP
             }
             title.text = item.displayTitle()
             val ep = item.episodeLabel()

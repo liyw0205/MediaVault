@@ -9,27 +9,30 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:baselineAligned="false"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="10dp">
 
-        <androidx.core.widget.NestedScrollView
+        <ScrollView
             android:id="@+id/scrapeFusionScroll"
-            android:layout_width="340dp"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
+            android:layout_marginEnd="10dp"
+            android:layout_weight="1.35"
             android:background="@color/mv_surface"
             android:fillViewport="true"
-            android:padding="12dp">
+            android:padding="10dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingBottom="16dp">
+                android:paddingBottom="10dp">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:cardBackgroundColor="@color/mv_bg"
-                    app:cardCornerRadius="12dp">
+                    app:cardCornerRadius="8dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -64,9 +67,9 @@
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="10dp"
                     app:cardBackgroundColor="@color/mv_bg"
-                    app:cardCornerRadius="12dp">
+                    app:cardCornerRadius="8dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -117,7 +120,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/weakTmdbListBtn"
-                            style="@style/Widget.Material3.Button.TextButton"
+                            style="@style/Widget.MediaVault.Button.TextButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
@@ -129,13 +132,20 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
+        </ScrollView>
 
-        <View
+        <FrameLayout
+            android:id="@+id/scrapeLandSettingsColumn"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@color/mv_bg" />
+            android:layout_weight="1">
+
+            <include
+                android:id="@+id/scrapeLandSettingsPanel"
+                layout="@layout/drawer_scrape_panel"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
     </LinearLayout>
 
     <com.google.android.material.card.MaterialCardView
@@ -184,7 +194,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/expandScrapeOverlayBtn"
-                style="@style/Widget.Material3.Button.TextButton"
+                style="@style/Widget.MediaVault.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="0dp"
@@ -230,7 +240,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/collapseScrapeOverlayBtn"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/Widget.MediaVault.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:minWidth="0dp"

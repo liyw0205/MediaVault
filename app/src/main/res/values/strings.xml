@@ -273,4 +273,8 @@
     <string name="settings_scrape_save">保存刮削设置</string>
     <string name="settings_save_scrape">保存刮削设置</string>
     <string name="data_cleanup_title">数据清理</string>
+    <string name="fusion_show_info_panel">显示筛选栏</string>
+    <string name="fusion_hide_info_panel">隐藏筛选栏</string>
+    <string name="fusion_show_tag_panel">显示标签栏</string>
+    <string name="fusion_hide_tag_panel">隐藏标签栏</string>
 </resources>

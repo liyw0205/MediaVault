@@ -117,14 +117,22 @@
             android:textColor="@color/mv_muted"
             android:textSize="11sp" />
 
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/matchedTags"
+        <ScrollView
+            android:id="@+id/searchTagsScroll"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            app:chipSpacingHorizontal="4dp"
-            app:chipSpacingVertical="4dp"
-            app:singleLine="false" />
+            android:fadeScrollbars="false"
+            android:overScrollMode="ifContentScrolls">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/matchedTags"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:chipSpacingHorizontal="4dp"
+                app:chipSpacingVertical="4dp"
+                app:singleLine="false" />
+        </ScrollView>
 
         <include layout="@layout/include_list_pager" />
     </LinearLayout>
