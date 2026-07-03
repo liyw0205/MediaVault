@@ -144,6 +144,7 @@ class HomeFragment : Fragment() {
 
         bindWorkflowSections(view, items)
         val list = currentList(items)
+        bindLibraryTitle(view, list.size)
         rebuildFilterChipsIfNeeded(view, items)
         if (!isRecommendFilter()) {
             page = page.coerceIn(1, pagesFor(list).coerceAtLeast(1))
@@ -237,6 +238,30 @@ class HomeFragment : Fragment() {
             }
         }
     }
+
+    private fun bindLibraryTitle(view: View, count: Int) {
+        view.findViewById<TextView>(R.id.homeLibraryTitle).text =
+            getString(R.string.home_library_current_title_fmt, currentFilterLabel(), count)
+    }
+
+    private fun currentFilterLabel(): String =
+        when {
+            homeFilter == "recommend" -> getString(R.string.recommend)
+            homeFilter.startsWith("recommend:") -> {
+                val reason = selectedRecommendReason().orEmpty()
+                getString(
+                    R.string.home_filter_nested_label_fmt,
+                    getString(R.string.recommend),
+                    LibraryUi.recommendationReasonLabel(reason),
+                )
+            }
+            homeFilter == "unwatched" -> getString(R.string.home_unwatched)
+            homeFilter == "queue" -> getString(R.string.watch_queue)
+            homeFilter == "history" -> getString(R.string.history)
+            homeFilter == "all" -> getString(R.string.filter_all)
+            homeFilter.startsWith("root:") -> homeFilter.removePrefix("root:")
+            else -> getString(R.string.filter_all)
+        }
 
     private fun bindWorkflowSections(view: View, items: List<MediaItem>) {
         val continueItems = continueWatchingItems(items)
