@@ -144,6 +144,7 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onTracksChanged(tracks: Tracks) {
                     applySubtitleSelection(exo, tracks)
+                    updateSessionInfo()
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -206,6 +207,7 @@ class PlayerActivity : AppCompatActivity() {
         exo.prepare()
         exo.playWhenReady = true
         findViewById<TextView>(R.id.playerTitleOverlay)?.text = title
+        updateSessionInfo()
     }
 
     private fun guessSubMime(uri: Uri): String {
@@ -268,12 +270,89 @@ class PlayerActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.playerTitleOverlay).text = ep.title
         updateNavButtons()
         updatePlayIcon()
+        updateSessionInfo()
     }
 
     private fun updateNavButtons() {
         findViewById<ImageButton>(R.id.btnPrev).isEnabled = playlistIndex > 0
         findViewById<ImageButton>(R.id.btnNext).isEnabled = playlistIndex < playlist.size - 1
         findViewById<ImageButton>(R.id.btnPlaylist).isEnabled = playlist.size > 1
+    }
+
+    private fun updateSessionInfo() {
+        val info = findViewById<TextView>(R.id.playerSessionInfo) ?: return
+        val total = playlist.size.coerceAtLeast(1)
+        val position = if (playlistIndex in playlist.indices) playlistIndex + 1 else 1
+        val source = if (RemotePath.isRemote(currentMediaPath)) {
+            getString(R.string.player_source_remote)
+        } else {
+            getString(R.string.player_source_local)
+        }
+        info.text = getString(
+            R.string.player_session_info_fmt,
+            position,
+            total,
+            source,
+            subtitleStateLabel(),
+            audioStateLabel(),
+            autoplayTargetLabel(),
+        )
+        info.visibility = View.VISIBLE
+    }
+
+    private fun subtitleStateLabel(): String {
+        val state = when (subSelection) {
+            is SubSelection.Auto -> getString(R.string.player_session_subtitle_auto)
+            is SubSelection.Off -> getString(R.string.player_session_subtitle_off)
+            is SubSelection.ManualTier,
+            is SubSelection.Embedded,
+            is SubSelection.External -> getString(R.string.player_session_subtitle_manual)
+        }
+        return getString(R.string.player_session_subtitle_fmt, state)
+    }
+
+    private fun audioStateLabel(): String {
+        val tracks = player?.currentTracks
+        if (tracks != null) {
+            for (group in tracks.groups) {
+                if (group.type != C.TRACK_TYPE_AUDIO) continue
+                for (i in 0 until group.length) {
+                    if (!group.isTrackSelected(i)) continue
+                    val format = group.getTrackFormat(i)
+                    val label = format.label?.takeIf { it.isNotBlank() }
+                        ?: format.language?.takeIf { it.isNotBlank() }
+                    if (label != null) {
+                        return getString(R.string.player_session_audio_fmt, label)
+                    }
+                }
+            }
+        }
+        return getString(R.string.player_session_audio_default)
+    }
+
+    private fun autoplayTargetLabel(): String {
+        if (playlist.size <= 1) return getString(R.string.player_autoplay_target_single)
+        return when (PlaybackPrefs.getAutoplayMode(this)) {
+            PlaybackPrefs.AutoplayMode.OFF -> getString(R.string.player_autoplay_target_stop)
+            PlaybackPrefs.AutoplayMode.REPEAT_ONE -> getString(R.string.player_autoplay_target_repeat_current)
+            PlaybackPrefs.AutoplayMode.SEQUENTIAL -> {
+                val next = playlist.getOrNull(playlistIndex + 1)
+                if (next != null) {
+                    getString(R.string.player_autoplay_target_next_fmt, next.title)
+                } else {
+                    getString(R.string.player_autoplay_target_stop)
+                }
+            }
+            PlaybackPrefs.AutoplayMode.LOOP_COLLECTION -> {
+                val nextIndex = if (playlistIndex < playlist.size - 1) playlistIndex + 1 else 0
+                val next = playlist.getOrNull(nextIndex)
+                if (next != null) {
+                    getString(R.string.player_autoplay_target_loop_fmt, next.title)
+                } else {
+                    getString(R.string.player_autoplay_target_single)
+                }
+            }
+        }
     }
 
     private fun showPlaylist() {
@@ -314,6 +393,7 @@ class PlayerActivity : AppCompatActivity() {
                 .setTitle(R.string.player_autoplay_title)
                 .setItems(labels) { _, which ->
                     PlaybackPrefs.setAutoplayMode(this, modes[which])
+                    updateSessionInfo()
                 },
         )
     }
@@ -362,6 +442,7 @@ class PlayerActivity : AppCompatActivity() {
                 .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                 .build()
             applySubtitleSelection(p, p.currentTracks)
+            updateSessionInfo()
         }
 
         val offMark = if (subSelection is SubSelection.Off) "● " else "○ "
@@ -370,6 +451,7 @@ class PlayerActivity : AppCompatActivity() {
             SubtitlePrefs.setPersistedOff(this)
             subSelection = SubSelection.Off
             disableTextTracks(p)
+            updateSessionInfo()
         }
 
         val (embeddedGroups, externalGroups) = classifyTextGroups(p.currentTracks)
@@ -393,6 +475,7 @@ class PlayerActivity : AppCompatActivity() {
                         .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                         .setOverrideForType(TrackSelectionOverride(tg, i))
                         .build()
+                    updateSessionInfo()
                 }
             }
         }
@@ -413,6 +496,7 @@ class PlayerActivity : AppCompatActivity() {
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                     .setOverrideForType(TrackSelectionOverride(tg, 0))
                     .build()
+                updateSessionInfo()
             }
         }
 

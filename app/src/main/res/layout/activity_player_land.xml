@@ -29,16 +29,33 @@
         android:paddingBottom="8dp"
         android:visibility="gone">
 
-        <TextView
-            android:id="@+id/playerTitleOverlay"
+        <LinearLayout
+            android:id="@+id/playerTitleGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/mv_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:orientation="vertical"
+            android:paddingEnd="10dp">
+
+            <TextView
+                android:id="@+id/playerTitleOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/mv_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/playerSessionInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/mv_text_secondary"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <ImageButton
             android:id="@+id/btnSubtitle"
