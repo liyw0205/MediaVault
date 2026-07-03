@@ -72,6 +72,17 @@
     <string name="audio_track_empty">暂无可选音轨</string>
     <string name="audio_track_number_fmt">音轨 #%1$d</string>
     <string name="audio_track_channels_fmt">%1$d 声道</string>
+    <string name="player_error_title">播放失败</string>
+    <string name="player_error_detail_fmt">来源：%1$s\n原因：%2$s\n建议：%3$s</string>
+    <string name="player_error_retry">重试播放</string>
+    <string name="player_error_close">关闭提示</string>
+    <string name="player_error_unknown">播放器无法打开该媒体</string>
+    <string name="player_error_local_permission">系统文件授权失效或文件已被移动</string>
+    <string name="player_error_local_missing">本机文件不存在或已被移动</string>
+    <string name="player_error_action_remote">先重试播放；若持续失败，请到刮削页复检源健康，或检查远程账号、路径、Range 和缓存状态。</string>
+    <string name="player_error_action_content">请重新授权媒体目录或重新扫描该目录，然后再播放。</string>
+    <string name="player_error_action_local_missing">请确认文件仍在原路径，或重新扫描媒体目录刷新库条目。</string>
+    <string name="player_error_action_local">可先重试播放；若持续失败，请重新扫描目录或确认文件格式可播放。</string>
     <string name="player_screenshot">截图</string>
     <string name="player_toast_rewind">快退 10 秒</string>
     <string name="player_toast_forward">快进 10 秒</string>

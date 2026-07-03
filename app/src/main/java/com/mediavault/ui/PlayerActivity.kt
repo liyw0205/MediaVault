@@ -69,6 +69,7 @@ class PlayerActivity : AppCompatActivity() {
     private var currentMediaPath: String = ""
     private var pendingResumeMs: Long = 0L
     private var remoteDurationHintShown = false
+    private var playbackErrorDialogShowing = false
     private val progressTick = object : Runnable {
         override fun run() {
             persistPlaybackProgress()
@@ -155,11 +156,7 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onPlayerError(error: PlaybackException) {
                     val cause = error.cause ?: error
-                    Toast.makeText(
-                        this@PlayerActivity,
-                        getString(R.string.player_remote_error_fmt, RemoteErrorMessages.userMessage(this@PlayerActivity, cause)),
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    showPlaybackErrorDialog(cause)
                 }
             })
         }
@@ -532,6 +529,69 @@ class PlayerActivity : AppCompatActivity() {
         if (exo.duration > 0) return
         remoteDurationHintShown = true
         Toast.makeText(this, R.string.player_duration_unknown_seek_hint, Toast.LENGTH_LONG).show()
+    }
+
+    private fun showPlaybackErrorDialog(cause: Throwable) {
+        if (playbackErrorDialogShowing) return
+        playbackErrorDialogShowing = true
+        persistPlaybackProgress()
+        player?.pause()
+
+        val source = if (RemotePath.isRemote(currentMediaPath)) {
+            getString(R.string.player_source_remote)
+        } else {
+            getString(R.string.player_source_local)
+        }
+        val reason = playbackErrorReason(cause)
+        val action = playbackRecoveryHint()
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.player_error_title)
+                .setMessage(getString(R.string.player_error_detail_fmt, source, reason, action))
+                .setPositiveButton(R.string.player_error_retry) { _, _ ->
+                    playbackErrorDialogShowing = false
+                    reloadCurrentMedia()
+                }
+                .setNegativeButton(R.string.back) { _, _ ->
+                    playbackErrorDialogShowing = false
+                    finish()
+                }
+                .setNeutralButton(R.string.player_error_close) { _, _ ->
+                    playbackErrorDialogShowing = false
+                },
+        ).setOnDismissListener {
+            playbackErrorDialogShowing = false
+        }
+    }
+
+    private fun playbackErrorReason(cause: Throwable): String {
+        if (RemotePath.isRemote(currentMediaPath)) {
+            return RemoteErrorMessages.userMessage(this, cause)
+        }
+        if (currentMediaPath.startsWith("content://")) {
+            return getString(R.string.player_error_local_permission)
+        }
+        val file = File(currentMediaPath)
+        if (file.isAbsolute && !file.exists()) {
+            return getString(R.string.player_error_local_missing)
+        }
+        val msg = cause.message?.trim().orEmpty()
+        return msg.takeIf { it.isNotBlank() }?.take(160)
+            ?: getString(R.string.player_error_unknown)
+    }
+
+    private fun playbackRecoveryHint(): String {
+        if (RemotePath.isRemote(currentMediaPath)) {
+            return getString(R.string.player_error_action_remote)
+        }
+        if (currentMediaPath.startsWith("content://")) {
+            return getString(R.string.player_error_action_content)
+        }
+        val file = File(currentMediaPath)
+        if (file.isAbsolute && !file.exists()) {
+            return getString(R.string.player_error_action_local_missing)
+        }
+        return getString(R.string.player_error_action_local)
     }
 
     private fun handleEndOfMedia() {
