@@ -3,9 +3,10 @@ package com.mediavault.ui
 import com.mediavault.data.MediaItem
 
 object SearchOptions {
-    enum class Sort { Relevance, TitleAZ, YearDesc, YearAsc, Modified }
+    enum class Sort { RecentPlayed, Modified, TitleAZ, YearDesc }
     enum class Source { All, Local, Remote }
     enum class Type { All, Tv, Movie }
+    enum class WatchState { All, Unwatched, Watching, Watched }
 
     fun matchesSource(item: MediaItem, s: Source): Boolean = when (s) {
         Source.All -> true
@@ -18,6 +19,14 @@ object SearchOptions {
         Type.Tv -> isTv(item)
         Type.Movie -> !isTv(item)
     }
+
+    fun matchesWatchState(item: MediaItem, state: WatchState, hasProgress: Boolean, inHistory: Boolean): Boolean =
+        when (state) {
+            WatchState.All -> true
+            WatchState.Unwatched -> !hasProgress && !inHistory
+            WatchState.Watching -> hasProgress
+            WatchState.Watched -> inHistory && !hasProgress
+        }
 
     private fun isRemote(item: MediaItem): Boolean {
         val p = item.path
@@ -32,12 +41,20 @@ object SearchOptions {
         return false
     }
 
-    fun sortInPlace(list: MutableList<MediaItem>, s: Sort) {
+    fun sortInPlace(
+        list: MutableList<MediaItem>,
+        s: Sort,
+        progressUpdatedAt: (MediaItem) -> Long? = { null },
+        historyIndex: (MediaItem) -> Int? = { null },
+    ) {
         when (s) {
-            Sort.Relevance -> Unit
+            Sort.RecentPlayed -> list.sortWith(
+                compareBy<MediaItem> { historyIndex(it) ?: Int.MAX_VALUE }
+                    .thenByDescending { progressUpdatedAt(it) ?: 0L }
+                    .thenBy { it.displayTitle().lowercase() },
+            )
             Sort.TitleAZ -> list.sortBy { it.displayTitle().lowercase() }
             Sort.YearDesc -> list.sortByDescending { (it.year.toIntOrNull() ?: -1) }
-            Sort.YearAsc -> list.sortWith(compareBy { it.year.toIntOrNull() ?: Int.MAX_VALUE })
             Sort.Modified -> list.sortByDescending { it.modified }
         }
     }

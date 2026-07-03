@@ -80,13 +80,13 @@ class MediaRowAdapter(
         private fun bindQueueButton(item: MediaItem) {
             val click = onQueueClick
             val contains = queueContains
-            val visible = click != null && contains != null
-            queueBtn.visibility = if (visible) View.VISIBLE else View.GONE
-            if (!visible || contains == null || click == null) {
+            if (click == null || contains == null) {
+                queueBtn.visibility = View.GONE
                 queueBtn.setOnClickListener(null)
                 return
             }
             val inQueue = contains(item)
+            queueBtn.visibility = View.VISIBLE
             queueBtn.setText(if (inQueue) R.string.watch_queue_remove else R.string.watch_queue_add)
             queueBtn.setOnClickListener { click(item) }
         }

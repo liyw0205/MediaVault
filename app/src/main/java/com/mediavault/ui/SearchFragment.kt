@@ -19,6 +19,7 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.textfield.TextInputEditText
 import com.mediavault.R
+import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
 import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.data.WatchQueueStore
@@ -34,10 +35,12 @@ class SearchFragment : Fragment() {
     private var lastQueryForTags: String? = null
     private var lastHits: List<MediaItem> = emptyList()
     private var currentQuery: String = ""
-    private var sort: SearchOptions.Sort = SearchOptions.Sort.Relevance
+    private var sort: SearchOptions.Sort = SearchOptions.Sort.RecentPlayed
     private var source: SearchOptions.Source = SearchOptions.Source.All
     private var typeFilter: SearchOptions.Type = SearchOptions.Type.All
+    private var watchState: SearchOptions.WatchState = SearchOptions.WatchState.All
     private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
+    private val historyStore by lazy { HistoryStore(requireContext()) }
     private val queueStore by lazy { WatchQueueStore(requireContext()) }
 
     companion object {
@@ -47,6 +50,7 @@ class SearchFragment : Fragment() {
         private const val STATE_SORT = "search_sort"
         private const val STATE_SOURCE = "search_source"
         private const val STATE_TYPE = "search_type"
+        private const val STATE_WATCH = "search_watch"
         fun newInstance(query: String) = SearchFragment().apply {
             arguments = Bundle().apply { putString(ARG_QUERY, query) }
         }
@@ -59,6 +63,7 @@ class SearchFragment : Fragment() {
         outState.putString(STATE_SORT, sort.name)
         outState.putString(STATE_SOURCE, source.name)
         outState.putString(STATE_TYPE, typeFilter.name)
+        outState.putString(STATE_WATCH, watchState.name)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
@@ -74,6 +79,7 @@ class SearchFragment : Fragment() {
             sort = runCatching { SearchOptions.Sort.valueOf(it.getString(STATE_SORT) ?: "") }.getOrDefault(sort)
             source = runCatching { SearchOptions.Source.valueOf(it.getString(STATE_SOURCE) ?: "") }.getOrDefault(source)
             typeFilter = runCatching { SearchOptions.Type.valueOf(it.getString(STATE_TYPE) ?: "") }.getOrDefault(typeFilter)
+            watchState = runCatching { SearchOptions.WatchState.valueOf(it.getString(STATE_WATCH) ?: "") }.getOrDefault(watchState)
         }
 
         val grid = view.findViewById<RecyclerView>(R.id.searchRecycler)
@@ -107,9 +113,11 @@ class SearchFragment : Fragment() {
         }
 
         val sortBtn = view.findViewById<MaterialButton>(R.id.searchSortBtn)
+        val watchBtn = view.findViewById<MaterialButton>(R.id.searchWatchBtn)
         val sourceBtn = view.findViewById<MaterialButton>(R.id.searchSourceBtn)
         val typeBtn = view.findViewById<MaterialButton>(R.id.searchTypeBtn)
         sortBtn.setOnClickListener { showSortMenu(view) }
+        watchBtn.setOnClickListener { showWatchMenu(view) }
         sourceBtn.setOnClickListener { showSourceMenu(view) }
         typeBtn.setOnClickListener { showTypeMenu(view) }
         refreshFilterLabels(view)
@@ -185,6 +193,17 @@ class SearchFragment : Fragment() {
         val curSort = sort
         val curSource = source
         val curType = typeFilter
+        val curWatchState = watchState
+        val historyPaths = historyStore.list()
+        val historySet = historyPaths.toHashSet()
+        val historyRanks = historyPaths.withIndex().associate { it.value to it.index }
+        val progressCache = HashMap<String, PlaybackProgressStore.Entry?>()
+        fun progressEntry(item: MediaItem): PlaybackProgressStore.Entry? {
+            if (!progressCache.containsKey(item.path)) {
+                progressCache[item.path] = progressStore.getEntry(item.path)
+            }
+            return progressCache[item.path]
+        }
 
         searchJob = viewLifecycleOwner.lifecycleScope.launch {
             withContext(Dispatchers.Default) {
@@ -195,10 +214,22 @@ class SearchFragment : Fragment() {
                     isCancelled = { currentQuery != query || !isAdded },
                 ) { hits, finished ->
                     val filtered = hits.filter {
+                        val progressEntry = progressEntry(it)
                         SearchOptions.matchesSource(it, curSource) &&
-                            SearchOptions.matchesType(it, curType)
+                            SearchOptions.matchesType(it, curType) &&
+                            SearchOptions.matchesWatchState(
+                                it,
+                                curWatchState,
+                                hasProgress = progressEntry != null,
+                                inHistory = it.path in historySet,
+                            )
                     }.toMutableList()
-                    SearchOptions.sortInPlace(filtered, curSort)
+                    SearchOptions.sortInPlace(
+                        filtered,
+                        curSort,
+                        progressUpdatedAt = { progressEntry(it)?.updatedAt },
+                        historyIndex = { historyRanks[it.path] },
+                    )
                     val snapshot: List<MediaItem> = filtered
                     viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
                         if (currentQuery != query || !isAdded) return@launch
@@ -226,18 +257,16 @@ class SearchFragment : Fragment() {
 
     private fun showSortMenu(view: View) {
         val labels = arrayOf(
-            getString(R.string.search_sort_relevance),
+            getString(R.string.search_sort_recent_played),
+            getString(R.string.search_sort_modified),
             getString(R.string.search_sort_title_az),
             getString(R.string.search_sort_year_desc),
-            getString(R.string.search_sort_year_asc),
-            getString(R.string.search_sort_modified),
         )
         val values = arrayOf(
-            SearchOptions.Sort.Relevance,
+            SearchOptions.Sort.RecentPlayed,
+            SearchOptions.Sort.Modified,
             SearchOptions.Sort.TitleAZ,
             SearchOptions.Sort.YearDesc,
-            SearchOptions.Sort.YearAsc,
-            SearchOptions.Sort.Modified,
         )
         val checked = values.indexOf(sort).coerceAtLeast(0)
         MvDialog.show(
@@ -245,6 +274,32 @@ class SearchFragment : Fragment() {
             .setTitle(R.string.search_sort_title)
             .setSingleChoiceItems(labels, checked) { d, which ->
                 sort = values[which]
+                d.dismiss()
+                refreshFilterLabels(view)
+                runSearchKeepQuery(view)
+            },
+        )
+    }
+
+    private fun showWatchMenu(view: View) {
+        val labels = arrayOf(
+            getString(R.string.search_watch_all),
+            getString(R.string.search_watch_unwatched),
+            getString(R.string.search_watch_watching),
+            getString(R.string.search_watch_watched),
+        )
+        val values = arrayOf(
+            SearchOptions.WatchState.All,
+            SearchOptions.WatchState.Unwatched,
+            SearchOptions.WatchState.Watching,
+            SearchOptions.WatchState.Watched,
+        )
+        val checked = values.indexOf(watchState).coerceAtLeast(0)
+        MvDialog.show(
+            MvDialog.builder(requireContext())
+            .setTitle(R.string.search_watch_title)
+            .setSingleChoiceItems(labels, checked) { d, which ->
+                watchState = values[which]
                 d.dismiss()
                 refreshFilterLabels(view)
                 runSearchKeepQuery(view)
@@ -308,11 +363,10 @@ class SearchFragment : Fragment() {
 
     private fun refreshFilterLabels(view: View) {
         val sortLabel = when (sort) {
-            SearchOptions.Sort.Relevance -> getString(R.string.search_sort_relevance)
+            SearchOptions.Sort.RecentPlayed -> getString(R.string.search_sort_recent_played)
+            SearchOptions.Sort.Modified -> getString(R.string.search_sort_modified)
             SearchOptions.Sort.TitleAZ -> getString(R.string.search_sort_title_az)
             SearchOptions.Sort.YearDesc -> getString(R.string.search_sort_year_desc)
-            SearchOptions.Sort.YearAsc -> getString(R.string.search_sort_year_asc)
-            SearchOptions.Sort.Modified -> getString(R.string.search_sort_modified)
         }
         val sourceLabel = when (source) {
             SearchOptions.Source.All -> getString(R.string.search_source_all)
@@ -324,7 +378,14 @@ class SearchFragment : Fragment() {
             SearchOptions.Type.Tv -> getString(R.string.search_type_tv)
             SearchOptions.Type.Movie -> getString(R.string.search_type_movie)
         }
+        val watchLabel = when (watchState) {
+            SearchOptions.WatchState.All -> getString(R.string.search_watch_all)
+            SearchOptions.WatchState.Unwatched -> getString(R.string.search_watch_unwatched)
+            SearchOptions.WatchState.Watching -> getString(R.string.search_watch_watching)
+            SearchOptions.WatchState.Watched -> getString(R.string.search_watch_watched)
+        }
         view.findViewById<MaterialButton>(R.id.searchSortBtn).text = "排序 · $sortLabel"
+        view.findViewById<MaterialButton>(R.id.searchWatchBtn).text = "状态 · $watchLabel"
         view.findViewById<MaterialButton>(R.id.searchSourceBtn).text = "来源 · $sourceLabel"
         view.findViewById<MaterialButton>(R.id.searchTypeBtn).text = "类型 · $typeLabel"
     }
