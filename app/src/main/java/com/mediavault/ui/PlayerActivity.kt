@@ -280,7 +280,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun updateNavButtons() {
         findViewById<ImageButton>(R.id.btnPrev).isEnabled = playlistIndex > 0
         findViewById<ImageButton>(R.id.btnNext).isEnabled = playlistIndex < playlist.size - 1
-        findViewById<ImageButton>(R.id.btnPlaylist).isEnabled = playlist.size > 1
+        findViewById<ImageButton>(R.id.btnPlaylist).isEnabled = playlist.isNotEmpty()
     }
 
     private fun updateSessionInfo() {
@@ -406,9 +406,11 @@ class PlayerActivity : AppCompatActivity() {
             .build()
     }
 
-    private fun autoplayTargetLabel(): String {
+    private fun autoplayTargetLabel(
+        mode: PlaybackPrefs.AutoplayMode = PlaybackPrefs.getAutoplayMode(this),
+    ): String {
         if (playlist.size <= 1) return getString(R.string.player_autoplay_target_single)
-        return when (PlaybackPrefs.getAutoplayMode(this)) {
+        return when (mode) {
             PlaybackPrefs.AutoplayMode.OFF -> getString(R.string.player_autoplay_target_stop)
             PlaybackPrefs.AutoplayMode.REPEAT_ONE -> getString(R.string.player_autoplay_target_repeat_current)
             PlaybackPrefs.AutoplayMode.SEQUENTIAL -> {
@@ -475,14 +477,18 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun showPlaylist() {
         if (playlist.isEmpty()) return
-        val autoplayLabel = getString(
-            R.string.player_autoplay_current_fmt,
-            PlaybackPrefs.label(this),
+        val autoplayMode = PlaybackPrefs.getAutoplayMode(this)
+        val header = getString(
+            R.string.player_playlist_autoplay_row_fmt,
+            PlaybackPrefs.label(this, autoplayMode),
+            autoplayTargetLabel(autoplayMode),
         )
-        val header = "⚙ ${getString(R.string.player_autoplay_title)} · $autoplayLabel"
         val labels = (listOf(header) + playlist.mapIndexed { i, ep ->
-            val mark = if (i == playlistIndex) "▶ " else ""
-            "$mark${ep.title}"
+            if (i == playlistIndex) {
+                getString(R.string.player_playlist_current_episode_fmt, i + 1, playlist.size, ep.title)
+            } else {
+                getString(R.string.player_playlist_episode_fmt, i + 1, playlist.size, ep.title)
+            }
         }).toTypedArray()
         MvDialog.show(
             MvDialog.builder(this)
@@ -504,7 +510,11 @@ class PlayerActivity : AppCompatActivity() {
         val current = PlaybackPrefs.getAutoplayMode(this)
         val labels = modes.map { m ->
             val mark = if (m == current) "● " else "○ "
-            "$mark${PlaybackPrefs.label(this, m)}"
+            getString(
+                R.string.player_autoplay_option_fmt,
+                "$mark${PlaybackPrefs.label(this, m)}",
+                autoplayTargetLabel(m),
+            )
         }.toTypedArray()
         MvDialog.show(
             MvDialog.builder(this)

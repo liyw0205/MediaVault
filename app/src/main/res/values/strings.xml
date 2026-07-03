@@ -42,6 +42,10 @@
     <string name="player_playlist">选集</string>
     <string name="player_autoplay_title">连播策略</string>
     <string name="player_autoplay_current_fmt">当前：%1$s</string>
+    <string name="player_playlist_autoplay_row_fmt">连播：%1$s · %2$s</string>
+    <string name="player_playlist_episode_fmt">第 %1$d/%2$d 项 · %3$s</string>
+    <string name="player_playlist_current_episode_fmt">正在播放 · 第 %1$d/%2$d 项 · %3$s</string>
+    <string name="player_autoplay_option_fmt">%1$s · %2$s</string>
     <string name="player_autoplay_sequential">顺序连播（默认）</string>
     <string name="player_autoplay_repeat_one">单集循环</string>
     <string name="player_autoplay_loop_collection">整集循环</string>
