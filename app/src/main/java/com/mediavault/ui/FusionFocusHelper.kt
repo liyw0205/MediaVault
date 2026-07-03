@@ -4,6 +4,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.Chip
 import com.google.android.material.tabs.TabLayout
 
 /** 融合态：顶栏与侧栏控件可 D-pad 聚焦。 */
@@ -17,7 +18,7 @@ object FusionFocusHelper {
 
     private fun walkFocusable(v: View) {
         when (v) {
-            is MaterialButton, is ImageButton -> {
+            is MaterialButton, is ImageButton, is Chip -> {
                 v.isFocusable = true
                 v.isFocusableInTouchMode = true
             }

@@ -53,6 +53,7 @@ class VideoDetailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_detail)
+        FusionFocusHelper.applyFusionToolbarFocus(window.decorView)
 
         val path = intent.getStringExtra(EXTRA_PATH) ?: run { finish(); return }
         if (savedInstanceState != null) {

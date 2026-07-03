@@ -98,10 +98,21 @@ class VideoCardAdapter(
             if (tvFocus && card != null) {
                 card.isFocusable = true
                 card.isFocusableInTouchMode = true
-                card.setOnFocusChangeListener { _, has ->
-                    val px = (if (has) 3 else 1) * itemView.resources.displayMetrics.density
-                    card.strokeWidth = px.toInt().coerceAtLeast(1)
+                card.setOnClickListener { boundItem?.let { onCoverClick(it) } }
+                val focusSync = View.OnFocusChangeListener { _, _ ->
+                    itemView.post {
+                        setCardFocused(
+                            card.hasFocus() ||
+                                coverArea.hasFocus() ||
+                                infoArea.hasFocus() ||
+                                queueBtn.hasFocus(),
+                        )
+                    }
                 }
+                card.setOnFocusChangeListener(focusSync)
+                coverArea.setOnFocusChangeListener(focusSync)
+                infoArea.setOnFocusChangeListener(focusSync)
+                queueBtn.setOnFocusChangeListener(focusSync)
                 card.setOnKeyListener { _, key, event ->
                     if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                     if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
@@ -110,6 +121,13 @@ class VideoCardAdapter(
                     } else false
                 }
             }
+        }
+
+        private fun setCardFocused(hasFocus: Boolean) {
+            val c = card ?: return
+            val px = (if (hasFocus) 3 else 1) * itemView.resources.displayMetrics.density
+            c.strokeWidth = px.toInt().coerceAtLeast(1)
+            c.setStrokeColor(itemView.context.getColor(if (hasFocus) R.color.mv_primary else R.color.mv_line))
         }
 
         fun bind(item: MediaItem) {

@@ -1,5 +1,6 @@
 package com.mediavault.ui
 
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,6 +11,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.mediavault.R
 import com.mediavault.data.MediaItem
 
@@ -55,6 +57,7 @@ class MediaRowAdapter(
         private val queueContains: ((MediaItem) -> Boolean)?,
         private val onQueueClick: ((MediaItem) -> Unit)?,
     ) : RecyclerView.ViewHolder(itemView) {
+        private val card = itemView as? MaterialCardView
         private val title: TextView = itemView.findViewById(R.id.rowTitle)
         private val meta: TextView = itemView.findViewById(R.id.rowMeta)
         private val cover: ImageView = itemView.findViewById(R.id.rowCover)
@@ -62,8 +65,48 @@ class MediaRowAdapter(
         private val coverArea: View = itemView.findViewById(R.id.rowCoverArea)
         private val infoArea: View = itemView.findViewById(R.id.rowInfoArea)
         private val queueBtn: MaterialButton = itemView.findViewById(R.id.rowQueueActionBtn)
+        private var boundItem: MediaItem? = null
+
+        init {
+            if (HomeUiPrefs.useTvFusionUi(itemView.context) && card != null) {
+                card.isFocusable = true
+                card.isFocusableInTouchMode = true
+                card.setOnClickListener { boundItem?.let { onInfoClick(it) } }
+                val focusSync = View.OnFocusChangeListener { _, _ ->
+                    itemView.post {
+                        setCardFocused(
+                            card.hasFocus() ||
+                                coverArea.hasFocus() ||
+                                infoArea.hasFocus() ||
+                                queueBtn.hasFocus(),
+                        )
+                    }
+                }
+                card.setOnFocusChangeListener(focusSync)
+                coverArea.setOnFocusChangeListener(focusSync)
+                infoArea.setOnFocusChangeListener(focusSync)
+                queueBtn.setOnFocusChangeListener(focusSync)
+                card.setOnKeyListener { _, keyCode, event ->
+                    if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+                        boundItem?.let { onInfoClick(it) }
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
+
+        private fun setCardFocused(hasFocus: Boolean) {
+            val c = card ?: return
+            val px = (if (hasFocus) 3 else 1) * itemView.resources.displayMetrics.density
+            c.strokeWidth = px.toInt().coerceAtLeast(1)
+            c.setStrokeColor(itemView.context.getColor(if (hasFocus) R.color.mv_primary else R.color.mv_line))
+        }
 
         fun bind(item: MediaItem) {
+            boundItem = item
             title.text = item.displayTitle()
             val sub = LibraryUi.rowSubtitle(item)
             meta.text = sub
@@ -93,6 +136,7 @@ class MediaRowAdapter(
 
         fun recycle() {
             CoverThumbnailLoader.cancel(cover)
+            boundItem = null
         }
     }
 

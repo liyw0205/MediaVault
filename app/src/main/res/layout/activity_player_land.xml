@@ -47,6 +47,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/subtitle_pick"
             android:focusable="true"
+            android:nextFocusLeft="@id/btnBack"
             android:nextFocusRight="@id/btnScreenshot"
             android:src="@android:drawable/ic_menu_edit"
             app:tint="@color/mv_text" />
@@ -58,6 +59,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/player_screenshot"
             android:focusable="true"
+            android:nextFocusLeft="@id/btnSubtitle"
             android:nextFocusRight="@id/btnBack"
             android:src="@android:drawable/ic_menu_camera"
             app:tint="@color/mv_text" />
@@ -69,6 +71,8 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/back"
             android:focusable="true"
+            android:nextFocusLeft="@id/btnScreenshot"
+            android:nextFocusRight="@id/btnSubtitle"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             app:tint="@color/mv_text" />
     </LinearLayout>
@@ -154,6 +158,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_prev"
                 android:focusable="true"
+                android:nextFocusLeft="@id/btnPlaylist"
                 android:nextFocusRight="@id/btnRewind"
                 android:src="@android:drawable/ic_media_previous"
                 app:tint="@color/mv_text" />
@@ -165,6 +170,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_rewind"
                 android:focusable="true"
+                android:nextFocusLeft="@id/btnPrev"
                 android:nextFocusRight="@id/btnPlayPause"
                 android:src="@android:drawable/ic_media_rew"
                 app:tint="@color/mv_text" />
@@ -176,6 +182,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_pause"
                 android:focusable="true"
+                android:nextFocusLeft="@id/btnRewind"
                 android:nextFocusRight="@id/btnForward"
                 android:src="@android:drawable/ic_media_play"
                 app:tint="@color/mv_primary" />
@@ -187,6 +194,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_forward"
                 android:focusable="true"
+                android:nextFocusLeft="@id/btnPlayPause"
                 android:nextFocusRight="@id/btnNext"
                 android:src="@android:drawable/ic_media_ff"
                 app:tint="@color/mv_text" />
@@ -198,6 +206,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_next"
                 android:focusable="true"
+                android:nextFocusLeft="@id/btnForward"
                 android:nextFocusRight="@id/btnPlaylist"
                 android:src="@android:drawable/ic_media_next"
                 app:tint="@color/mv_text" />
@@ -209,6 +218,8 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_playlist"
                 android:focusable="true"
+                android:nextFocusLeft="@id/btnNext"
+                android:nextFocusRight="@id/btnPrev"
                 android:src="@android:drawable/ic_menu_sort_by_size"
                 app:tint="@color/mv_text" />
         </LinearLayout>

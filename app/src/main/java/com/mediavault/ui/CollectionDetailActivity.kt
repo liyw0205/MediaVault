@@ -2,6 +2,7 @@ package com.mediavault.ui
 
 import android.os.Bundle
 import android.text.InputType
+import android.view.ViewGroup
 import android.widget.Toast
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +27,7 @@ class CollectionDetailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_collection_detail)
+        FusionFocusHelper.applyFusionToolbarFocus(window.decorView)
 
         val key = intent.getStringExtra(EXTRA_KEY) ?: run { finish(); return }
         val repo = (application as MediaVaultApp).repository
@@ -46,6 +48,8 @@ class CollectionDetailActivity : AppCompatActivity() {
 
         val list = findViewById<RecyclerView>(R.id.collectionGrid)
         list.layoutManager = LinearLayoutManager(this)
+        list.descendantFocusability =
+            if (HomeUiPrefs.useTvFusionUi(this)) ViewGroup.FOCUS_AFTER_DESCENDANTS else ViewGroup.FOCUS_BEFORE_DESCENDANTS
         list.setHasFixedSize(true)
         list.setItemViewCacheSize(12)
         adapter = MediaRowAdapter(

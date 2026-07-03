@@ -123,6 +123,7 @@ class PlayerChromeController(
         seekImmersive.visibility = View.GONE
         hideSystemBars(false)
         syncProgressFromPlayer()
+        focusDefaultControlIfNeeded()
         scheduleAutoHide()
     }
 
@@ -237,6 +238,24 @@ class PlayerChromeController(
     private fun mirrorSeekProgress(progress: Int) {
         if (seekExpanded.progress != progress) seekExpanded.progress = progress
         if (seekImmersive.progress != progress) seekImmersive.progress = progress
+    }
+
+    private fun focusDefaultControlIfNeeded() {
+        if (!HomeUiPrefs.useTvFusionUi(activity)) return
+        bottomChrome.post {
+            val focused = activity.currentFocus
+            if (isInside(topChrome, focused) || isInside(bottomChrome, focused)) return@post
+            bottomChrome.findViewById<View>(R.id.btnPlayPause)?.requestFocus()
+        }
+    }
+
+    private fun isInside(parent: View, child: View?): Boolean {
+        var cursor = child
+        while (cursor != null) {
+            if (cursor == parent) return true
+            cursor = cursor.parent as? View
+        }
+        return false
     }
 
     fun release() {
