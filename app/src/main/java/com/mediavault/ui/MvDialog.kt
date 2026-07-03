@@ -54,6 +54,8 @@ object MvDialog {
         val ctx = list.context
         list.divider = ColorDrawable(ctx.getColor(R.color.mv_line))
         list.dividerHeight = ctx.resources.getDimensionPixelSize(R.dimen.mv_dialog_list_divider)
+        list.isFocusable = true
+        list.isFocusableInTouchMode = true
         for (i in 0 until list.childCount) {
             (list.getChildAt(i) as? TextView)?.setTextColor(text)
         }
@@ -63,6 +65,12 @@ object MvDialog {
             }
             override fun onChildViewRemoved(parent: View?, child: View?) {}
         })
+        list.post {
+            if (list.count > 0 && !list.hasFocus()) {
+                list.setSelection(0)
+                list.requestFocus()
+            }
+        }
     }
 
     fun showStyled(builder: AlertDialog.Builder, inputRoot: View? = null): AlertDialog {

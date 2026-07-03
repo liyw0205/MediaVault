@@ -66,6 +66,7 @@
             android:focusable="true"
             android:nextFocusLeft="@id/btnBack"
             android:nextFocusRight="@id/btnSubtitle"
+            android:nextFocusDown="@id/playerSeekBar"
             android:src="@android:drawable/ic_lock_silent_mode_off"
             app:tint="@color/mv_text" />
 
@@ -78,6 +79,7 @@
             android:focusable="true"
             android:nextFocusLeft="@id/btnAudio"
             android:nextFocusRight="@id/btnScreenshot"
+            android:nextFocusDown="@id/playerSeekBar"
             android:src="@android:drawable/ic_menu_edit"
             app:tint="@color/mv_text" />
 
@@ -90,6 +92,7 @@
             android:focusable="true"
             android:nextFocusLeft="@id/btnSubtitle"
             android:nextFocusRight="@id/btnBack"
+            android:nextFocusDown="@id/playerSeekBar"
             android:src="@android:drawable/ic_menu_camera"
             app:tint="@color/mv_text" />
 
@@ -102,6 +105,7 @@
             android:focusable="true"
             android:nextFocusLeft="@id/btnScreenshot"
             android:nextFocusRight="@id/btnAudio"
+            android:nextFocusDown="@id/playerSeekBar"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             app:tint="@color/mv_text" />
     </LinearLayout>
@@ -156,6 +160,8 @@
                 android:focusable="true"
                 android:max="1000"
                 android:minHeight="32dp"
+                android:nextFocusUp="@id/btnAudio"
+                android:nextFocusDown="@id/btnPlayPause"
                 android:progressTint="@color/mv_primary"
                 android:thumbTint="@color/mv_primary" />
 
@@ -189,6 +195,7 @@
                 android:focusable="true"
                 android:nextFocusLeft="@id/btnPlaylist"
                 android:nextFocusRight="@id/btnRewind"
+                android:nextFocusUp="@id/playerSeekBar"
                 android:src="@android:drawable/ic_media_previous"
                 app:tint="@color/mv_text" />
 
@@ -201,6 +208,7 @@
                 android:focusable="true"
                 android:nextFocusLeft="@id/btnPrev"
                 android:nextFocusRight="@id/btnPlayPause"
+                android:nextFocusUp="@id/playerSeekBar"
                 android:src="@android:drawable/ic_media_rew"
                 app:tint="@color/mv_text" />
 
@@ -213,6 +221,7 @@
                 android:focusable="true"
                 android:nextFocusLeft="@id/btnRewind"
                 android:nextFocusRight="@id/btnForward"
+                android:nextFocusUp="@id/playerSeekBar"
                 android:src="@android:drawable/ic_media_play"
                 app:tint="@color/mv_primary" />
 
@@ -225,6 +234,7 @@
                 android:focusable="true"
                 android:nextFocusLeft="@id/btnPlayPause"
                 android:nextFocusRight="@id/btnNext"
+                android:nextFocusUp="@id/playerSeekBar"
                 android:src="@android:drawable/ic_media_ff"
                 app:tint="@color/mv_text" />
 
@@ -237,6 +247,7 @@
                 android:focusable="true"
                 android:nextFocusLeft="@id/btnForward"
                 android:nextFocusRight="@id/btnPlaylist"
+                android:nextFocusUp="@id/playerSeekBar"
                 android:src="@android:drawable/ic_media_next"
                 app:tint="@color/mv_text" />
 
@@ -249,6 +260,7 @@
                 android:focusable="true"
                 android:nextFocusLeft="@id/btnNext"
                 android:nextFocusRight="@id/btnPrev"
+                android:nextFocusUp="@id/playerSeekBar"
                 android:src="@android:drawable/ic_menu_sort_by_size"
                 app:tint="@color/mv_text" />
         </LinearLayout>
