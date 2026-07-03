@@ -241,6 +241,10 @@ class HomeFragment : Fragment() {
     private fun bindWorkflowSections(view: View, items: List<MediaItem>) {
         val continueItems = continueWatchingItems(items)
         val recentItems = recentlyAddedItems(items)
+        view.findViewById<TextView>(R.id.continueTitle).text =
+            sectionCountTitle(R.string.home_continue_watching, continueItems.size)
+        view.findViewById<TextView>(R.id.recentTitle).text =
+            sectionCountTitle(R.string.home_recently_added, recentItems.size)
         bindShelf(
             continueAdapter,
             view.findViewById(R.id.continueRecycler),
@@ -267,6 +271,9 @@ class HomeFragment : Fragment() {
         recycler.isVisible = items.isNotEmpty()
         empty.isVisible = items.isEmpty()
     }
+
+    private fun sectionCountTitle(labelRes: Int, count: Int): String =
+        getString(R.string.home_section_count_title_fmt, getString(labelRes), count)
 
     private fun continueWatchingItems(items: List<MediaItem>): List<MediaItem> =
         items.mapNotNull { item ->
