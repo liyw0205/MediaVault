@@ -58,6 +58,14 @@ class PlayerActivity : AppCompatActivity() {
         data class External(val index: Int) : SubSelection()
         data class Embedded(val groupIndex: Int, val trackIndex: Int) : SubSelection()
     }
+    private enum class SubtitleSource { EMBEDDED, EXTERNAL }
+    private data class SubtitleCandidate(
+        val source: SubtitleSource,
+        val group: Tracks.Group,
+        val trackIndex: Int,
+        val label: String,
+        val tier: SubtitleTrackRanker.Tier,
+    )
     private var subSelection: SubSelection = SubSelection.Auto
     private var autoResolved = false
 
@@ -302,14 +310,31 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun subtitleStateLabel(): String {
-        val state = when (subSelection) {
-            is SubSelection.Auto -> getString(R.string.player_session_subtitle_auto)
+        val selected = selectedSubtitleLabel(player?.currentTracks)
+        val state = when (val current = subSelection) {
+            is SubSelection.Auto -> selected?.let {
+                getString(R.string.player_session_subtitle_auto_selected_fmt, it)
+            } ?: getString(R.string.player_session_subtitle_auto)
             is SubSelection.Off -> getString(R.string.player_session_subtitle_off)
-            is SubSelection.ManualTier,
+            is SubSelection.ManualTier -> selected?.let {
+                getString(R.string.player_session_subtitle_manual_selected_fmt, it)
+            } ?: getString(
+                R.string.player_session_subtitle_manual_tier_fmt,
+                subtitleTierLabel(current.tier),
+            )
             is SubSelection.Embedded,
-            is SubSelection.External -> getString(R.string.player_session_subtitle_manual)
+            is SubSelection.External -> selected?.let {
+                getString(R.string.player_session_subtitle_manual_selected_fmt, it)
+            } ?: getString(R.string.player_session_subtitle_manual)
         }
         return getString(R.string.player_session_subtitle_fmt, state)
+    }
+
+    private fun selectedSubtitleLabel(tracks: Tracks?): String? {
+        if (tracks == null) return null
+        return subtitleCandidates(tracks)
+            .firstOrNull { it.group.isTrackSelected(it.trackIndex) }
+            ?.let { subtitleCandidateLabel(it) }
     }
 
     private fun audioStateLabel(): String {
@@ -620,7 +645,7 @@ class PlayerActivity : AppCompatActivity() {
         val actions = mutableListOf<() -> Unit>()
 
         val autoMark = if (subSelection is SubSelection.Auto) "● " else "○ "
-        options.add("$autoMark${getString(R.string.subtitle_auto)}")
+        options.add("$autoMark${getString(R.string.subtitle_auto_with_lang_fmt, subtitlePrimaryLabel())}")
         actions.add {
             SubtitlePrefs.setPersistedAuto(this)
             subSelection = SubSelection.Auto
@@ -642,49 +667,31 @@ class PlayerActivity : AppCompatActivity() {
             updateSessionInfo()
         }
 
-        val (embeddedGroups, externalGroups) = classifyTextGroups(p.currentTracks)
-        embeddedGroups.forEach { (gi, group) ->
-            for (i in 0 until group.length) {
-                if (!group.isTrackSupported(i)) continue
-                val label = group.getTrackFormat(i).language ?: "内嵌 #$i"
-                val current = subSelection
-                val mark = if (current is SubSelection.Embedded && current.groupIndex == gi && current.trackIndex == i) "● " else "○ "
-                options.add("$mark${getString(R.string.subtitle_embedded_fmt, label)}")
-                val tg: TrackGroup = group.mediaTrackGroup
+        val candidates = subtitleCandidates(p.currentTracks)
+        if (candidates.isEmpty()) {
+            options.add(getString(R.string.subtitle_track_empty))
+            actions.add { updateSessionInfo() }
+        } else {
+            candidates.forEach { candidate ->
+                val mark = if (candidate.group.isTrackSelected(candidate.trackIndex)) "● " else "○ "
+                val label = getString(
+                    R.string.subtitle_track_with_tier_fmt,
+                    subtitleCandidateLabel(candidate),
+                    subtitleTierLabel(candidate.tier),
+                )
+                options.add("$mark$label")
                 actions.add {
-                    val fmt = group.getTrackFormat(i)
-                    val tier = SubtitleTrackRanker.tierFromTokenString(
-                        "${fmt.language.orEmpty()} ${fmt.label.orEmpty()} ${fmt.id.orEmpty()}",
-                    )
-                    SubtitlePrefs.setPersistedManualTier(this, tier)
-                    subSelection = SubSelection.ManualTier(tier)
+                    SubtitlePrefs.setPersistedManualTier(this, candidate.tier)
+                    subSelection = SubSelection.ManualTier(candidate.tier)
                     autoResolved = true
                     p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                         .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                        .setOverrideForType(TrackSelectionOverride(tg, i))
+                        .setOverrideForType(
+                            TrackSelectionOverride(candidate.group.mediaTrackGroup, candidate.trackIndex),
+                        )
                         .build()
                     updateSessionInfo()
                 }
-            }
-        }
-        externalGroups.forEachIndexed { extIdx, pair ->
-            val (_, group) = pair
-            if (extIdx !in externalSubtitles.indices) return@forEachIndexed
-            val current = subSelection
-            val mark = if (current is SubSelection.External && current.index == extIdx) "● " else "○ "
-            options.add("$mark${getString(R.string.subtitle_external_fmt, File(externalSubtitles[extIdx]).name)}")
-            val tg: TrackGroup = group.mediaTrackGroup
-            actions.add {
-                val path = externalSubtitles[extIdx]
-                val tier = SubtitleTrackRanker.tierFromTokenString(path)
-                SubtitlePrefs.setPersistedManualTier(this, tier)
-                subSelection = SubSelection.ManualTier(tier)
-                autoResolved = true
-                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                    .setOverrideForType(TrackSelectionOverride(tg, 0))
-                    .build()
-                updateSessionInfo()
             }
         }
 
@@ -709,6 +716,75 @@ class PlayerActivity : AppCompatActivity() {
         val external = textGroups.takeLast(externalCount)
         return embedded to external
     }
+
+    private fun subtitleCandidates(tracks: Tracks): List<SubtitleCandidate> {
+        val (embeddedGroups, externalGroups) = classifyTextGroups(tracks)
+        val out = mutableListOf<SubtitleCandidate>()
+        embeddedGroups.forEach { (_, group) ->
+            for (i in 0 until group.length) {
+                if (!group.isTrackSupported(i)) continue
+                val format = group.getTrackFormat(i)
+                out.add(
+                    SubtitleCandidate(
+                        source = SubtitleSource.EMBEDDED,
+                        group = group,
+                        trackIndex = i,
+                        label = subtitleTrackLabel(format, i),
+                        tier = subtitleTier(format),
+                    ),
+                )
+            }
+        }
+        externalGroups.forEachIndexed { extIdx, pair ->
+            val (_, group) = pair
+            if (extIdx !in externalSubtitles.indices) return@forEachIndexed
+            if (group.length <= 0 || !group.isTrackSupported(0)) return@forEachIndexed
+            val path = externalSubtitles[extIdx]
+            out.add(
+                SubtitleCandidate(
+                    source = SubtitleSource.EXTERNAL,
+                    group = group,
+                    trackIndex = 0,
+                    label = File(path).name,
+                    tier = SubtitleTrackRanker.tierFromTokenString(path),
+                ),
+            )
+        }
+        return out
+    }
+
+    private fun subtitleCandidateLabel(candidate: SubtitleCandidate): String =
+        when (candidate.source) {
+            SubtitleSource.EMBEDDED -> getString(R.string.subtitle_embedded_fmt, candidate.label)
+            SubtitleSource.EXTERNAL -> getString(R.string.subtitle_external_fmt, candidate.label)
+        }
+
+    private fun subtitleTrackLabel(format: Format, index: Int): String =
+        format.label?.trim()?.takeIf { it.isNotBlank() }
+            ?: format.language?.trim()?.takeIf { it.isNotBlank() }
+            ?: getString(R.string.subtitle_track_number_fmt, index + 1)
+
+    private fun subtitleTier(format: Format): SubtitleTrackRanker.Tier =
+        SubtitleTrackRanker.tierFromTokenString(
+            "${format.language.orEmpty()} ${format.label.orEmpty()} ${format.id.orEmpty()}",
+        )
+
+    private fun subtitleTierLabel(tier: SubtitleTrackRanker.Tier): String =
+        when (tier) {
+            SubtitleTrackRanker.Tier.HANS -> getString(R.string.subtitle_tier_hans)
+            SubtitleTrackRanker.Tier.HANT -> getString(R.string.subtitle_tier_hant)
+            SubtitleTrackRanker.Tier.ZH -> getString(R.string.subtitle_tier_zh)
+            SubtitleTrackRanker.Tier.EN -> getString(R.string.subtitle_tier_en)
+            SubtitleTrackRanker.Tier.OTHER -> getString(R.string.subtitle_tier_other)
+        }
+
+    private fun subtitlePrimaryLabel(): String =
+        when (SubtitlePrefs.getPrimary(this)) {
+            SubtitlePrefs.PrimaryLang.HANS_FIRST -> getString(R.string.settings_subtitle_lang_hans)
+            SubtitlePrefs.PrimaryLang.HANT_FIRST -> getString(R.string.settings_subtitle_lang_hant)
+            SubtitlePrefs.PrimaryLang.EN_FIRST -> getString(R.string.settings_subtitle_lang_en)
+            SubtitlePrefs.PrimaryLang.NEUTRAL -> getString(R.string.settings_subtitle_lang_neutral)
+        }
 
     private fun subSelectionFromPrefs(): SubSelection = when (SubtitlePrefs.getPersistedMode(this)) {
         SubtitlePrefs.PersistedMode.OFF -> SubSelection.Off
