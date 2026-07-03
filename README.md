@@ -7,7 +7,7 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 | 包名 | `com.mediavault` |
 | 最低系统 | Android 8.0（API 26） |
 | 编译目标 | Android SDK 34 |
-| 当前版本 | **0.6.2**（versionCode 99） |
+| 当前版本 | **0.6.2.1**（versionCode 100） |
 
 ## 0.5.x 状态与 0.6.x 方向
 
@@ -93,7 +93,7 @@ Termux 下必须使用仓库脚本，它会临时设置可执行的 aarch64 `aap
 
 ```bash
 bash pack_mediavault.sh
-# 生成 ../MediaVault_0.6.2_debug.apk
+# 生成 ../MediaVault_0.6.2.1_debug.apk
 ```
 
 不要把 `android.aapt2FromMavenOverride` 长期写入 `gradle.properties`。

@@ -203,13 +203,19 @@
         </LinearLayout>
     </ScrollView>
 
-    <LinearLayout
+    <ScrollView
         android:id="@+id/fusionMediaPanel"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:minHeight="120dp"
-        android:orientation="vertical">
+        android:fillViewport="true"
+        android:overScrollMode="ifContentScrolls">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="12dp">
 
         <LinearLayout
             android:id="@+id/homeWorkflowSections"
@@ -244,6 +250,7 @@
                     android:layout_height="@dimen/home_shelf_height"
                     android:clipToPadding="false"
                     android:descendantFocusability="afterDescendants"
+                    android:nestedScrollingEnabled="false"
                     android:paddingTop="2dp" />
 
                 <TextView
@@ -282,6 +289,7 @@
                     android:layout_height="@dimen/home_shelf_height"
                     android:clipToPadding="false"
                     android:descendantFocusability="afterDescendants"
+                    android:nestedScrollingEnabled="false"
                     android:paddingTop="2dp" />
 
                 <TextView
@@ -313,15 +321,15 @@
         <FrameLayout
             android:id="@+id/homeGridPanel"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_height="wrap_content">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/gridRecycler"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:clipToPadding="false"
             android:descendantFocusability="afterDescendants"
+            android:nestedScrollingEnabled="false"
             android:padding="@dimen/mv_fusion_content_pad" />
 
         <TextView
@@ -335,5 +343,6 @@
             android:textColor="@color/mv_muted"
             android:visibility="gone" />
         </FrameLayout>
-    </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>
