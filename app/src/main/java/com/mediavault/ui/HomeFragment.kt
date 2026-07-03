@@ -261,6 +261,7 @@ class HomeFragment : Fragment() {
                     LibraryUi.recommendationReasonLabel(reason),
                 )
             }
+            homeFilter == "watching" -> getString(R.string.home_watching)
             homeFilter == "unwatched" -> getString(R.string.home_unwatched)
             homeFilter == "queue" -> getString(R.string.watch_queue)
             homeFilter == "history" -> getString(R.string.history)
@@ -280,6 +281,7 @@ class HomeFragment : Fragment() {
                 )
             }
             homeFilter == "queue" -> getString(R.string.watch_queue_empty)
+            homeFilter == "watching" -> getString(R.string.home_watching_empty)
             homeFilter == "unwatched" -> getString(R.string.home_unwatched_empty)
             homeFilter == "history" -> getString(R.string.home_history_empty)
             homeFilter.startsWith("root:") -> getString(
@@ -327,12 +329,14 @@ class HomeFragment : Fragment() {
         getString(R.string.home_section_count_title_fmt, getString(labelRes), count)
 
     private fun continueWatchingItems(items: List<MediaItem>): List<MediaItem> =
+        watchingItems(items).take(WORKFLOW_SHELF_COUNT)
+
+    private fun watchingItems(items: List<MediaItem>): List<MediaItem> =
         items.mapNotNull { item ->
             progressStore.getEntry(item.path)?.let { entry -> item to entry.updatedAt }
         }
             .sortedByDescending { it.second }
             .map { it.first }
-            .take(WORKFLOW_SHELF_COUNT)
 
     private fun recentlyAddedItems(items: List<MediaItem>): List<MediaItem> =
         items.sortedWith(compareByDescending<MediaItem> { it.modified }.thenBy { it.displayTitle().lowercase() })
@@ -397,7 +401,7 @@ class HomeFragment : Fragment() {
         val key = listOf(
             roots.joinToString("|"),
             reasonKey,
-            "${counts.unwatched}:${counts.queue}:${counts.history}:${counts.all}",
+            "${counts.watching}:${counts.unwatched}:${counts.queue}:${counts.history}:${counts.all}",
             homeFilter,
         ).joinToString("#")
         if (key == lastChipRootsKey && view.findViewById<ChipGroup>(R.id.homeFilterChips).childCount > 0) {
@@ -435,6 +439,7 @@ class HomeFragment : Fragment() {
         HomeRecommendState.reasonCounts(ctx, items).forEach { reason ->
             addChip(getString(R.string.recommend_reason_chip_fmt, reason.label, reason.count), "recommend:${reason.reason}")
         }
+        addChip(filterCountLabel(R.string.home_watching, counts.watching), "watching")
         addChip(filterCountLabel(R.string.home_unwatched, counts.unwatched), "unwatched")
         addChip(filterCountLabel(R.string.watch_queue, counts.queue), "queue")
         addChip(filterCountLabel(R.string.history, counts.history), "history")
@@ -447,6 +452,7 @@ class HomeFragment : Fragment() {
 
     private fun homeFilterCounts(items: List<MediaItem>): HomeFilterCounts =
         HomeFilterCounts(
+            watching = watchingItems(items).size,
             unwatched = unwatchedItems(items).size,
             queue = LibraryUi.watchQueueItems(items, queueStore.list()).size,
             history = LibraryUi.historyItems(items, historyStore.list()).size,
@@ -458,6 +464,7 @@ class HomeFragment : Fragment() {
         return when (homeFilter) {
             "history" -> LibraryUi.historyItems(all, historyStore.list())
             "queue" -> LibraryUi.watchQueueItems(all, queueStore.list())
+            "watching" -> watchingItems(filtered)
             "unwatched" -> unwatchedItems(filtered)
             "recommend" -> recommendList(filtered)
             else -> if (isRecommendFilter()) recommendList(filtered) else filtered.sortedBy { it.displayTitle().lowercase() }
@@ -578,6 +585,7 @@ class HomeFragment : Fragment() {
     }
 
     private data class HomeFilterCounts(
+        val watching: Int,
         val unwatched: Int,
         val queue: Int,
         val history: Int,

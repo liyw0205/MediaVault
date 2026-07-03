@@ -87,6 +87,8 @@
     <string name="home_recommend_reason_empty_fmt">“%1$s”暂无推荐内容，可切回推荐或换一批。</string>
     <string name="home_history_empty">还没有观看历史。</string>
     <string name="home_root_empty_fmt">%1$s 下暂无视频。</string>
+    <string name="home_watching">观看中</string>
+    <string name="home_watching_empty">没有观看中的视频。</string>
     <string name="home_unwatched">未看</string>
     <string name="home_unwatched_empty">没有未看的视频。</string>
     <string name="home_filter_count_chip_fmt">%1$s %2$d</string>
