@@ -2,7 +2,9 @@ package com.mediavault.ui
 
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -42,6 +44,7 @@ class PlayerChromeController(
     private lateinit var topChrome: View
     private lateinit var titleOverlay: TextView
     private lateinit var bottomChrome: View
+    private lateinit var playerSurface: View
     private lateinit var seekExpanded: SeekBar
     private lateinit var seekImmersive: SeekBar
     private lateinit var timeCurrent: TextView
@@ -59,6 +62,7 @@ class PlayerChromeController(
         topChrome = root.findViewById(R.id.playerTopChrome)
         titleOverlay = root.findViewById(R.id.playerTitleOverlay)
         bottomChrome = root.findViewById(R.id.playerBottomChrome)
+        playerSurface = root.findViewById(R.id.playerView)
         seekExpanded = root.findViewById(R.id.playerSeekBar)
         seekImmersive = root.findViewById(R.id.playerSeekBarImmersive)
         timeCurrent = root.findViewById(R.id.playerTimeCurrent)
@@ -107,6 +111,8 @@ class PlayerChromeController(
         }
         seekExpanded.setOnSeekBarChangeListener(scrubListener)
         seekImmersive.setOnSeekBarChangeListener(scrubListener)
+        installChromeInteractionKeepAlive(topChrome)
+        installChromeInteractionKeepAlive(bottomChrome)
 
         enterImmersiveChromeHidden()
         handler.post(tickRunnable)
@@ -129,6 +135,7 @@ class PlayerChromeController(
 
     fun enterImmersiveChromeHidden() {
         chromeVisible = false
+        clearChromeFocusIfNeeded()
         topChrome.visibility = View.GONE
         bottomChrome.visibility = View.GONE
         seekImmersive.visibility = View.VISIBLE
@@ -166,6 +173,30 @@ class PlayerChromeController(
 
     fun onUserGesture() {
         if (chromeVisible) scheduleAutoHide()
+    }
+
+    private fun installChromeInteractionKeepAlive(view: View) {
+        view.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) onUserGesture()
+        }
+        view.setOnKeyListener { _, _, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) onUserGesture()
+            false
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                installChromeInteractionKeepAlive(view.getChildAt(i))
+            }
+        }
+    }
+
+    private fun clearChromeFocusIfNeeded() {
+        val focused = activity.currentFocus ?: return
+        if (!isInside(topChrome, focused) && !isInside(bottomChrome, focused)) return
+        focused.clearFocus()
+        if (playerSurface.isFocusable) {
+            playerSurface.requestFocus()
+        }
     }
 
     private fun previewPositionMs(pos: Long, dur: Long, showCenter: Boolean) {
