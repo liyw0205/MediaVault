@@ -2,6 +2,7 @@ package com.mediavault.ui
 
 import android.os.Bundle
 import android.text.InputType
+import android.widget.Toast
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -13,9 +14,11 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
+import com.mediavault.data.WatchQueueStore
 
 class CollectionDetailActivity : AppCompatActivity() {
     private val historyStore by lazy { HistoryStore(this) }
+    private val queueStore by lazy { WatchQueueStore(this) }
     private lateinit var listPager: ListPagerBar
     private lateinit var adapter: MediaRowAdapter
     private var allItems: List<MediaItem> = emptyList()
@@ -49,6 +52,8 @@ class CollectionDetailActivity : AppCompatActivity() {
             scope = lifecycleScope,
             onCoverClick = { startActivity(VideoDetailActivity.intent(this, it.path)) },
             onInfoClick = { startActivity(VideoDetailActivity.intent(this, it.path)) },
+            queueContains = { queueStore.contains(it.path) },
+            onQueueClick = { toggleQueue(it) },
         )
         list.adapter = adapter
 
@@ -101,6 +106,16 @@ class CollectionDetailActivity : AppCompatActivity() {
     private fun play(item: MediaItem) {
         historyStore.add(item.path)
         startActivity(PlayerActivity.intent(this, item.path, item.displayTitle()))
+    }
+
+    private fun toggleQueue(item: MediaItem) {
+        val added = queueStore.toggle(item.path)
+        Toast.makeText(
+            this,
+            if (added) R.string.watch_queue_added else R.string.watch_queue_removed,
+            Toast.LENGTH_SHORT,
+        ).show()
+        adapter.refreshQueueState()
     }
 
     companion object {

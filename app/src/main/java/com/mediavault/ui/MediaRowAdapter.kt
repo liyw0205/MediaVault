@@ -9,6 +9,7 @@ import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
 import com.mediavault.R
 import com.mediavault.data.MediaItem
 
@@ -16,6 +17,8 @@ class MediaRowAdapter(
     private val scope: LifecycleCoroutineScope,
     private val onCoverClick: (MediaItem) -> Unit,
     private val onInfoClick: (MediaItem) -> Unit,
+    private val queueContains: ((MediaItem) -> Boolean)? = null,
+    private val onQueueClick: ((MediaItem) -> Unit)? = null,
 ) : ListAdapter<MediaItem, MediaRowAdapter.VH>(Diff) {
 
     private var coverW = 0
@@ -28,10 +31,14 @@ class MediaRowAdapter(
             coverW = (120 * dm.density).toInt().coerceAtLeast(96)
             coverH = (72 * dm.density).toInt().coerceAtLeast(64)
         }
-        return VH(v, scope, coverW, coverH, onCoverClick, onInfoClick)
+        return VH(v, scope, coverW, coverH, onCoverClick, onInfoClick, queueContains, onQueueClick)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
+
+    fun refreshQueueState() {
+        if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
+    }
 
     override fun onViewRecycled(holder: VH) {
         holder.recycle()
@@ -45,6 +52,8 @@ class MediaRowAdapter(
         private val coverH: Int,
         private val onCoverClick: (MediaItem) -> Unit,
         private val onInfoClick: (MediaItem) -> Unit,
+        private val queueContains: ((MediaItem) -> Boolean)?,
+        private val onQueueClick: ((MediaItem) -> Unit)?,
     ) : RecyclerView.ViewHolder(itemView) {
         private val title: TextView = itemView.findViewById(R.id.rowTitle)
         private val meta: TextView = itemView.findViewById(R.id.rowMeta)
@@ -52,6 +61,7 @@ class MediaRowAdapter(
         private val placeholder: TextView = itemView.findViewById(R.id.rowCoverPlaceholder)
         private val coverArea: View = itemView.findViewById(R.id.rowCoverArea)
         private val infoArea: View = itemView.findViewById(R.id.rowInfoArea)
+        private val queueBtn: MaterialButton = itemView.findViewById(R.id.rowQueueActionBtn)
 
         fun bind(item: MediaItem) {
             title.text = item.displayTitle()
@@ -64,6 +74,21 @@ class MediaRowAdapter(
             CoverThumbnailLoader.load(scope, cover, local, coverW, coverH)
             coverArea.setOnClickListener { onCoverClick(item) }
             infoArea.setOnClickListener { onInfoClick(item) }
+            bindQueueButton(item)
+        }
+
+        private fun bindQueueButton(item: MediaItem) {
+            val click = onQueueClick
+            val contains = queueContains
+            val visible = click != null && contains != null
+            queueBtn.visibility = if (visible) View.VISIBLE else View.GONE
+            if (!visible || contains == null || click == null) {
+                queueBtn.setOnClickListener(null)
+                return
+            }
+            val inQueue = contains(item)
+            queueBtn.setText(if (inQueue) R.string.watch_queue_remove else R.string.watch_queue_add)
+            queueBtn.setOnClickListener { click(item) }
         }
 
         fun recycle() {

@@ -28,6 +28,7 @@ data class BackupImportPrecheck(
     val scrapeRecordCount: Int,
     val playbackProgressEntryCount: Int,
     val historyEntryCount: Int,
+    val watchQueueEntryCount: Int,
     val subtitlePrefsEntryCount: Int,
     val playbackUiEntryCount: Int,
     val validatedOptionalJsonCount: Int,
@@ -123,6 +124,9 @@ class BackupImportManager(context: Context) {
                 }
                 extracted.text("data/history.json")?.let {
                     applySharedPrefs("mediavault_history", it, "data/history.json")
+                }
+                extracted.text("data/watch-queue.json")?.let {
+                    applySharedPrefs(WatchQueueStore.PREFS, it, "data/watch-queue.json")
                 }
                 extracted.text("config/subtitle-prefs.json")?.let {
                     applySharedPrefs("subtitle_prefs", it, "config/subtitle-prefs.json")
@@ -300,6 +304,9 @@ class BackupImportManager(context: Context) {
         if (extracted.file("data/history.json") == null) {
             warnings += "备份包缺少观看历史，导入时不会覆盖当前观看历史。"
         }
+        if (extracted.file("data/watch-queue.json") == null) {
+            warnings += "备份包缺少观看队列，导入时不会覆盖当前观看队列。"
+        }
         return BackupImportPrecheck(
             schemaVersion = schema,
             createdAt = manifest.optString("createdAt", "--"),
@@ -314,6 +321,7 @@ class BackupImportManager(context: Context) {
             scrapeRecordCount = scrapeRecordCount,
             playbackProgressEntryCount = optionalJson.playbackProgressEntryCount,
             historyEntryCount = optionalJson.historyEntryCount,
+            watchQueueEntryCount = optionalJson.watchQueueEntryCount,
             subtitlePrefsEntryCount = optionalJson.subtitlePrefsEntryCount,
             playbackUiEntryCount = optionalJson.playbackUiEntryCount,
             validatedOptionalJsonCount = optionalJson.validatedJsonCount,
@@ -446,6 +454,7 @@ class BackupImportManager(context: Context) {
         return OptionalJsonValidation(
             playbackProgressEntryCount = prefs("data/playback-progress.json"),
             historyEntryCount = prefs("data/history.json"),
+            watchQueueEntryCount = prefs("data/watch-queue.json"),
             subtitlePrefsEntryCount = prefs("config/subtitle-prefs.json"),
             playbackUiEntryCount = prefs("config/playback-ui.json"),
             validatedJsonCount = validated,
@@ -706,6 +715,7 @@ class BackupImportManager(context: Context) {
         "data/library-diagnostics.json" -> "库诊断快照"
         "data/playback-progress.json" -> "播放进度"
         "data/history.json" -> "观看历史"
+        "data/watch-queue.json" -> "观看队列"
         "config/subtitle-prefs.json" -> "字幕偏好"
         "config/playback-ui.json" -> "播放 UI 偏好"
         else -> path
@@ -832,6 +842,7 @@ class BackupImportManager(context: Context) {
     private data class OptionalJsonValidation(
         val playbackProgressEntryCount: Int,
         val historyEntryCount: Int,
+        val watchQueueEntryCount: Int,
         val subtitlePrefsEntryCount: Int,
         val playbackUiEntryCount: Int,
         val validatedJsonCount: Int,
@@ -860,6 +871,7 @@ class BackupImportManager(context: Context) {
         private val PREF_NAMES = listOf(
             "mediavault_playback_progress",
             "mediavault_history",
+            WatchQueueStore.PREFS,
             "subtitle_prefs",
             "playback_ui",
         )
@@ -872,6 +884,7 @@ class BackupImportManager(context: Context) {
             "data/library-diagnostics.json",
             "data/playback-progress.json",
             "data/history.json",
+            "data/watch-queue.json",
             "config/scrape-settings.redacted.json",
             "config/subtitle-prefs.json",
             "config/playback-ui.json",
@@ -888,6 +901,7 @@ class BackupImportManager(context: Context) {
             "data/library-diagnostics.json",
             "data/playback-progress.json",
             "data/history.json",
+            "data/watch-queue.json",
             "config/subtitle-prefs.json",
             "config/playback-ui.json",
         )
@@ -901,6 +915,7 @@ class BackupImportManager(context: Context) {
             "files/scrape-config.json",
             "prefs/mediavault_playback_progress.json",
             "prefs/mediavault_history.json",
+            "prefs/mediavault_watch_queue.json",
             "prefs/subtitle_prefs.json",
             "prefs/playback_ui.json",
         )

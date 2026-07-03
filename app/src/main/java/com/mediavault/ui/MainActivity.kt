@@ -561,6 +561,8 @@ class MainActivity : AppCompatActivity() {
         append(precheck.playbackProgressEntryCount)
         append("，历史 ")
         append(precheck.historyEntryCount)
+        append("，队列 ")
+        append(precheck.watchQueueEntryCount)
         append("，字幕 ")
         append(precheck.subtitlePrefsEntryCount)
         append("，播放 UI ")

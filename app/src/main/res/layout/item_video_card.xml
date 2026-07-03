@@ -91,6 +91,19 @@
                 android:textColor="@color/mv_text_secondary"
                 android:textSize="10sp"
                 android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/queueActionBtn"
+                style="@style/Widget.MediaVault.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                android:layout_marginBottom="8dp"
+                android:minHeight="36dp"
+                android:paddingHorizontal="8dp"
+                android:text="@string/watch_queue_add"
+                android:textSize="11sp"
+                android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

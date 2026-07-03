@@ -36,6 +36,7 @@ class ExportBundleWriter(context: Context) {
             zip.putFile(entries, "data/library-diagnostics.json", diagnosticsFile())
             zip.putText(entries, "data/playback-progress.json", sharedPrefsJson("mediavault_playback_progress").toString(2))
             zip.putText(entries, "data/history.json", sharedPrefsJson("mediavault_history").toString(2))
+            zip.putText(entries, "data/watch-queue.json", sharedPrefsJson(WatchQueueStore.PREFS).toString(2))
             zip.putText(entries, "config/scrape-settings.redacted.json", scrapeSettingsJson().toString(2))
             zip.putText(entries, "config/subtitle-prefs.json", sharedPrefsJson("subtitle_prefs").toString(2))
             zip.putText(entries, "config/playback-ui.json", sharedPrefsJson("playback_ui").toString(2))

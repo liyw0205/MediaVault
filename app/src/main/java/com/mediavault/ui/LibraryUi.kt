@@ -2,6 +2,7 @@ package com.mediavault.ui
 
 import com.mediavault.data.CollectionNames
 import com.mediavault.data.MediaItem
+import com.mediavault.data.WatchQueueStore
 import com.mediavault.playback.PlaylistBuilder
 import kotlin.random.Random
 
@@ -159,6 +160,11 @@ object LibraryUi {
     fun historyItems(all: List<MediaItem>, paths: List<String>): List<MediaItem> {
         val map = all.associateBy { it.path }
         return paths.mapNotNull { map[it] }
+    }
+
+    fun watchQueueItems(all: List<MediaItem>, entries: List<WatchQueueStore.Entry>): List<MediaItem> {
+        val map = all.associateBy { it.path }
+        return entries.mapNotNull { map[it.path] }
     }
 
     fun search(items: List<MediaItem>, query: String): List<MediaItem> {

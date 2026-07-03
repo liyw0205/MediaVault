@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -19,17 +20,20 @@ import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
 import com.mediavault.data.TmdbMatchHeuristics
+import com.mediavault.data.WatchQueueStore
 import com.mediavault.playback.PlaylistBuilder
 import kotlinx.coroutines.launch
 
 class VideoDetailActivity : AppCompatActivity() {
     private val historyStore by lazy { HistoryStore(this) }
+    private val queueStore by lazy { WatchQueueStore(this) }
 
     private var relatedAll: List<MediaItem> = emptyList()
     private var relatedPage = 1
     private var relatedAdapter: MediaRowAdapter? = null
     private var collectionGroupKey: String? = null
     private var collectionGroupTitle: String? = null
+    private var currentItem: MediaItem? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +58,7 @@ class VideoDetailActivity : AppCompatActivity() {
             finish()
             return
         }
+        currentItem = item
 
         val sameCollection = LibraryUi.itemsInSameCollection(all, item)
         val key = PlaylistBuilder.collectionKey(item)
@@ -115,6 +120,7 @@ class VideoDetailActivity : AppCompatActivity() {
         CoverThumbnailLoader.load(lifecycleScope, coverView, coverPath, cw, ch)
 
         findViewById<View>(R.id.btnPlay).setOnClickListener { play(item) }
+        bindQueueButton(item)
         coverView.setOnClickListener { play(item) }
 
         bindRelatedList(path, sameCollection)
@@ -136,6 +142,8 @@ class VideoDetailActivity : AppCompatActivity() {
                 scope = lifecycleScope,
                 onCoverClick = { switchTo(it.path) },
                 onInfoClick = { switchTo(it.path) },
+                queueContains = { queueStore.contains(it.path) },
+                onQueueClick = { toggleQueue(it) },
             )
             related.adapter = relatedAdapter
             prev.setOnClickListener { changeRelatedPage(-1) }
@@ -294,6 +302,26 @@ class VideoDetailActivity : AppCompatActivity() {
     private fun play(item: MediaItem) {
         historyStore.add(item.path)
         startActivity(PlayerActivity.intent(this, item.path, item.displayTitle()))
+    }
+
+    private fun bindQueueButton(item: MediaItem) {
+        findViewById<MaterialButton>(R.id.btnWatchQueue).apply {
+            setText(if (queueStore.contains(item.path)) R.string.watch_queue_remove else R.string.watch_queue_add)
+            setOnClickListener { toggleQueue(item) }
+        }
+    }
+
+    private fun toggleQueue(item: MediaItem) {
+        val added = queueStore.toggle(item.path)
+        Toast.makeText(
+            this,
+            if (added) R.string.watch_queue_added else R.string.watch_queue_removed,
+            Toast.LENGTH_SHORT,
+        ).show()
+        currentItem?.let { current ->
+            if (current.path == item.path) bindQueueButton(current)
+        }
+        relatedAdapter?.refreshQueueState()
     }
 
     companion object {

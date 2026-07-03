@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -21,6 +22,7 @@ import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
 import com.mediavault.data.PlaybackProgressStore
+import com.mediavault.data.WatchQueueStore
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -36,6 +38,7 @@ class HomeFragment : Fragment() {
 
     private val historyStore by lazy { HistoryStore(requireContext()) }
     private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
+    private val queueStore by lazy { WatchQueueStore(requireContext()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +67,9 @@ class HomeFragment : Fragment() {
             onCoverClick = { openDetail(it) },
             onInfoClick = { openDetail(it) },
             progressStore = progressStore,
+            queueContains = { queueStore.contains(it.path) },
+            onQueueClick = { toggleQueue(it) },
+            showQueueAction = { homeFilter == "queue" },
         )
         grid.adapter = adapter
         continueAdapter = setupShelf(view.findViewById(R.id.continueRecycler))
@@ -139,7 +145,12 @@ class HomeFragment : Fragment() {
         bindWorkflowSections(view, items)
         rebuildFilterChipsIfNeeded(view, items)
         val list = currentList(items)
+        if (homeFilter != "recommend") {
+            page = page.coerceIn(1, pagesFor(list).coerceAtLeast(1))
+        }
         val slice = displaySlice(list)
+        view.findViewById<TextView>(R.id.emptyText).text =
+            if (homeFilter == "queue") getString(R.string.watch_queue_empty) else getString(R.string.no_items)
         adapter.submitList(slice) {
             view.findViewById<RecyclerView>(R.id.gridRecycler).scrollToPosition(0)
         }
@@ -174,6 +185,20 @@ class HomeFragment : Fragment() {
                 next.isEnabled = page < pages.coerceAtLeast(1)
                 actionBtn.visibility = View.VISIBLE
                 actionBtn.text = getString(R.string.clear_history)
+                view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
+                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
+            }
+            "queue" -> {
+                val pages = pagesFor(list)
+                pager.visibility = View.VISIBLE
+                prev.visibility = View.VISIBLE
+                next.visibility = View.VISIBLE
+                pageInfo.isClickable = true
+                pageInfo.text = getString(R.string.page_fmt, page, pages.coerceAtLeast(1))
+                prev.isEnabled = page > 1
+                next.isEnabled = page < pages.coerceAtLeast(1)
+                actionBtn.visibility = View.VISIBLE
+                actionBtn.text = getString(R.string.watch_queue_clear)
                 view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
                 view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
             }
@@ -304,6 +329,7 @@ class HomeFragment : Fragment() {
         }
 
         addChip(getString(R.string.recommend), "recommend")
+        addChip(getString(R.string.watch_queue), "queue")
         addChip(getString(R.string.history), "history")
         addChip(getString(R.string.filter_all), "all")
         for (r in LibraryUi.distinctRoots(items)) addChip(r, "root:$r")
@@ -313,6 +339,7 @@ class HomeFragment : Fragment() {
         val filtered = scopedItems(all)
         return when (homeFilter) {
             "history" -> LibraryUi.historyItems(all, historyStore.list())
+            "queue" -> LibraryUi.watchQueueItems(all, queueStore.list())
             "recommend" -> recommendList(filtered)
             else -> filtered.sortedBy { it.displayTitle().lowercase() }
         }
@@ -367,6 +394,10 @@ class HomeFragment : Fragment() {
     private fun onPagerAction() {
         when (homeFilter) {
             "history" -> historyStore.clear()
+            "queue" -> {
+                queueStore.clear()
+                Toast.makeText(requireContext(), R.string.watch_queue_cleared, Toast.LENGTH_SHORT).show()
+            }
             "recommend" -> {
                 HomeRecommendState.clearForManualRefresh(requireContext())
                 pendingRecommendRebuild = true
@@ -389,12 +420,23 @@ class HomeFragment : Fragment() {
         super.onResume()
         view?.findViewById<RecyclerView>(R.id.gridRecycler)?.let { applyHomeGrid(it) }
         if (::adapter.isInitialized) adapter.refreshProgressHints()
+        refreshFromParent()
         if (::continueAdapter.isInitialized) continueAdapter.refreshProgressHints()
         if (::recentAdapter.isInitialized) recentAdapter.refreshProgressHints()
     }
 
     private fun openDetail(item: MediaItem) {
         startActivity(VideoDetailActivity.intent(requireContext(), item.path))
+    }
+
+    private fun toggleQueue(item: MediaItem) {
+        val added = queueStore.toggle(item.path)
+        Toast.makeText(
+            requireContext(),
+            if (added) R.string.watch_queue_added else R.string.watch_queue_removed,
+            Toast.LENGTH_SHORT,
+        ).show()
+        refreshFromParent()
     }
 
     companion object {

@@ -9,6 +9,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
@@ -20,6 +21,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.mediavault.R
 import com.mediavault.data.MediaItem
 import com.mediavault.data.PlaybackProgressStore
+import com.mediavault.data.WatchQueueStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -36,6 +38,7 @@ class SearchFragment : Fragment() {
     private var source: SearchOptions.Source = SearchOptions.Source.All
     private var typeFilter: SearchOptions.Type = SearchOptions.Type.All
     private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
+    private val queueStore by lazy { WatchQueueStore(requireContext()) }
 
     companion object {
         private const val ARG_QUERY = "q"
@@ -83,6 +86,8 @@ class SearchFragment : Fragment() {
             onInfoClick = { openDetail(it) },
             progressStore = progressStore,
             sidebarKind = FusionUiMetrics.SidebarKind.Search,
+            queueContains = { queueStore.contains(it.path) },
+            onQueueClick = { toggleQueue(it) },
         )
         grid.adapter = adapter
 
@@ -365,6 +370,16 @@ class SearchFragment : Fragment() {
         startActivity(VideoDetailActivity.intent(requireContext(), item.path))
     }
 
+    private fun toggleQueue(item: MediaItem) {
+        val added = queueStore.toggle(item.path)
+        Toast.makeText(
+            requireContext(),
+            if (added) R.string.watch_queue_added else R.string.watch_queue_removed,
+            Toast.LENGTH_SHORT,
+        ).show()
+        adapter.refreshQueueState()
+    }
+
     private fun applySearchGrid(grid: RecyclerView) {
         val ctx = requireContext()
         val fusion = HomeUiPrefs.useTvFusionUi(ctx)
@@ -385,6 +400,7 @@ class SearchFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (::adapter.isInitialized) adapter.refreshProgressHints()
+        if (::adapter.isInitialized) adapter.refreshQueueState()
     }
 
     fun refreshFromParent() {

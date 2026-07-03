@@ -76,6 +76,14 @@
     <string name="home_recently_added">最近入库</string>
     <string name="home_recent_empty">扫描或刮削后会显示最近更新的视频。</string>
     <string name="home_library_section">媒体库</string>
+    <string name="watch_queue">观看队列</string>
+    <string name="watch_queue_empty">观看队列为空。</string>
+    <string name="watch_queue_add">加入队列</string>
+    <string name="watch_queue_remove">移出队列</string>
+    <string name="watch_queue_clear">清空队列</string>
+    <string name="watch_queue_added">已加入观看队列</string>
+    <string name="watch_queue_removed">已移出观看队列</string>
+    <string name="watch_queue_cleared">观看队列已清空</string>
     <string name="prev_page">上一页</string>
     <string name="next_page">下一页</string>
     <string name="page_fmt">第 %1$d/%2$d 页</string>

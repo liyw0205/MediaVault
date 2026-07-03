@@ -74,5 +74,18 @@
                 android:textSize="12sp"
                 android:visibility="gone" />
         </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/rowQueueActionBtn"
+            style="@style/Widget.MediaVault.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:minHeight="40dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="10dp"
+            android:text="@string/watch_queue_add"
+            android:textSize="12sp"
+            android:visibility="gone" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

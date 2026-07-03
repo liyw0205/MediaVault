@@ -10,6 +10,7 @@ import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.mediavault.R
@@ -23,6 +24,9 @@ class VideoCardAdapter(
     private val progressStore: PlaybackProgressStore? = null,
     private val sidebarKind: FusionUiMetrics.SidebarKind = FusionUiMetrics.SidebarKind.Home,
     private val fixedCardWidthPx: Int? = null,
+    private val queueContains: ((MediaItem) -> Boolean)? = null,
+    private val onQueueClick: ((MediaItem) -> Unit)? = null,
+    private val showQueueAction: ((MediaItem) -> Boolean)? = null,
 ) : ListAdapter<MediaItem, VideoCardAdapter.VH>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -31,12 +35,29 @@ class VideoCardAdapter(
         val fusion = HomeUiPrefs.useTvFusionUi(ctx)
         val coverW = fixedCardWidthPx ?: FusionUiMetrics.videoCardCellWidthPx(ctx, sidebarKind)
         val coverH = FusionUiMetrics.videoCardCoverHeightPx(ctx, coverW)
-        return VH(v, scope, coverW, coverH, fusion, onCoverClick, onInfoClick, progressStore, fixedCardWidthPx)
+        return VH(
+            v,
+            scope,
+            coverW,
+            coverH,
+            fusion,
+            onCoverClick,
+            onInfoClick,
+            progressStore,
+            fixedCardWidthPx,
+            queueContains,
+            onQueueClick,
+            showQueueAction,
+        )
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(getItem(position))
 
     fun refreshProgressHints() {
+        if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
+    }
+
+    fun refreshQueueState() {
         if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
     }
 
@@ -55,6 +76,9 @@ class VideoCardAdapter(
         private val onInfoClick: (MediaItem) -> Unit,
         private val progressStore: PlaybackProgressStore?,
         private val fixedCardWidthPx: Int?,
+        private val queueContains: ((MediaItem) -> Boolean)?,
+        private val onQueueClick: ((MediaItem) -> Unit)?,
+        private val showQueueAction: ((MediaItem) -> Boolean)?,
     ) : RecyclerView.ViewHolder(itemView) {
         private val card = itemView as? MaterialCardView
         private val title: TextView = itemView.findViewById(R.id.titleText)
@@ -65,6 +89,7 @@ class VideoCardAdapter(
         private val infoArea: View = itemView.findViewById(R.id.infoClickArea)
         private val tagsLine: TextView = itemView.findViewById(R.id.tagsLine)
         private val resumeBar: LinearProgressIndicator = itemView.findViewById(R.id.resumeProgress)
+        private val queueBtn: MaterialButton = itemView.findViewById(R.id.queueActionBtn)
 
         private var boundPath: String? = null
         private var boundItem: MediaItem? = null
@@ -140,6 +165,21 @@ class VideoCardAdapter(
 
             coverArea.setOnClickListener { onCoverClick(item) }
             infoArea.setOnClickListener { onInfoClick(item) }
+            bindQueueButton(item)
+        }
+
+        private fun bindQueueButton(item: MediaItem) {
+            val click = onQueueClick
+            val contains = queueContains
+            val visible = click != null && contains != null && (showQueueAction?.invoke(item) ?: true)
+            queueBtn.visibility = if (visible) View.VISIBLE else View.GONE
+            if (!visible || contains == null || click == null) {
+                queueBtn.setOnClickListener(null)
+                return
+            }
+            val inQueue = contains(item)
+            queueBtn.setText(if (inQueue) R.string.watch_queue_remove else R.string.watch_queue_add)
+            queueBtn.setOnClickListener { click(item) }
         }
 
         fun recycle() {
