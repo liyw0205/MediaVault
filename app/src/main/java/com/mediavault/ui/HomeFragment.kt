@@ -172,7 +172,11 @@ class HomeFragment : Fragment() {
                 pageInfo.text = getString(R.string.recommend_count_fmt, slice.size)
                 actionBtn.visibility = View.VISIBLE
                 actionBtn.text = getString(R.string.refresh_recommend)
-                view.findViewById<TextView>(R.id.statusText).visibility = View.GONE
+                view.findViewById<TextView>(R.id.statusText).apply {
+                    visibility = View.VISIBLE
+                    text = HomeRecommendState.summary(requireContext())
+                        .ifBlank { getString(R.string.recommend_rules_hint) }
+                }
             }
             "history" -> {
                 val pages = pagesFor(list)
@@ -283,17 +287,32 @@ class HomeFragment : Fragment() {
         HomeRecommendState.ensureLoaded(ctx)
         if (pendingRecommendRebuild) {
             pendingRecommendRebuild = false
-            return HomeRecommendState.rebuildAndPersist(ctx, filtered)
+            return HomeRecommendState.rebuildAndPersist(
+                ctx = ctx,
+                filtered = filtered,
+                historyPaths = historyStore.list(),
+                progressPaths = progressPaths(filtered),
+            )
         }
         if (!HomeRecommendState.hasPersistedList()) {
             if (filtered.isNotEmpty() && HomeRecommendState.shouldAutoSeedOnce(ctx)) {
                 HomeRecommendState.markAutoSeeded(ctx)
-                return HomeRecommendState.rebuildAndPersist(ctx, filtered)
+                return HomeRecommendState.rebuildAndPersist(
+                    ctx = ctx,
+                    filtered = filtered,
+                    historyPaths = historyStore.list(),
+                    progressPaths = progressPaths(filtered),
+                )
             }
             return emptyList()
         }
         return HomeRecommendState.resolveItems(ctx, filtered)
     }
+
+    private fun progressPaths(items: List<MediaItem>): Set<String> =
+        items.mapNotNull { item ->
+            if (progressStore.getEntry(item.path) != null) item.path else null
+        }.toSet()
 
     private fun rebuildFilterChipsIfNeeded(view: View, items: List<MediaItem>) {
         val roots = LibraryUi.distinctRoots(items)

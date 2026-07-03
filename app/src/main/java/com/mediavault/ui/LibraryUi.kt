@@ -4,6 +4,7 @@ import com.mediavault.data.CollectionNames
 import com.mediavault.data.MediaItem
 import com.mediavault.data.WatchQueueStore
 import com.mediavault.playback.PlaylistBuilder
+import kotlin.math.abs
 import kotlin.random.Random
 
 object LibraryUi {
@@ -156,6 +157,104 @@ object LibraryUi {
         val rnd = Random(seed)
         return items.shuffled(rnd)
     }
+
+    data class RecommendationResult(
+        val items: List<MediaItem>,
+        val summary: String,
+    )
+
+    fun explainableRecommendations(
+        items: List<MediaItem>,
+        historyPaths: List<String>,
+        progressPaths: Set<String>,
+        seed: Long,
+        limit: Int,
+    ): RecommendationResult {
+        if (items.isEmpty()) return RecommendationResult(emptyList(), "")
+        val byPath = items.associateBy { it.path }
+        val historyItems = historyPaths.mapNotNull { byPath[it] }.take(12)
+        val historySet = historyPaths.toHashSet()
+        val candidates = linkedMapOf<String, RecommendationCandidate>()
+
+        fun offer(item: MediaItem, reason: String, baseScore: Int) {
+            if (item.path.isBlank()) return
+            val score = baseScore + stableJitter(seed, item.path)
+            val cur = candidates[item.path]
+            if (cur == null || score > cur.score) {
+                candidates[item.path] = RecommendationCandidate(item, reason, score)
+            }
+        }
+
+        val collections = historyItems
+            .map { PlaylistBuilder.collectionKey(it) }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(4)
+        collections.forEachIndexed { ci, key ->
+            PlaylistBuilder.sortEpisodes(items.filter { PlaylistBuilder.collectionKey(it) == key })
+                .filterNot { it.path in historySet || it.path in progressPaths }
+                .forEachIndexed { i, item ->
+                    offer(item, "同合集", 150 - ci * 8 - i.coerceAtMost(30))
+                }
+        }
+
+        val tagAnchors = historyItems
+            .flatMap { it.tags + it.genres }
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(10)
+        if (tagAnchors.isNotEmpty()) {
+            for (item in items) {
+                if (item.path in historySet || item.path in progressPaths) continue
+                val matches = (item.tags + item.genres).count { it in tagAnchors }
+                if (matches > 0) offer(item, "同类型", 120 + matches * 5)
+            }
+        }
+
+        val sortedRecent = items.sortedWith(
+            compareByDescending<MediaItem> { it.modified }
+                .thenBy { it.displayTitle().lowercase() },
+        )
+        sortedRecent
+            .filter { it.coverLocalPath() != null && it.path !in historySet && it.path !in progressPaths }
+            .take(limit * 2)
+            .forEachIndexed { i, item -> offer(item, "最近补全封面", 95 - i.coerceAtMost(40)) }
+
+        sortedRecent
+            .filter { it.path !in historySet && it.path !in progressPaths }
+            .take(limit * 3)
+            .forEachIndexed { i, item -> offer(item, "未看", 75 - i.coerceAtMost(40)) }
+
+        sortedRecent
+            .take(limit * 3)
+            .forEachIndexed { i, item -> offer(item, "最近入库", 45 - i.coerceAtMost(40)) }
+
+        val picked = candidates.values
+            .sortedWith(
+                compareByDescending<RecommendationCandidate> { it.score }
+                    .thenBy { it.item.displayTitle().lowercase() },
+            )
+            .take(limit)
+        val summary = picked
+            .groupingBy { it.reason }
+            .eachCount()
+            .entries
+            .joinToString(" · ") { "${it.key} ${it.value}" }
+        return RecommendationResult(
+            items = picked.map { it.item },
+            summary = if (summary.isBlank()) "" else "规则推荐 · $summary",
+        )
+    }
+
+    private data class RecommendationCandidate(
+        val item: MediaItem,
+        val reason: String,
+        val score: Int,
+    )
+
+    private fun stableJitter(seed: Long, key: String): Int =
+        abs((seed xor key.hashCode().toLong()).toInt() % 17)
 
     fun historyItems(all: List<MediaItem>, paths: List<String>): List<MediaItem> {
         val map = all.associateBy { it.path }

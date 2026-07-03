@@ -12,11 +12,13 @@ object HomeRecommendState {
     private const val PREFS = "home_recommend"
     private const val KEY_PATHS = "paths"
     private const val KEY_SEED = "seed"
+    private const val KEY_SUMMARY = "summary"
     private const val KEY_READY = "ready"
     private const val KEY_AUTO_SEEDED = "auto_seeded"
 
     private var paths: List<String> = emptyList()
     private var seed: Long = 0L
+    private var summary: String = ""
     private var ready: Boolean = false
     private var autoSeeded: Boolean = false
     private var loadedFromDisk: Boolean = false
@@ -28,6 +30,7 @@ object HomeRecommendState {
         ready = p.getBoolean(KEY_READY, false)
         autoSeeded = p.getBoolean(KEY_AUTO_SEEDED, false)
         seed = p.getLong(KEY_SEED, 0L)
+        summary = p.getString(KEY_SUMMARY, "").orEmpty()
         val arr = p.getString(KEY_PATHS, null)?.let { JSONArray(it) }
         paths = if (arr != null) {
             (0 until arr.length()).mapNotNull { i -> arr.optString(i).takeIf { it.isNotBlank() } }
@@ -66,25 +69,44 @@ object HomeRecommendState {
     }
 
     /**
-     * 从当前库随机 20 条并写入磁盘（仅由「重读」「刷新推荐」调用）。
+     * 从当前库按可解释规则挑选 20 条并写入磁盘（仅由「重读」「刷新推荐」调用）。
      */
-    fun rebuildAndPersist(ctx: Context, filtered: List<MediaItem>): List<MediaItem> {
+    fun rebuildAndPersist(
+        ctx: Context,
+        filtered: List<MediaItem>,
+        historyPaths: List<String>,
+        progressPaths: Set<String>,
+    ): List<MediaItem> {
         seed = System.currentTimeMillis()
-        val picked = LibraryUi.recommend(filtered, seed).take(RECOMMEND_COUNT)
-        paths = picked.map { it.path }
+        val result = LibraryUi.explainableRecommendations(
+            items = filtered,
+            historyPaths = historyPaths,
+            progressPaths = progressPaths,
+            seed = seed,
+            limit = RECOMMEND_COUNT,
+        )
+        paths = result.items.map { it.path }
+        summary = result.summary
         ready = true
         persist(ctx)
-        return picked
+        return result.items
+    }
+
+    fun summary(ctx: Context): String {
+        ensureLoaded(ctx)
+        return summary
     }
 
     fun clearPersist(ctx: Context) {
         ready = false
         seed = 0L
+        summary = ""
         paths = emptyList()
         loadedFromDisk = true
         ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .remove(KEY_PATHS)
             .remove(KEY_SEED)
+            .remove(KEY_SUMMARY)
             .putBoolean(KEY_READY, false)
             .apply()
     }
@@ -99,6 +121,7 @@ object HomeRecommendState {
         ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_PATHS, arr.toString())
             .putLong(KEY_SEED, seed)
+            .putString(KEY_SUMMARY, summary)
             .putBoolean(KEY_READY, ready)
             .apply()
     }
