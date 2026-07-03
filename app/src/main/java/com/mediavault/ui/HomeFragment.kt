@@ -333,9 +333,15 @@ class HomeFragment : Fragment() {
 
     private fun rebuildFilterChipsIfNeeded(view: View, items: List<MediaItem>) {
         val roots = LibraryUi.distinctRoots(items)
+        val counts = homeFilterCounts(items)
         val reasonKey = HomeRecommendState.reasonCounts(requireContext(), items)
             .joinToString("|") { "${it.reason}:${it.count}" }
-        val key = listOf(roots.joinToString("|"), reasonKey, homeFilter).joinToString("#")
+        val key = listOf(
+            roots.joinToString("|"),
+            reasonKey,
+            "${counts.unwatched}:${counts.queue}:${counts.history}:${counts.all}",
+            homeFilter,
+        ).joinToString("#")
         if (key == lastChipRootsKey && view.findViewById<ChipGroup>(R.id.homeFilterChips).childCount > 0) {
             return
         }
@@ -350,6 +356,7 @@ class HomeFragment : Fragment() {
         group.isSingleSelection = true
         group.removeAllViews()
         val ctx = requireContext()
+        val counts = homeFilterCounts(items)
 
         fun addChip(label: String, filterId: String) {
             val chip = Chip(ctx)
@@ -370,12 +377,23 @@ class HomeFragment : Fragment() {
         HomeRecommendState.reasonCounts(ctx, items).forEach { reason ->
             addChip(getString(R.string.recommend_reason_chip_fmt, reason.label, reason.count), "recommend:${reason.reason}")
         }
-        addChip(getString(R.string.home_unwatched), "unwatched")
-        addChip(getString(R.string.watch_queue), "queue")
-        addChip(getString(R.string.history), "history")
-        addChip(getString(R.string.filter_all), "all")
+        addChip(filterCountLabel(R.string.home_unwatched, counts.unwatched), "unwatched")
+        addChip(filterCountLabel(R.string.watch_queue, counts.queue), "queue")
+        addChip(filterCountLabel(R.string.history, counts.history), "history")
+        addChip(filterCountLabel(R.string.filter_all, counts.all), "all")
         for (r in LibraryUi.distinctRoots(items)) addChip(r, "root:$r")
     }
+
+    private fun filterCountLabel(labelRes: Int, count: Int): String =
+        getString(R.string.home_filter_count_chip_fmt, getString(labelRes), count)
+
+    private fun homeFilterCounts(items: List<MediaItem>): HomeFilterCounts =
+        HomeFilterCounts(
+            unwatched = unwatchedItems(items).size,
+            queue = LibraryUi.watchQueueItems(items, queueStore.list()).size,
+            history = LibraryUi.historyItems(items, historyStore.list()).size,
+            all = items.size,
+        )
 
     private fun currentList(all: List<MediaItem>): List<MediaItem> {
         val filtered = scopedItems(all)
@@ -500,6 +518,13 @@ class HomeFragment : Fragment() {
         private const val STATE_PAGE = "home_page"
         private const val WORKFLOW_SHELF_COUNT = 12
     }
+
+    private data class HomeFilterCounts(
+        val unwatched: Int,
+        val queue: Int,
+        val history: Int,
+        val all: Int,
+    )
 
     private fun isRecommendFilter(): Boolean =
         homeFilter == "recommend" || homeFilter.startsWith("recommend:")
