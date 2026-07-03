@@ -43,6 +43,7 @@
     <string name="player_autoplay_title">连播策略</string>
     <string name="player_autoplay_current_fmt">当前：%1$s</string>
     <string name="player_playlist_autoplay_row_fmt">连播：%1$s · %2$s</string>
+    <string name="player_playlist_single_row">单条播放 · 暂无连播目标</string>
     <string name="player_playlist_episode_fmt">第 %1$d/%2$d 项 · %3$s</string>
     <string name="player_playlist_current_episode_fmt">正在播放 · 第 %1$d/%2$d 项 · %3$s</string>
     <string name="player_autoplay_option_fmt">%1$s · %2$s</string>
@@ -78,6 +79,7 @@
     <string name="player_error_title">播放失败</string>
     <string name="player_error_detail_fmt">来源：%1$s\n原因：%2$s\n建议：%3$s</string>
     <string name="player_error_retry">重试播放</string>
+    <string name="player_error_back">返回上一页</string>
     <string name="player_error_close">关闭提示</string>
     <string name="player_error_unknown">播放器无法打开该媒体</string>
     <string name="player_error_local_permission">系统文件授权失效或文件已被移动</string>

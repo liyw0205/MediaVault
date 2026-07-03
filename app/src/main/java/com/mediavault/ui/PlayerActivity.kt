@@ -500,11 +500,15 @@ class PlayerActivity : AppCompatActivity() {
     private fun showPlaylist() {
         if (playlist.isEmpty()) return
         val autoplayMode = PlaybackPrefs.getAutoplayMode(this)
-        val header = getString(
-            R.string.player_playlist_autoplay_row_fmt,
-            PlaybackPrefs.label(this, autoplayMode),
-            autoplayTargetLabel(autoplayMode),
-        )
+        val header = if (playlist.size <= 1) {
+            getString(R.string.player_playlist_single_row)
+        } else {
+            getString(
+                R.string.player_playlist_autoplay_row_fmt,
+                PlaybackPrefs.label(this, autoplayMode),
+                autoplayTargetLabel(autoplayMode),
+            )
+        }
         val labels = (listOf(header) + playlist.mapIndexed { i, ep ->
             if (i == playlistIndex) {
                 getString(R.string.player_playlist_current_episode_fmt, i + 1, playlist.size, ep.title)
@@ -516,8 +520,10 @@ class PlayerActivity : AppCompatActivity() {
             MvDialog.builder(this)
                 .setTitle(R.string.player_playlist)
                 .setItems(labels) { _, which ->
-                    if (which == 0) showAutoplayMenu()
-                    else playIndex(which - 1)
+                    when {
+                        which == 0 && playlist.size > 1 -> showAutoplayMenu()
+                        which > 0 -> playIndex(which - 1)
+                    }
                 },
         )
     }
@@ -577,13 +583,14 @@ class PlayerActivity : AppCompatActivity() {
                     playbackErrorDialogShowing = false
                     reloadCurrentMedia()
                 }
-                .setNegativeButton(R.string.back) { _, _ ->
+                .setNegativeButton(R.string.player_error_back) { _, _ ->
                     playbackErrorDialogShowing = false
                     finish()
                 }
                 .setNeutralButton(R.string.player_error_close) { _, _ ->
                     playbackErrorDialogShowing = false
                 },
+            focusPositiveButton = true,
         ).setOnDismissListener {
             playbackErrorDialogShowing = false
         }

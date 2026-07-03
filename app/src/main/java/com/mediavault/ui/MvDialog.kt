@@ -33,7 +33,7 @@ object MvDialog {
         }
     }
 
-    private fun applyDialogChrome(dialog: AlertDialog, inputRoot: View?) {
+    private fun applyDialogChrome(dialog: AlertDialog, inputRoot: View?, focusPositiveButton: Boolean) {
         val ctx = dialog.context
         val bg = ctx.getColor(R.color.mv_dialog_bg)
         val text = ctx.getColor(R.color.mv_text)
@@ -46,6 +46,11 @@ object MvDialog {
             styleInputField(it)
         }
         dialog.listView?.let { list -> styleListView(list, bg, text) }
+        if (focusPositiveButton && dialog.listView == null && inputRoot == null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.post {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.requestFocus()
+            }
+        }
     }
 
     private fun styleListView(list: ListView, bg: Int, text: Int) {
@@ -73,13 +78,21 @@ object MvDialog {
         }
     }
 
-    fun showStyled(builder: AlertDialog.Builder, inputRoot: View? = null): AlertDialog {
+    fun showStyled(
+        builder: AlertDialog.Builder,
+        inputRoot: View? = null,
+        focusPositiveButton: Boolean = false,
+    ): AlertDialog {
         val dialog = builder.create()
-        dialog.setOnShowListener { applyDialogChrome(dialog, inputRoot) }
+        dialog.setOnShowListener { applyDialogChrome(dialog, inputRoot, focusPositiveButton) }
         dialog.show()
         return dialog
     }
 
-    fun show(builder: AlertDialog.Builder, inputRoot: View? = null): AlertDialog =
-        showStyled(builder, inputRoot)
+    fun show(
+        builder: AlertDialog.Builder,
+        inputRoot: View? = null,
+        focusPositiveButton: Boolean = false,
+    ): AlertDialog =
+        showStyled(builder, inputRoot, focusPositiveButton)
 }
