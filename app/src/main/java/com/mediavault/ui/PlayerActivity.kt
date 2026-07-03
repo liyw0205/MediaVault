@@ -489,11 +489,20 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
+        val initialSelection = if (PlaybackPrefs.getAudioMode(this) == PlaybackPrefs.AudioMode.AUTO) {
+            0
+        } else {
+            candidates.indexOfFirst { it.group.isTrackSelected(it.trackIndex) }
+                .takeIf { it >= 0 }
+                ?.plus(1)
+                ?: 0
+        }
 
         MvDialog.show(
             MvDialog.builder(this)
                 .setTitle(R.string.audio_pick)
                 .setItems(options.toTypedArray()) { _, which -> actions[which]() },
+            initialListSelection = initialSelection,
         )
     }
 
@@ -525,6 +534,7 @@ class PlayerActivity : AppCompatActivity() {
                         which > 0 -> playIndex(which - 1)
                     }
                 },
+            initialListSelection = (playlistIndex + 1).coerceIn(0, labels.lastIndex),
         )
     }
 
@@ -551,6 +561,7 @@ class PlayerActivity : AppCompatActivity() {
                     PlaybackPrefs.setAutoplayMode(this, modes[which])
                     updateSessionInfo()
                 },
+            initialListSelection = modes.indexOf(current).takeIf { it >= 0 } ?: 0,
         )
     }
 
@@ -701,11 +712,20 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
+        val initialSelection = when (subSelection) {
+            is SubSelection.Auto -> 0
+            is SubSelection.Off -> 1
+            else -> candidates.indexOfFirst { it.group.isTrackSelected(it.trackIndex) }
+                .takeIf { it >= 0 }
+                ?.plus(2)
+                ?: 0
+        }
 
         MvDialog.show(
             MvDialog.builder(this)
                 .setTitle(R.string.subtitle_pick)
                 .setItems(options.toTypedArray()) { _, which -> actions[which]() },
+            initialListSelection = initialSelection,
         )
     }
 

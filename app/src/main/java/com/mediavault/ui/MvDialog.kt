@@ -33,7 +33,12 @@ object MvDialog {
         }
     }
 
-    private fun applyDialogChrome(dialog: AlertDialog, inputRoot: View?, focusPositiveButton: Boolean) {
+    private fun applyDialogChrome(
+        dialog: AlertDialog,
+        inputRoot: View?,
+        focusPositiveButton: Boolean,
+        initialListSelection: Int,
+    ) {
         val ctx = dialog.context
         val bg = ctx.getColor(R.color.mv_dialog_bg)
         val text = ctx.getColor(R.color.mv_text)
@@ -45,7 +50,7 @@ object MvDialog {
             it.setBackgroundColor(bg)
             styleInputField(it)
         }
-        dialog.listView?.let { list -> styleListView(list, bg, text) }
+        dialog.listView?.let { list -> styleListView(list, bg, text, initialListSelection) }
         if (focusPositiveButton && dialog.listView == null && inputRoot == null) {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.post {
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.requestFocus()
@@ -53,7 +58,7 @@ object MvDialog {
         }
     }
 
-    private fun styleListView(list: ListView, bg: Int, text: Int) {
+    private fun styleListView(list: ListView, bg: Int, text: Int, initialSelection: Int) {
         list.setBackgroundColor(bg)
         list.cacheColorHint = bg
         val ctx = list.context
@@ -72,7 +77,8 @@ object MvDialog {
         })
         list.post {
             if (list.count > 0 && !list.hasFocus()) {
-                list.setSelection(0)
+                val index = initialSelection.coerceIn(0, list.count - 1)
+                list.setSelection(index)
                 list.requestFocus()
             }
         }
@@ -82,9 +88,12 @@ object MvDialog {
         builder: AlertDialog.Builder,
         inputRoot: View? = null,
         focusPositiveButton: Boolean = false,
+        initialListSelection: Int = 0,
     ): AlertDialog {
         val dialog = builder.create()
-        dialog.setOnShowListener { applyDialogChrome(dialog, inputRoot, focusPositiveButton) }
+        dialog.setOnShowListener {
+            applyDialogChrome(dialog, inputRoot, focusPositiveButton, initialListSelection)
+        }
         dialog.show()
         return dialog
     }
@@ -93,6 +102,7 @@ object MvDialog {
         builder: AlertDialog.Builder,
         inputRoot: View? = null,
         focusPositiveButton: Boolean = false,
+        initialListSelection: Int = 0,
     ): AlertDialog =
-        showStyled(builder, inputRoot, focusPositiveButton)
+        showStyled(builder, inputRoot, focusPositiveButton, initialListSelection)
 }
