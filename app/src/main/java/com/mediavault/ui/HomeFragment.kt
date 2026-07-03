@@ -143,9 +143,9 @@ class HomeFragment : Fragment() {
         view.findViewById<TextView>(R.id.statRoots).text = LibraryUi.distinctRoots(items).size.toString()
 
         bindWorkflowSections(view, items)
-        rebuildFilterChipsIfNeeded(view, items)
         val list = currentList(items)
-        if (homeFilter != "recommend") {
+        rebuildFilterChipsIfNeeded(view, items)
+        if (!isRecommendFilter()) {
             page = page.coerceIn(1, pagesFor(list).coerceAtLeast(1))
         }
         val slice = displaySlice(list)
@@ -206,7 +206,19 @@ class HomeFragment : Fragment() {
                 view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
                 view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
             }
-            else -> {
+            else -> if (isRecommendFilter()) {
+                pager.visibility = View.VISIBLE
+                prev.visibility = View.GONE
+                next.visibility = View.GONE
+                pageInfo.isClickable = false
+                pageInfo.text = getString(R.string.recommend_count_fmt, slice.size)
+                actionBtn.visibility = View.VISIBLE
+                actionBtn.text = getString(R.string.refresh_recommend)
+                view.findViewById<TextView>(R.id.statusText).apply {
+                    visibility = View.VISIBLE
+                    text = recommendReasonStatusText()
+                }
+            } else {
                 val pages = pagesFor(list)
                 pager.visibility = View.VISIBLE
                 prev.visibility = View.VISIBLE
@@ -265,7 +277,7 @@ class HomeFragment : Fragment() {
             .take(WORKFLOW_SHELF_COUNT)
 
     private fun displaySlice(list: List<MediaItem>): List<MediaItem> {
-        if (homeFilter == "recommend") {
+        if (isRecommendFilter()) {
             return list.take(HomeRecommendState.RECOMMEND_COUNT)
         }
         return paginate(list, page)
@@ -287,7 +299,7 @@ class HomeFragment : Fragment() {
         HomeRecommendState.ensureLoaded(ctx)
         if (pendingRecommendRebuild) {
             pendingRecommendRebuild = false
-            return HomeRecommendState.rebuildAndPersist(
+            HomeRecommendState.rebuildAndPersist(
                 ctx = ctx,
                 filtered = filtered,
                 historyPaths = historyStore.list(),
@@ -297,16 +309,17 @@ class HomeFragment : Fragment() {
         if (!HomeRecommendState.hasPersistedList()) {
             if (filtered.isNotEmpty() && HomeRecommendState.shouldAutoSeedOnce(ctx)) {
                 HomeRecommendState.markAutoSeeded(ctx)
-                return HomeRecommendState.rebuildAndPersist(
+                HomeRecommendState.rebuildAndPersist(
                     ctx = ctx,
                     filtered = filtered,
                     historyPaths = historyStore.list(),
                     progressPaths = progressPaths(filtered),
                 )
+            } else {
+                return emptyList()
             }
-            return emptyList()
         }
-        return HomeRecommendState.resolveItems(ctx, filtered)
+        return HomeRecommendState.resolveItems(ctx, filtered, selectedRecommendReason())
     }
 
     private fun progressPaths(items: List<MediaItem>): Set<String> =
@@ -316,7 +329,9 @@ class HomeFragment : Fragment() {
 
     private fun rebuildFilterChipsIfNeeded(view: View, items: List<MediaItem>) {
         val roots = LibraryUi.distinctRoots(items)
-        val key = roots.joinToString("|")
+        val reasonKey = HomeRecommendState.reasonCounts(requireContext(), items)
+            .joinToString("|") { "${it.reason}:${it.count}" }
+        val key = listOf(roots.joinToString("|"), reasonKey, homeFilter).joinToString("#")
         if (key == lastChipRootsKey && view.findViewById<ChipGroup>(R.id.homeFilterChips).childCount > 0) {
             return
         }
@@ -348,6 +363,9 @@ class HomeFragment : Fragment() {
         }
 
         addChip(getString(R.string.recommend), "recommend")
+        HomeRecommendState.reasonCounts(ctx, items).forEach { reason ->
+            addChip(getString(R.string.recommend_reason_chip_fmt, reason.label, reason.count), "recommend:${reason.reason}")
+        }
         addChip(getString(R.string.watch_queue), "queue")
         addChip(getString(R.string.history), "history")
         addChip(getString(R.string.filter_all), "all")
@@ -360,7 +378,7 @@ class HomeFragment : Fragment() {
             "history" -> LibraryUi.historyItems(all, historyStore.list())
             "queue" -> LibraryUi.watchQueueItems(all, queueStore.list())
             "recommend" -> recommendList(filtered)
-            else -> filtered.sortedBy { it.displayTitle().lowercase() }
+            else -> if (isRecommendFilter()) recommendList(filtered) else filtered.sortedBy { it.displayTitle().lowercase() }
         }
     }
 
@@ -377,7 +395,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun changePage(delta: Int) {
-        if (homeFilter == "recommend") return
+        if (isRecommendFilter()) return
         val v = view ?: return
         val pages = totalPages()
         page = (page + delta).coerceIn(1, pages)
@@ -385,7 +403,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun showPageJumpDialog() {
-        if (homeFilter == "recommend") return
+        if (isRecommendFilter()) return
         val pages = totalPages()
         if (pages <= 1) return
         val input = EditText(requireContext()).apply {
@@ -418,6 +436,11 @@ class HomeFragment : Fragment() {
                 Toast.makeText(requireContext(), R.string.watch_queue_cleared, Toast.LENGTH_SHORT).show()
             }
             "recommend" -> {
+                HomeRecommendState.clearForManualRefresh(requireContext())
+                pendingRecommendRebuild = true
+                page = 1
+            }
+            else -> if (isRecommendFilter()) {
                 HomeRecommendState.clearForManualRefresh(requireContext())
                 pendingRecommendRebuild = true
                 page = 1
@@ -462,5 +485,18 @@ class HomeFragment : Fragment() {
         private const val STATE_FILTER = "home_filter"
         private const val STATE_PAGE = "home_page"
         private const val WORKFLOW_SHELF_COUNT = 12
+    }
+
+    private fun isRecommendFilter(): Boolean =
+        homeFilter == "recommend" || homeFilter.startsWith("recommend:")
+
+    private fun selectedRecommendReason(): String? =
+        homeFilter.removePrefix("recommend:").takeIf { homeFilter.startsWith("recommend:") && it.isNotBlank() }
+
+    private fun recommendReasonStatusText(): String {
+        val reason = selectedRecommendReason().orEmpty()
+        val label = LibraryUi.recommendationReasonLabel(reason)
+        val summary = HomeRecommendState.summary(requireContext()).ifBlank { getString(R.string.recommend_rules_hint) }
+        return getString(R.string.recommend_reason_status_fmt, label, summary)
     }
 }

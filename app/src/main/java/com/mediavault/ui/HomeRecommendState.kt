@@ -3,6 +3,7 @@ package com.mediavault.ui
 import android.content.Context
 import com.mediavault.data.MediaItem
 import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * 推荐列表持久化：切换底栏、库增量更新都不重随机。
@@ -11,12 +12,14 @@ import org.json.JSONArray
 object HomeRecommendState {
     private const val PREFS = "home_recommend"
     private const val KEY_PATHS = "paths"
+    private const val KEY_REASONS = "reasons"
     private const val KEY_SEED = "seed"
     private const val KEY_SUMMARY = "summary"
     private const val KEY_READY = "ready"
     private const val KEY_AUTO_SEEDED = "auto_seeded"
 
     private var paths: List<String> = emptyList()
+    private var reasons: Map<String, String> = emptyMap()
     private var seed: Long = 0L
     private var summary: String = ""
     private var ready: Boolean = false
@@ -35,6 +38,14 @@ object HomeRecommendState {
         paths = if (arr != null) {
             (0 until arr.length()).mapNotNull { i -> arr.optString(i).takeIf { it.isNotBlank() } }
         } else emptyList()
+        val reasonObj = p.getString(KEY_REASONS, null)?.let { JSONObject(it) }
+        reasons = if (reasonObj != null) {
+            reasonObj.keys().asSequence()
+                .mapNotNull { path ->
+                    reasonObj.optString(path).takeIf { it.isNotBlank() }?.let { path to it }
+                }
+                .toMap()
+        } else emptyMap()
     }
 
     fun hasPersistedList(): Boolean = ready && paths.isNotEmpty()
@@ -61,11 +72,27 @@ object HomeRecommendState {
     }
 
     /** 按持久化 path 顺序映射当前库；条目不删则顺序不变 */
-    fun resolveItems(ctx: Context, filtered: List<MediaItem>): List<MediaItem> {
+    fun resolveItems(ctx: Context, filtered: List<MediaItem>, reason: String? = null): List<MediaItem> {
         ensureLoaded(ctx)
         if (!hasPersistedList()) return emptyList()
         val map = filtered.associateBy { it.path }
-        return paths.mapNotNull { map[it] }.take(RECOMMEND_COUNT)
+        return paths.asSequence()
+            .filter { reason.isNullOrBlank() || reasons[it] == reason }
+            .mapNotNull { map[it] }
+            .take(RECOMMEND_COUNT)
+            .toList()
+    }
+
+    fun reasonCounts(ctx: Context, filtered: List<MediaItem>): List<LibraryUi.RecommendationReasonCount> {
+        ensureLoaded(ctx)
+        if (!hasPersistedList() || reasons.isEmpty()) return emptyList()
+        val available = filtered.map { it.path }.toHashSet()
+        val counts = paths.asSequence()
+            .filter { it in available }
+            .mapNotNull { reasons[it] }
+            .groupingBy { it }
+            .eachCount()
+        return LibraryUi.recommendationReasonCounts(counts)
     }
 
     /**
@@ -86,6 +113,7 @@ object HomeRecommendState {
             limit = RECOMMEND_COUNT,
         )
         paths = result.items.map { it.path }
+        reasons = result.reasons
         summary = result.summary
         ready = true
         persist(ctx)
@@ -102,9 +130,11 @@ object HomeRecommendState {
         seed = 0L
         summary = ""
         paths = emptyList()
+        reasons = emptyMap()
         loadedFromDisk = true
         ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .remove(KEY_PATHS)
+            .remove(KEY_REASONS)
             .remove(KEY_SEED)
             .remove(KEY_SUMMARY)
             .putBoolean(KEY_READY, false)
@@ -118,8 +148,11 @@ object HomeRecommendState {
     private fun persist(ctx: Context) {
         val arr = JSONArray()
         paths.forEach { arr.put(it) }
+        val reasonObj = JSONObject()
+        reasons.forEach { (path, reason) -> reasonObj.put(path, reason) }
         ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_PATHS, arr.toString())
+            .putString(KEY_REASONS, reasonObj.toString())
             .putLong(KEY_SEED, seed)
             .putString(KEY_SUMMARY, summary)
             .putBoolean(KEY_READY, ready)

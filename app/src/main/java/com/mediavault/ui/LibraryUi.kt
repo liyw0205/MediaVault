@@ -161,6 +161,13 @@ object LibraryUi {
     data class RecommendationResult(
         val items: List<MediaItem>,
         val summary: String,
+        val reasons: Map<String, String>,
+    )
+
+    data class RecommendationReasonCount(
+        val reason: String,
+        val label: String,
+        val count: Int,
     )
 
     fun explainableRecommendations(
@@ -170,7 +177,7 @@ object LibraryUi {
         seed: Long,
         limit: Int,
     ): RecommendationResult {
-        if (items.isEmpty()) return RecommendationResult(emptyList(), "")
+        if (items.isEmpty()) return RecommendationResult(emptyList(), "", emptyMap())
         val byPath = items.associateBy { it.path }
         val historyItems = historyPaths.mapNotNull { byPath[it] }.take(12)
         val historySet = historyPaths.toHashSet()
@@ -194,7 +201,7 @@ object LibraryUi {
             PlaylistBuilder.sortEpisodes(items.filter { PlaylistBuilder.collectionKey(it) == key })
                 .filterNot { it.path in historySet || it.path in progressPaths }
                 .forEachIndexed { i, item ->
-                    offer(item, "同合集", 150 - ci * 8 - i.coerceAtMost(30))
+                    offer(item, RECOMMEND_REASON_COLLECTION, 150 - ci * 8 - i.coerceAtMost(30))
                 }
         }
 
@@ -208,7 +215,7 @@ object LibraryUi {
             for (item in items) {
                 if (item.path in historySet || item.path in progressPaths) continue
                 val matches = (item.tags + item.genres).count { it in tagAnchors }
-                if (matches > 0) offer(item, "同类型", 120 + matches * 5)
+                if (matches > 0) offer(item, RECOMMEND_REASON_TYPE, 120 + matches * 5)
             }
         }
 
@@ -219,16 +226,16 @@ object LibraryUi {
         sortedRecent
             .filter { it.coverLocalPath() != null && it.path !in historySet && it.path !in progressPaths }
             .take(limit * 2)
-            .forEachIndexed { i, item -> offer(item, "最近补全封面", 95 - i.coerceAtMost(40)) }
+            .forEachIndexed { i, item -> offer(item, RECOMMEND_REASON_COVER, 95 - i.coerceAtMost(40)) }
 
         sortedRecent
             .filter { it.path !in historySet && it.path !in progressPaths }
             .take(limit * 3)
-            .forEachIndexed { i, item -> offer(item, "未看", 75 - i.coerceAtMost(40)) }
+            .forEachIndexed { i, item -> offer(item, RECOMMEND_REASON_UNWATCHED, 75 - i.coerceAtMost(40)) }
 
         sortedRecent
             .take(limit * 3)
-            .forEachIndexed { i, item -> offer(item, "最近入库", 45 - i.coerceAtMost(40)) }
+            .forEachIndexed { i, item -> offer(item, RECOMMEND_REASON_RECENT, 45 - i.coerceAtMost(40)) }
 
         val picked = candidates.values
             .sortedWith(
@@ -236,16 +243,46 @@ object LibraryUi {
                     .thenBy { it.item.displayTitle().lowercase() },
             )
             .take(limit)
-        val summary = picked
-            .groupingBy { it.reason }
-            .eachCount()
-            .entries
-            .joinToString(" · ") { "${it.key} ${it.value}" }
+        val counts = picked.groupingBy { it.reason }.eachCount()
+        val summary = recommendationReasonCounts(counts)
+            .joinToString(" · ") { "${it.label} ${it.count}" }
         return RecommendationResult(
             items = picked.map { it.item },
             summary = if (summary.isBlank()) "" else "规则推荐 · $summary",
+            reasons = picked.associate { it.item.path to it.reason },
         )
     }
+
+    fun recommendationReasonCounts(counts: Map<String, Int>): List<RecommendationReasonCount> =
+        RECOMMEND_REASON_ORDER.mapNotNull { reason ->
+            val count = counts[reason] ?: return@mapNotNull null
+            if (count <= 0) return@mapNotNull null
+            RecommendationReasonCount(reason, recommendationReasonLabel(reason), count)
+        }
+
+    fun recommendationReasonLabel(reason: String): String =
+        when (reason) {
+            RECOMMEND_REASON_COLLECTION -> "同合集"
+            RECOMMEND_REASON_TYPE -> "同类型"
+            RECOMMEND_REASON_COVER -> "最近补全封面"
+            RECOMMEND_REASON_UNWATCHED -> "未看"
+            RECOMMEND_REASON_RECENT -> "最近入库"
+            else -> reason
+        }
+
+    const val RECOMMEND_REASON_COLLECTION = "collection"
+    const val RECOMMEND_REASON_TYPE = "type"
+    const val RECOMMEND_REASON_COVER = "cover"
+    const val RECOMMEND_REASON_UNWATCHED = "unwatched"
+    const val RECOMMEND_REASON_RECENT = "recent"
+
+    private val RECOMMEND_REASON_ORDER = listOf(
+        RECOMMEND_REASON_COLLECTION,
+        RECOMMEND_REASON_TYPE,
+        RECOMMEND_REASON_COVER,
+        RECOMMEND_REASON_UNWATCHED,
+        RECOMMEND_REASON_RECENT,
+    )
 
     private data class RecommendationCandidate(
         val item: MediaItem,
