@@ -80,6 +80,8 @@
     <string name="home_recently_added">最近入库</string>
     <string name="home_recent_empty">扫描或刮削后会显示最近更新的视频。</string>
     <string name="home_library_section">媒体库</string>
+    <string name="home_unwatched">未看</string>
+    <string name="home_unwatched_empty">没有未看的视频。</string>
     <string name="watch_queue">观看队列</string>
     <string name="watch_queue_empty">观看队列为空。</string>
     <string name="watch_queue_add">加入队列</string>

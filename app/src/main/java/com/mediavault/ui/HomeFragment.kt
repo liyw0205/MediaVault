@@ -150,7 +150,11 @@ class HomeFragment : Fragment() {
         }
         val slice = displaySlice(list)
         view.findViewById<TextView>(R.id.emptyText).text =
-            if (homeFilter == "queue") getString(R.string.watch_queue_empty) else getString(R.string.no_items)
+            when (homeFilter) {
+                "queue" -> getString(R.string.watch_queue_empty)
+                "unwatched" -> getString(R.string.home_unwatched_empty)
+                else -> getString(R.string.no_items)
+            }
         adapter.submitList(slice) {
             view.findViewById<RecyclerView>(R.id.gridRecycler).scrollToPosition(0)
         }
@@ -366,6 +370,7 @@ class HomeFragment : Fragment() {
         HomeRecommendState.reasonCounts(ctx, items).forEach { reason ->
             addChip(getString(R.string.recommend_reason_chip_fmt, reason.label, reason.count), "recommend:${reason.reason}")
         }
+        addChip(getString(R.string.home_unwatched), "unwatched")
         addChip(getString(R.string.watch_queue), "queue")
         addChip(getString(R.string.history), "history")
         addChip(getString(R.string.filter_all), "all")
@@ -377,9 +382,18 @@ class HomeFragment : Fragment() {
         return when (homeFilter) {
             "history" -> LibraryUi.historyItems(all, historyStore.list())
             "queue" -> LibraryUi.watchQueueItems(all, queueStore.list())
+            "unwatched" -> unwatchedItems(filtered)
             "recommend" -> recommendList(filtered)
             else -> if (isRecommendFilter()) recommendList(filtered) else filtered.sortedBy { it.displayTitle().lowercase() }
         }
+    }
+
+    private fun unwatchedItems(items: List<MediaItem>): List<MediaItem> {
+        val history = historyStore.list().toHashSet()
+        return items.asSequence()
+            .filter { it.path !in history && progressStore.getEntry(it.path) == null }
+            .sortedWith(compareByDescending<MediaItem> { it.modified }.thenBy { it.displayTitle().lowercase() })
+            .toList()
     }
 
     private fun paginate(list: List<MediaItem>, page: Int): List<MediaItem> {
