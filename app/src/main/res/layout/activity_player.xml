@@ -56,6 +56,15 @@
         </LinearLayout>
 
         <ImageButton
+            android:id="@+id/btnAudio"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/audio_pick"
+            android:src="@android:drawable/ic_lock_silent_mode_off"
+            app:tint="@color/mv_text" />
+
+        <ImageButton
             android:id="@+id/btnSubtitle"
             android:layout_width="40dp"
             android:layout_height="40dp"

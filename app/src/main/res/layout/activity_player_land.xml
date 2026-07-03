@@ -58,13 +58,25 @@
         </LinearLayout>
 
         <ImageButton
+            android:id="@+id/btnAudio"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/audio_pick"
+            android:focusable="true"
+            android:nextFocusLeft="@id/btnBack"
+            android:nextFocusRight="@id/btnSubtitle"
+            android:src="@android:drawable/ic_lock_silent_mode_off"
+            app:tint="@color/mv_text" />
+
+        <ImageButton
             android:id="@+id/btnSubtitle"
             android:layout_width="52dp"
             android:layout_height="52dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/subtitle_pick"
             android:focusable="true"
-            android:nextFocusLeft="@id/btnBack"
+            android:nextFocusLeft="@id/btnAudio"
             android:nextFocusRight="@id/btnScreenshot"
             android:src="@android:drawable/ic_menu_edit"
             app:tint="@color/mv_text" />
@@ -89,7 +101,7 @@
             android:contentDescription="@string/back"
             android:focusable="true"
             android:nextFocusLeft="@id/btnScreenshot"
-            android:nextFocusRight="@id/btnSubtitle"
+            android:nextFocusRight="@id/btnAudio"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             app:tint="@color/mv_text" />
     </LinearLayout>

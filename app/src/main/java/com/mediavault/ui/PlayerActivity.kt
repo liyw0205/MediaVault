@@ -20,6 +20,7 @@ import android.widget.Toast
 
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -143,6 +144,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
 
                 override fun onTracksChanged(tracks: Tracks) {
+                    applyAudioPreference(exo, tracks)
                     applySubtitleSelection(exo, tracks)
                     updateSessionInfo()
                 }
@@ -202,6 +204,7 @@ class PlayerActivity : AppCompatActivity() {
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
             .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
             .build()
         exo.setMediaItem(builder.build())
         exo.prepare()
@@ -229,6 +232,7 @@ class PlayerActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btnPrev).setOnClickListener { playIndex(playlistIndex - 1) }
         findViewById<ImageButton>(R.id.btnNext).setOnClickListener { playIndex(playlistIndex + 1) }
         findViewById<ImageButton>(R.id.btnPlaylist).setOnClickListener { showPlaylist() }
+        findViewById<ImageButton>(R.id.btnAudio).setOnClickListener { showAudioMenu() }
         findViewById<ImageButton>(R.id.btnSubtitle).setOnClickListener { showSubtitleMenu() }
         findViewById<ImageButton>(R.id.btnScreenshot).setOnClickListener { takeScreenshot() }
     }
@@ -312,22 +316,94 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun audioStateLabel(): String {
-        val tracks = player?.currentTracks
-        if (tracks != null) {
-            for (group in tracks.groups) {
-                if (group.type != C.TRACK_TYPE_AUDIO) continue
-                for (i in 0 until group.length) {
-                    if (!group.isTrackSelected(i)) continue
-                    val format = group.getTrackFormat(i)
-                    val label = format.label?.takeIf { it.isNotBlank() }
-                        ?: format.language?.takeIf { it.isNotBlank() }
-                    if (label != null) {
-                        return getString(R.string.player_session_audio_fmt, label)
-                    }
-                }
+        val selected = selectedAudioLabel(player?.currentTracks)
+        return if (PlaybackPrefs.getAudioMode(this) == PlaybackPrefs.AudioMode.MANUAL) {
+            val label = PlaybackPrefs.getAudioLabel(this) ?: selected
+            if (label != null) {
+                getString(R.string.player_session_audio_manual_fmt, label)
+            } else {
+                getString(R.string.player_session_audio_default)
+            }
+        } else if (selected != null) {
+            getString(R.string.player_session_audio_auto_fmt, selected)
+        } else {
+            getString(R.string.player_session_audio_default)
+        }
+    }
+
+    private data class AudioCandidate(
+        val group: Tracks.Group,
+        val trackIndex: Int,
+        val label: String,
+        val match: String,
+        val language: String?,
+    )
+
+    private fun audioCandidates(tracks: Tracks): List<AudioCandidate> {
+        val out = mutableListOf<AudioCandidate>()
+        tracks.groups.forEach { group ->
+            if (group.type != C.TRACK_TYPE_AUDIO) return@forEach
+            for (i in 0 until group.length) {
+                if (!group.isTrackSupported(i)) continue
+                val format = group.getTrackFormat(i)
+                out.add(
+                    AudioCandidate(
+                        group = group,
+                        trackIndex = i,
+                        label = audioTrackLabel(format, i),
+                        match = audioMatchKey(format),
+                        language = format.language?.trim()?.takeIf { it.isNotBlank() }?.lowercase(),
+                    ),
+                )
             }
         }
-        return getString(R.string.player_session_audio_default)
+        return out
+    }
+
+    private fun selectedAudioLabel(tracks: Tracks?): String? {
+        if (tracks == null) return null
+        return audioCandidates(tracks).firstOrNull { it.group.isTrackSelected(it.trackIndex) }?.label
+    }
+
+    private fun audioTrackLabel(format: Format, index: Int): String {
+        val name = format.label?.trim()?.takeIf { it.isNotBlank() }
+            ?: format.language?.trim()?.takeIf { it.isNotBlank() }
+            ?: getString(R.string.audio_track_number_fmt, index + 1)
+        val channels = if (format.channelCount > 0) {
+            getString(R.string.audio_track_channels_fmt, format.channelCount)
+        } else {
+            null
+        }
+        return listOfNotNull(name, channels).joinToString(" · ")
+    }
+
+    private fun audioMatchKey(format: Format): String =
+        listOf(
+            format.language.orEmpty(),
+            format.label.orEmpty(),
+            format.id.orEmpty(),
+            format.sampleMimeType.orEmpty(),
+            format.codecs.orEmpty(),
+        )
+            .joinToString("|") { it.trim().lowercase() }
+            .takeIf { it.isNotBlank() }
+            ?: "audio"
+
+    private fun applyAudioPreference(exo: ExoPlayer, tracks: Tracks) {
+        if (PlaybackPrefs.getAudioMode(this) != PlaybackPrefs.AudioMode.MANUAL) return
+        val match = PlaybackPrefs.getAudioMatch(this) ?: return
+        val preferredLanguage = PlaybackPrefs.getAudioLanguage(this)
+        val preferredLabel = PlaybackPrefs.getAudioLabel(this)
+        val candidates = audioCandidates(tracks)
+        val pick = candidates.firstOrNull { it.match == match }
+            ?: candidates.firstOrNull { preferredLanguage != null && it.language == preferredLanguage }
+            ?: candidates.firstOrNull { preferredLabel != null && it.label.equals(preferredLabel, ignoreCase = true) }
+            ?: return
+        if (pick.group.isTrackSelected(pick.trackIndex)) return
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+            .setOverrideForType(TrackSelectionOverride(pick.group.mediaTrackGroup, pick.trackIndex))
+            .build()
     }
 
     private fun autoplayTargetLabel(): String {
@@ -353,6 +429,48 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun showAudioMenu() {
+        val p = player ?: return
+        val options = mutableListOf<String>()
+        val actions = mutableListOf<() -> Unit>()
+
+        val autoMark = if (PlaybackPrefs.getAudioMode(this) == PlaybackPrefs.AudioMode.AUTO) "● " else "○ "
+        options.add("$autoMark${getString(R.string.audio_auto)}")
+        actions.add {
+            PlaybackPrefs.setAudioAuto(this)
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                .build()
+            updateSessionInfo()
+        }
+
+        val candidates = audioCandidates(p.currentTracks)
+        if (candidates.isEmpty()) {
+            options.add(getString(R.string.audio_track_empty))
+            actions.add { updateSessionInfo() }
+        } else {
+            candidates.forEach { candidate ->
+                val mark = if (candidate.group.isTrackSelected(candidate.trackIndex)) "● " else "○ "
+                options.add("$mark${getString(R.string.audio_track_fmt, candidate.label)}")
+                actions.add {
+                    PlaybackPrefs.setAudioManual(this, candidate.match, candidate.label, candidate.language)
+                    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                        .setOverrideForType(TrackSelectionOverride(candidate.group.mediaTrackGroup, candidate.trackIndex))
+                        .build()
+                    updateSessionInfo()
+                }
+            }
+        }
+
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.audio_pick)
+                .setItems(options.toTypedArray()) { _, which -> actions[which]() },
+        )
     }
 
     private fun showPlaylist() {
