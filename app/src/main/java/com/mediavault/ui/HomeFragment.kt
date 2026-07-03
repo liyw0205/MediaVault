@@ -150,12 +150,7 @@ class HomeFragment : Fragment() {
             page = page.coerceIn(1, pagesFor(list).coerceAtLeast(1))
         }
         val slice = displaySlice(list)
-        view.findViewById<TextView>(R.id.emptyText).text =
-            when (homeFilter) {
-                "queue" -> getString(R.string.watch_queue_empty)
-                "unwatched" -> getString(R.string.home_unwatched_empty)
-                else -> getString(R.string.no_items)
-            }
+        view.findViewById<TextView>(R.id.emptyText).text = emptyTextForCurrentFilter()
         adapter.submitList(slice) {
             view.findViewById<RecyclerView>(R.id.gridRecycler).scrollToPosition(0)
         }
@@ -261,6 +256,26 @@ class HomeFragment : Fragment() {
             homeFilter == "all" -> getString(R.string.filter_all)
             homeFilter.startsWith("root:") -> homeFilter.removePrefix("root:")
             else -> getString(R.string.filter_all)
+        }
+
+    private fun emptyTextForCurrentFilter(): String =
+        when {
+            homeFilter == "recommend" -> getString(R.string.home_recommend_empty)
+            homeFilter.startsWith("recommend:") -> {
+                val reason = selectedRecommendReason().orEmpty()
+                getString(
+                    R.string.home_recommend_reason_empty_fmt,
+                    LibraryUi.recommendationReasonLabel(reason),
+                )
+            }
+            homeFilter == "queue" -> getString(R.string.watch_queue_empty)
+            homeFilter == "unwatched" -> getString(R.string.home_unwatched_empty)
+            homeFilter == "history" -> getString(R.string.home_history_empty)
+            homeFilter.startsWith("root:") -> getString(
+                R.string.home_root_empty_fmt,
+                homeFilter.removePrefix("root:"),
+            )
+            else -> getString(R.string.no_items)
         }
 
     private fun bindWorkflowSections(view: View, items: List<MediaItem>) {
