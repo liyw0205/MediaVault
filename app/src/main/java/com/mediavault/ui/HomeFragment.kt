@@ -189,8 +189,7 @@ class HomeFragment : Fragment() {
                 next.isEnabled = page < pages.coerceAtLeast(1)
                 actionBtn.visibility = View.VISIBLE
                 actionBtn.text = getString(R.string.clear_history)
-                view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
-                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
+                bindPagedStatus(view, list.size)
             }
             "queue" -> {
                 val pages = pagesFor(list)
@@ -203,8 +202,7 @@ class HomeFragment : Fragment() {
                 next.isEnabled = page < pages.coerceAtLeast(1)
                 actionBtn.visibility = View.VISIBLE
                 actionBtn.text = getString(R.string.watch_queue_clear)
-                view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
-                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
+                bindPagedStatus(view, list.size)
             }
             else -> if (isRecommendFilter()) {
                 pager.visibility = View.VISIBLE
@@ -228,10 +226,23 @@ class HomeFragment : Fragment() {
                 prev.isEnabled = page > 1
                 next.isEnabled = page < pages.coerceAtLeast(1)
                 actionBtn.visibility = View.GONE
-                view.findViewById<TextView>(R.id.statusText).visibility = View.VISIBLE
-                view.findViewById<TextView>(R.id.statusText).text = getString(R.string.items_count, list.size)
+                bindPagedStatus(view, list.size)
             }
         }
+    }
+
+    private fun bindPagedStatus(view: View, total: Int) {
+        view.findViewById<TextView>(R.id.statusText).apply {
+            visibility = View.VISIBLE
+            text = pagedStatusText(total)
+        }
+    }
+
+    private fun pagedStatusText(total: Int): String {
+        if (total <= 0) return getString(R.string.items_count, 0)
+        val start = ((page - 1) * LibraryUi.PAGE_SIZE) + 1
+        val end = minOf(start + LibraryUi.PAGE_SIZE - 1, total)
+        return getString(R.string.home_page_range_fmt, start, end, total)
     }
 
     private fun bindLibraryTitle(view: View, count: Int) {
