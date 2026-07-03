@@ -28,6 +28,10 @@
     <string name="collections_tab_genres">类型</string>
     <string name="collection_count">%1$d 个视频</string>
     <string name="related_in_collection">同合集</string>
+    <string name="next_up_section">下一项</string>
+    <string name="next_up_repeat_section">连播目标</string>
+    <string name="next_up_meta_fmt">%1$s · 第 %2$d/%3$d 项</string>
+    <string name="next_up_meta_episode_fmt">%1$s · 第 %2$d/%3$d 项 · %4$s</string>
     <string name="no_plot">暂无简介</string>
     <string name="back">返回</string>
     <string name="player_prev">上一集</string>

@@ -1,5 +1,6 @@
 package com.mediavault.ui
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -7,6 +8,7 @@ import android.view.View
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -34,6 +36,19 @@ class VideoDetailActivity : AppCompatActivity() {
     private var collectionGroupKey: String? = null
     private var collectionGroupTitle: String? = null
     private var currentItem: MediaItem? = null
+
+    private val playerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val path = result.data
+            ?.getStringExtra(PlayerActivity.EXTRA_RESULT_PATH)
+            ?.takeIf { it.isNotBlank() }
+            ?: return@registerForActivityResult
+        if (path == currentItem?.path) return@registerForActivityResult
+        val repo = (application as MediaVaultApp).repository
+        if (repo.library.value.items.any { it.path == path }) {
+            switchTo(path, scrollToTop = false)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,7 +138,65 @@ class VideoDetailActivity : AppCompatActivity() {
         bindQueueButton(item)
         coverView.setOnClickListener { play(item) }
 
+        bindNextUp(item, sameCollection)
         bindRelatedList(path, sameCollection)
+    }
+
+    private fun bindNextUp(current: MediaItem, sameCollection: List<MediaItem>) {
+        val section = findViewById<View>(R.id.nextUpSection)
+        val target = resolveNextUp(current, sameCollection)
+        if (target == null) {
+            section.visibility = View.GONE
+            return
+        }
+
+        section.visibility = View.VISIBLE
+        findViewById<TextView>(R.id.nextUpSectionTitle).setText(
+            if (target.mode == PlaybackPrefs.AutoplayMode.REPEAT_ONE) {
+                R.string.next_up_repeat_section
+            } else {
+                R.string.next_up_section
+            },
+        )
+        findViewById<TextView>(R.id.nextUpTitle).text = target.item.displayTitle()
+        findViewById<TextView>(R.id.nextUpMeta).text = nextUpMeta(target, sameCollection.size)
+        findViewById<MaterialButton>(R.id.btnNextUpPlay).setOnClickListener { play(target.item) }
+        findViewById<MaterialButton>(R.id.btnNextUpDetail).apply {
+            isEnabled = target.item.path != current.path
+            setOnClickListener { switchTo(target.item.path) }
+        }
+    }
+
+    private fun nextUpMeta(target: NextUpTarget, total: Int): String {
+        val modeLabel = PlaybackPrefs.label(this, target.mode)
+        val ep = target.item.episodeLabel()
+        return if (ep.isBlank()) {
+            getString(R.string.next_up_meta_fmt, modeLabel, target.position, total)
+        } else {
+            getString(R.string.next_up_meta_episode_fmt, modeLabel, target.position, total, ep)
+        }
+    }
+
+    private fun resolveNextUp(current: MediaItem, sameCollection: List<MediaItem>): NextUpTarget? {
+        if (sameCollection.size <= 1) return null
+        val currentIndex = sameCollection.indexOfFirst { it.path == current.path }
+        if (currentIndex < 0) return null
+        val mode = PlaybackPrefs.getAutoplayMode(this)
+        val targetIndex = when (mode) {
+            PlaybackPrefs.AutoplayMode.REPEAT_ONE -> currentIndex
+            PlaybackPrefs.AutoplayMode.LOOP_COLLECTION -> (currentIndex + 1) % sameCollection.size
+            PlaybackPrefs.AutoplayMode.SEQUENTIAL,
+            PlaybackPrefs.AutoplayMode.OFF -> {
+                val next = currentIndex + 1
+                if (next >= sameCollection.size) return null
+                next
+            }
+        }
+        return NextUpTarget(
+            item = sameCollection[targetIndex],
+            position = targetIndex + 1,
+            mode = mode,
+        )
     }
 
     private fun bindRelatedList(currentPath: String, sameCollection: List<MediaItem>) {
@@ -293,15 +366,17 @@ class VideoDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun switchTo(path: String) {
+    private fun switchTo(path: String, scrollToTop: Boolean = true) {
         intent.putExtra(EXTRA_PATH, path)
         bind(path)
-        findViewById<ScrollView>(R.id.detailScroll)?.scrollTo(0, 0)
+        if (scrollToTop) {
+            findViewById<ScrollView>(R.id.detailScroll)?.scrollTo(0, 0)
+        }
     }
 
     private fun play(item: MediaItem) {
         historyStore.add(item.path)
-        startActivity(PlayerActivity.intent(this, item.path, item.displayTitle()))
+        playerLauncher.launch(PlayerActivity.intent(this, item.path, item.displayTitle()))
     }
 
     private fun bindQueueButton(item: MediaItem) {
@@ -331,4 +406,10 @@ class VideoDetailActivity : AppCompatActivity() {
         fun intent(ctx: Context, path: String): Intent =
             Intent(ctx, VideoDetailActivity::class.java).putExtra(EXTRA_PATH, path)
     }
+
+    private data class NextUpTarget(
+        val item: MediaItem,
+        val position: Int,
+        val mode: PlaybackPrefs.AutoplayMode,
+    )
 }

@@ -1,5 +1,6 @@
 package com.mediavault.ui
 
+import android.app.Activity
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -182,6 +183,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun loadEpisode(exo: ExoPlayer, uri: Uri, title: String, mediaPath: String) {
         currentMediaPath = mediaPath
+        updateResultPath()
         autoResolved = false
         remoteDurationHintShown = false
         val builder = ExoMediaItem.Builder().setUri(uri)
@@ -278,7 +280,7 @@ class PlayerActivity : AppCompatActivity() {
         if (playlist.isEmpty()) return
         val autoplayLabel = getString(
             R.string.player_autoplay_current_fmt,
-            autoplayModeLabel(PlaybackPrefs.getAutoplayMode(this)),
+            PlaybackPrefs.label(this),
         )
         val header = "⚙ ${getString(R.string.player_autoplay_title)} · $autoplayLabel"
         val labels = (listOf(header) + playlist.mapIndexed { i, ep ->
@@ -305,7 +307,7 @@ class PlayerActivity : AppCompatActivity() {
         val current = PlaybackPrefs.getAutoplayMode(this)
         val labels = modes.map { m ->
             val mark = if (m == current) "● " else "○ "
-            "$mark${autoplayModeLabel(m)}"
+            "$mark${PlaybackPrefs.label(this, m)}"
         }.toTypedArray()
         MvDialog.show(
             MvDialog.builder(this)
@@ -314,13 +316,6 @@ class PlayerActivity : AppCompatActivity() {
                     PlaybackPrefs.setAutoplayMode(this, modes[which])
                 },
         )
-    }
-
-    private fun autoplayModeLabel(mode: PlaybackPrefs.AutoplayMode): String = when (mode) {
-        PlaybackPrefs.AutoplayMode.SEQUENTIAL -> getString(R.string.player_autoplay_sequential)
-        PlaybackPrefs.AutoplayMode.REPEAT_ONE -> getString(R.string.player_autoplay_repeat_one)
-        PlaybackPrefs.AutoplayMode.LOOP_COLLECTION -> getString(R.string.player_autoplay_loop_collection)
-        PlaybackPrefs.AutoplayMode.OFF -> getString(R.string.player_autoplay_off)
     }
 
     private fun maybeShowRemoteDurationHint(exo: ExoPlayer) {
@@ -532,6 +527,11 @@ class PlayerActivity : AppCompatActivity() {
             .build()
     }
 
+    private fun updateResultPath() {
+        if (currentMediaPath.isBlank()) return
+        setResult(Activity.RESULT_OK, Intent().putExtra(EXTRA_RESULT_PATH, currentMediaPath))
+    }
+
     private fun reloadCurrentMedia() {
         val ep = playlist.getOrNull(playlistIndex)
         val pos = player?.currentPosition ?: 0L
@@ -550,7 +550,9 @@ class PlayerActivity : AppCompatActivity() {
             loadEpisode(it, uri, title, currentMediaPath)
             it.seekTo(pos)
         }
-    }    private fun resolveStartUri(startPath: String, store: com.mediavault.data.MediaStore): Uri {
+    }
+
+    private fun resolveStartUri(startPath: String, store: com.mediavault.data.MediaStore): Uri {
         if (startPath.startsWith("content://") || startPath.startsWith("file://")) {
             return Uri.parse(startPath)
         }
@@ -623,6 +625,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val EXTRA_URI_LEGACY = "uri"
         private const val EXTRA_TITLE = "title"
         const val EXTRA_RESUME_MS = "resume_ms"
+        const val EXTRA_RESULT_PATH = "player_result_path"
 
         fun intent(ctx: Context, path: String, title: String): Intent =
             Intent(ctx, PlayerActivity::class.java)

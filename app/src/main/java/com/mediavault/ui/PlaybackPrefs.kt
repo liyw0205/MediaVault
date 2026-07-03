@@ -1,6 +1,7 @@
 package com.mediavault.ui
 
 import android.content.Context
+import com.mediavault.R
 
 object PlaybackPrefs {
     private const val NAME = "playback_ui"
@@ -29,5 +30,12 @@ object PlaybackPrefs {
             .edit()
             .putString(KEY_AUTOPLAY_MODE, mode.storeValue)
             .apply()
+    }
+
+    fun label(ctx: Context, mode: AutoplayMode = getAutoplayMode(ctx)): String = when (mode) {
+        AutoplayMode.SEQUENTIAL -> ctx.getString(R.string.player_autoplay_sequential)
+        AutoplayMode.REPEAT_ONE -> ctx.getString(R.string.player_autoplay_repeat_one)
+        AutoplayMode.LOOP_COLLECTION -> ctx.getString(R.string.player_autoplay_loop_collection)
+        AutoplayMode.OFF -> ctx.getString(R.string.player_autoplay_off)
     }
 }
