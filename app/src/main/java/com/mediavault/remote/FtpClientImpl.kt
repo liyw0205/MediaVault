@@ -32,8 +32,7 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
 
     override fun fileSize(relativePath: String): Long {
         connect().use { ftp ->
-            var path = relativePath.trim().replace('\\', '/')
-            if (!path.startsWith("/")) path = "/$path"
+            val path = ftpPath(relativePath)
             val parent = path.substringBeforeLast('/', "/").ifBlank { "/" }
             val name = path.substringAfterLast('/')
             val files = ftp.listFiles(parent) ?: return C.LENGTH_UNSET.toLong()
@@ -47,8 +46,7 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         length: Long,
     ): java.io.InputStream {
         val ftp = connect()
-        var path = relativePath.trim().replace('\\', '/')
-        if (!path.startsWith("/")) path = "/$path"
+        val path = ftpPath(relativePath)
         if (offset > 0) {
             ftp.setRestartOffset(offset)
         }
@@ -105,8 +103,7 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     override fun list(path: String): List<RemoteEntry> {
         val ftp = connect()
         try {
-            var dir = path.ifBlank { cfg.basePath }
-            if (!dir.startsWith("/")) dir = "/$dir"
+            val dir = ftpPath(path)
             val files: Array<FTPFile> = ftp.listFiles(dir) ?: emptyArray()
             if (!FTPReply.isPositiveCompletion(ftp.replyCode)) {
                 throw IOException("FTP 列目录失败: $dir ${ftp.replyString?.trim().orEmpty()}")
@@ -134,5 +131,17 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
                 disconnect()
             }
         }
+    }
+
+    private fun ftpPath(path: String): String {
+        val rel = path.trim().replace('\\', '/').trim('/')
+        val base = cfg.basePath.trim().replace('\\', '/').trim('/').ifBlank { "" }
+        return when {
+            rel.isBlank() -> if (base.isBlank()) "/" else "/$base"
+            path.trim().replace('\\', '/').startsWith("/") -> "/$rel"
+            base.isBlank() -> "/$rel"
+            rel == base || rel.startsWith("$base/") -> "/$rel"
+            else -> "/$base/$rel"
+        }.replace(Regex("/{2,}"), "/")
     }
 }
