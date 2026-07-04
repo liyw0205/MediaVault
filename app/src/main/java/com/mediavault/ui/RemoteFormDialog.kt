@@ -71,7 +71,6 @@ object RemoteFormDialog {
                 user = u,
                 password = pw,
                 initialBasePath = base.text?.toString()?.trim().orEmpty(),
-                savedConfigId = existing?.id,
             )
         }
         val title = if (existing == null) {

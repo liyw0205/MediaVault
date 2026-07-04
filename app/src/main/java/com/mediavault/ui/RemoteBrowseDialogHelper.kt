@@ -34,7 +34,6 @@ class RemoteBrowseDialogHelper(
         user: String,
         password: String,
         initialBasePath: String,
-        savedConfigId: String? = null,
     ) {
         if (host.isBlank()) {
             Toast.makeText(activity, R.string.remote_browse_need_host, Toast.LENGTH_SHORT).show()
@@ -53,9 +52,6 @@ class RemoteBrowseDialogHelper(
         val baseNorm = normalizeBaseForBrowse(type, initialBasePath)
 
         fun draftConfig() = draftConfigProvider()
-
-        fun playConfigId(): String = savedConfigId?.takeIf { it.isNotBlank() }
-            ?: RemotePlayUri.PREVIEW_CONFIG_ID
 
         fun displayPath(): String {
             val rel = browseRelPath.trim('/')
@@ -82,11 +78,8 @@ class RemoteBrowseDialogHelper(
 
         fun playVideo(e: RemoteEntry) {
             val rel = entryRelPath(e)
-            val cfgId = playConfigId()
-            if (cfgId == RemotePlayUri.PREVIEW_CONFIG_ID) {
-                RemoteBrowsePreviewHolder.config = draftConfig()
-            }
-            val libPath = RemotePlayUri.libraryPath(cfgId, rel)
+            RemoteBrowsePreviewHolder.config = draftConfig()
+            val libPath = RemotePlayUri.libraryPath(RemotePlayUri.PREVIEW_CONFIG_ID, rel)
             activity.startActivity(PlayerActivity.intent(activity, libPath, e.name))
         }
 
