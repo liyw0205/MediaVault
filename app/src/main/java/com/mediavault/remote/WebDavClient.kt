@@ -66,6 +66,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         offset: Long,
         length: Long,
     ): java.io.InputStream {
+        if (length == 0L) return java.io.ByteArrayInputStream(ByteArray(0))
         val url = requestUrl(relativePath)
         val req = Request.Builder().url(url).get()
         authHeader()?.let { req.header("Authorization", it) }

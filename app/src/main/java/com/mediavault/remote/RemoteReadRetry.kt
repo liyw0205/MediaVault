@@ -52,6 +52,7 @@ object RemoteReadRetry {
         alive: java.util.concurrent.atomic.AtomicBoolean,
         onChunk: ((ByteArray, Int, Int) -> Unit)? = null,
     ) {
+        if (length == 0L) return
         val buf = ByteArray(64 * 1024)
         var remaining = if (length > 0 && length != C.LENGTH_UNSET.toLong()) {
             length

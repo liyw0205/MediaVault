@@ -50,6 +50,7 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         offset: Long,
         length: Long,
     ): java.io.InputStream {
+        if (length == 0L) return java.io.ByteArrayInputStream(ByteArray(0))
         val ftp = connect()
         val path = ftpPath(relativePath)
         if (offset > 0) {

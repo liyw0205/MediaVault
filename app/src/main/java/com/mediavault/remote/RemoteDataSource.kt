@@ -144,6 +144,7 @@ class RemoteDataSource(
         alive: AtomicBoolean,
     ) {
         if (!alive.get()) return
+        if (requestLength == 0L) return
         val prefixLen = RemoteStreamCache.prefixLength(context, cacheKey)
         var cursor = position
         var need = if (requestLength != C.LENGTH_UNSET.toLong()) requestLength else Long.MAX_VALUE

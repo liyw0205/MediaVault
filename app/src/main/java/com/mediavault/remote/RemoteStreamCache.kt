@@ -166,6 +166,7 @@ object RemoteStreamCache {
         out: OutputStream,
         alive: AtomicBoolean,
     ): Long {
+        if (length == 0L) return 0L
         val f = prefixFile(context, key)
         if (!f.isFile) return 0L
         val avail = (f.length() - fileOffset).coerceAtLeast(0L)
@@ -207,6 +208,7 @@ object RemoteStreamCache {
         alive: AtomicBoolean,
     ) {
         if (!alive.get()) return
+        if (length == 0L) return
         synchronized(lock) {
             if (!alive.get()) return
             cleanup(context)
@@ -295,6 +297,7 @@ object RemoteStreamCache {
         alive: AtomicBoolean,
     ) {
         if (!alive.get()) return
+        if (length == 0L) return
         cleanup(context)
 
         var readOffset = netOffset

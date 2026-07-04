@@ -73,6 +73,7 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         offset: Long,
         length: Long,
     ): java.io.InputStream {
+        if (length == 0L) return java.io.ByteArrayInputStream(ByteArray(0))
         val p = smbPath(relativePath)
         val client = SMBClient()
         var conn: Connection? = null
