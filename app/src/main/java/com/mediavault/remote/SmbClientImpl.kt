@@ -1,5 +1,7 @@
 package com.mediavault.remote
 
+import java.io.EOFException
+import java.io.InputStream
 import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
@@ -89,12 +91,7 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         )
         val raw = file.inputStream
         if (offset > 0) {
-            var left = offset
-            while (left > 0) {
-                val skipped = raw.skip(left)
-                if (skipped <= 0) break
-                left -= skipped
-            }
+            skipFully(raw, offset)
         }
         val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
             RemoteLimitedInputStream(raw, length)
@@ -145,5 +142,20 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
             }
         }
         return rel
+    }
+
+    private fun skipFully(input: InputStream, offset: Long) {
+        var left = offset
+        while (left > 0) {
+            val skipped = input.skip(left)
+            if (skipped > 0) {
+                left -= skipped
+                continue
+            }
+            if (input.read() < 0) {
+                throw EOFException("SMB 无法跳转到指定位置：$offset")
+            }
+            left--
+        }
     }
 }
