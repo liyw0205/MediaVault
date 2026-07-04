@@ -25,11 +25,9 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     override fun testConnection(): String {
-        connect().use { ftp ->
-            ftp.logout()
-            ftp.disconnect()
-        }
-        return "FTP 连接成功"
+        val entries = list("")
+        val dirs = entries.count { it.directory }
+        return "FTP 连接成功，条目 ${entries.size}（目录 $dirs）"
     }
 
     override fun fileSize(relativePath: String): Long {
@@ -110,6 +108,9 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
             var dir = path.ifBlank { cfg.basePath }
             if (!dir.startsWith("/")) dir = "/$dir"
             val files: Array<FTPFile> = ftp.listFiles(dir) ?: emptyArray()
+            if (!FTPReply.isPositiveCompletion(ftp.replyCode)) {
+                throw IOException("FTP 列目录失败: $dir ${ftp.replyString?.trim().orEmpty()}")
+            }
             return files.mapNotNull { f ->
                 val name = f.name ?: return@mapNotNull null
                 if (name == "." || name == "..") return@mapNotNull null
