@@ -42,7 +42,7 @@ class RemoteDataSource(
             throw IOException(RemoteErrorMessages.userMessage(context, IOException("bad scheme")))
         }
         val configId = u.host ?: throw IOException(RemoteErrorMessages.userMessage(context, IOException("no id")))
-        val encPath = u.path?.trimStart('/') ?: ""
+        val encPath = u.encodedPath?.trimStart('/') ?: ""
         val rel = Uri.decode(encPath)
         val cfg = resolveConfig(configId)
             ?: throw IOException(RemoteErrorMessages.userMessage(context, IOException("not configured")))
