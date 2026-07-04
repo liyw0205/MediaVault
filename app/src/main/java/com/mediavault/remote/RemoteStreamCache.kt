@@ -206,13 +206,11 @@ object RemoteStreamCache {
                 throw IOException("fetch offset $netOffset behind prefix $prefixLen")
             }
             val cap = maxPerFile(context)
-            if (prefixLen >= cap) {
-                throw IOException("单文件缓存超过上限")
-            }
             RemoteReadRetry.openWithRetry(client, relativePath, netOffset, length).use { input ->
                 val buf = ByteArray(64 * 1024)
-                val append = netOffset == prefixLen
-                val fos = if (append) FileOutputStream(prefix, true) else null
+                val append = netOffset == prefixLen && prefixLen < cap
+                var cacheRemaining = if (append) (cap - prefixLen).coerceAtLeast(0L) else 0L
+                var fos = if (append && cacheRemaining > 0L) FileOutputStream(prefix, true) else null
                 try {
                     var remaining = if (length > 0 && length != C.LENGTH_UNSET.toLong()) {
                         length
@@ -220,9 +218,6 @@ object RemoteStreamCache {
                         Long.MAX_VALUE
                     }
                     while (remaining > 0 && alive.get()) {
-                        if (prefix.length() >= cap) {
-                            throw IOException("单文件缓存超过上限")
-                        }
                         val toRead = if (remaining == Long.MAX_VALUE) {
                             buf.size
                         } else {
@@ -231,8 +226,22 @@ object RemoteStreamCache {
                         val n = input.read(buf, 0, toRead)
                         if (n <= 0) break
                         if (!writeOut(out, buf, 0, n, alive)) break
-                        if (append && fos != null) {
-                            runCatching { fos.write(buf, 0, n) }
+                        val writer = fos
+                        if (writer != null && cacheRemaining > 0L) {
+                            val toCache = minOf(n.toLong(), cacheRemaining).toInt()
+                            if (toCache > 0) {
+                                val wrote = runCatching { writer.write(buf, 0, toCache) }.isSuccess
+                                if (wrote) {
+                                    cacheRemaining -= toCache.toLong()
+                                } else {
+                                    cacheRemaining = 0L
+                                }
+                            }
+                            if (cacheRemaining <= 0L) {
+                                runCatching { writer.flush() }
+                                runCatching { writer.close() }
+                                fos = null
+                            }
                         }
                         if (remaining != Long.MAX_VALUE) remaining -= n.toLong()
                     }
