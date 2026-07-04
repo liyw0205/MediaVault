@@ -12,16 +12,21 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         val ftp = FTPClient()
         ftp.connectTimeout = 30_000
         ftp.defaultTimeout = 120_000
-        ftp.connect(cfg.host, cfg.port)
-        if (!FTPReply.isPositiveCompletion(ftp.replyCode)) {
-            throw IOException("FTP 连接失败: ${ftp.replyString?.trim()}")
+        try {
+            ftp.connect(cfg.host, cfg.port)
+            if (!FTPReply.isPositiveCompletion(ftp.replyCode)) {
+                throw IOException("FTP 连接失败: ${ftp.replyString?.trim()}")
+            }
+            if (!ftp.login(cfg.user, cfg.password)) {
+                throw IOException("FTP 登录失败: ${ftp.replyString}")
+            }
+            ftp.enterLocalPassiveMode()
+            ftp.setFileType(FTP.BINARY_FILE_TYPE)
+            return ftp
+        } catch (t: Throwable) {
+            closeFtp(ftp)
+            throw t
         }
-        if (!ftp.login(cfg.user, cfg.password)) {
-            throw IOException("FTP 登录失败: ${ftp.replyString}")
-        }
-        ftp.enterLocalPassiveMode()
-        ftp.setFileType(FTP.BINARY_FILE_TYPE)
-        return ftp
     }
 
     override fun testConnection(): String {
@@ -52,7 +57,7 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         }
         var raw = ftp.retrieveFileStream(path)
         if (raw == null && offset > 0) {
-            runCatching { ftp.disconnect() }
+            closeFtp(ftp)
             val ftp2 = connect()
             ftp2.sendCommand("REST", offset.toString())
             if (FTPReply.isPositiveIntermediate(ftp2.replyCode)) {
@@ -61,13 +66,13 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
                     return wrapFtpStream(ftp2, raw, length)
                 }
             }
-            runCatching { ftp2.logout(); ftp2.disconnect() }
+            closeFtp(ftp2)
             throw IOException("FTP 不支持断点续传（拖动到未缓存位置）：REST $offset")
         }
         if (raw == null) {
             val code = ftp.replyCode
             val reply = ftp.replyString?.trim().orEmpty()
-            runCatching { ftp.logout(); ftp.disconnect() }
+            closeFtp(ftp)
             if (offset > 0 && (code == 501 || code == 502 || code == 550 ||
                     (reply.contains("REST", ignoreCase = true) && reply.contains("not", ignoreCase = true)))
             ) {
@@ -90,11 +95,11 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         }
         return object : java.io.FilterInputStream(limited) {
             override fun close() {
-                super.close()
-                runCatching {
-                    ftp.completePendingCommand()
-                    ftp.logout()
-                    ftp.disconnect()
+                try {
+                    super.close()
+                } finally {
+                    runCatching { ftp.completePendingCommand() }
+                    closeFtp(ftp)
                 }
             }
         }
@@ -126,10 +131,7 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         return try {
             block(this)
         } finally {
-            runCatching {
-                logout()
-                disconnect()
-            }
+            closeFtp(this)
         }
     }
 
@@ -143,5 +145,14 @@ class FtpClientImpl(private val cfg: RemoteConfig) : RemoteClient {
             rel == base || rel.startsWith("$base/") -> "/$rel"
             else -> "/$base/$rel"
         }.replace(Regex("/{2,}"), "/")
+    }
+
+    private fun closeFtp(ftp: FTPClient) {
+        runCatching {
+            if (ftp.isConnected) {
+                runCatching { ftp.logout() }
+                ftp.disconnect()
+            }
+        }
     }
 }
