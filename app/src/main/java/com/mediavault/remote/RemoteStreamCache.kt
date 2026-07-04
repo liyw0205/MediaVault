@@ -316,8 +316,9 @@ object RemoteStreamCache {
         if (partRange != null && partRange.isFile) partRange.delete()
 
         val cap = maxPerFile(context)
+        val remainingCacheBytes = (cap - cachedBytesForKey(context, key)).coerceAtLeast(0L)
         val allowRangeWrite = cacheRange && finalRange != null &&
-            cachedBytesForKey(context, key) < cap
+            readLength <= remainingCacheBytes
 
         RemoteReadRetry.openWithRetry(client, relativePath, readOffset, readLength).use { input ->
             val buf = ByteArray(64 * 1024)
