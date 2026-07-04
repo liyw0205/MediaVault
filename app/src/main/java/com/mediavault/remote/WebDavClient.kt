@@ -86,8 +86,25 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
             resp.close()
             error("WebDAV GET ${resp.code}")
         }
-        val body = resp.body ?: error("WebDAV empty body")
-        return body.byteStream()
+        val body = resp.body ?: run {
+            resp.close()
+            error("WebDAV empty body")
+        }
+        val raw = body.byteStream()
+        val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
+            RemoteLimitedInputStream(raw, length)
+        } else {
+            raw
+        }
+        return object : java.io.FilterInputStream(limited) {
+            override fun close() {
+                try {
+                    super.close()
+                } finally {
+                    resp.close()
+                }
+            }
+        }
     }
 
     override fun testConnection(): String {
