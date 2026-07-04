@@ -127,6 +127,17 @@ object RemoteStreamCache {
         return sum
     }
 
+    private fun completeCacheBytes(context: Context): Long {
+        val dir = cacheDir(context)
+        if (!dir.isDirectory) return 0L
+        return dir.listFiles()?.sumOf { f ->
+            if (isCompleteCacheFile(f)) f.length() else 0L
+        } ?: 0L
+    }
+
+    private fun remainingTotalCacheBytes(context: Context): Long =
+        (maxTotal(context) - completeCacheBytes(context)).coerceAtLeast(0L)
+
     data class ItemCacheSummary(
         val prefixBytes: Long,
         val rangeFiles: Int,
@@ -221,7 +232,11 @@ object RemoteStreamCache {
             RemoteReadRetry.openWithRetry(client, relativePath, netOffset, length).use { input ->
                 val buf = ByteArray(64 * 1024)
                 val append = netOffset == prefixLen && prefixLen < cap
-                var cacheRemaining = if (append) (cap - prefixLen).coerceAtLeast(0L) else 0L
+                var cacheRemaining = if (append) {
+                    minOf((cap - prefixLen).coerceAtLeast(0L), remainingTotalCacheBytes(context))
+                } else {
+                    0L
+                }
                 var fos = if (append && cacheRemaining > 0L) {
                     runCatching { FileOutputStream(prefix, true) }.getOrElse {
                         cacheRemaining = 0L
@@ -325,7 +340,10 @@ object RemoteStreamCache {
         if (partRange != null && partRange.isFile) partRange.delete()
 
         val cap = maxPerFile(context)
-        val remainingCacheBytes = (cap - cachedBytesForKey(context, key)).coerceAtLeast(0L)
+        val remainingCacheBytes = minOf(
+            (cap - cachedBytesForKey(context, key)).coerceAtLeast(0L),
+            remainingTotalCacheBytes(context),
+        )
         val allowRangeWrite = readLength <= remainingCacheBytes
 
         RemoteReadRetry.openWithRetry(client, relativePath, readOffset, readLength).use { input ->
@@ -378,9 +396,14 @@ object RemoteStreamCache {
             val target = rangeTarget
             if (!rangeCacheFailed && allowRangeWrite && target != null && rangeWritten >= readLength) {
                 synchronized(lock) {
+                    cleanup(context)
                     val part = target.first
                     val dest = target.second
-                    if (part.length() >= readLength && part.renameTo(dest)) {
+                    val canCommit = readLength <= minOf(
+                        (cap - cachedBytesForKey(context, key)).coerceAtLeast(0L),
+                        remainingTotalCacheBytes(context),
+                    )
+                    if (canCommit && part.length() >= readLength && part.renameTo(dest)) {
                         dest.setLastModified(System.currentTimeMillis())
                     } else {
                         part.delete()
