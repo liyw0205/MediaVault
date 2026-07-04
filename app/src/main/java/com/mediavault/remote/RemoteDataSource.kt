@@ -76,12 +76,11 @@ class RemoteDataSource(
             supportsRange = null,
         )
 
-        val readLength = when {
-            requestLength != C.LENGTH_UNSET.toLong() -> requestLength
-            totalSize != C.LENGTH_UNSET.toLong() && totalSize > position -> totalSize - position
-            totalSize != C.LENGTH_UNSET.toLong() -> 0L
-            else -> C.LENGTH_UNSET.toLong()
-        }
+        val readLength = resolveReadLength(
+            requestLength = requestLength,
+            totalSize = totalSize,
+            position = position,
+        )
         if (readLength == 0L) {
             stream = java.io.ByteArrayInputStream(ByteArray(0))
             bytesRemaining = 0L
@@ -196,14 +195,29 @@ class RemoteDataSource(
         }
     }
 
+    private fun resolveReadLength(requestLength: Long, totalSize: Long, position: Long): Long {
+        if (requestLength == 0L) return 0L
+        if (totalSize == C.LENGTH_UNSET.toLong()) return requestLength
+        val remaining = if (totalSize > position) totalSize - position else 0L
+        return if (requestLength == C.LENGTH_UNSET.toLong()) {
+            remaining
+        } else {
+            minOf(requestLength, remaining)
+        }
+    }
+
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         val s = stream ?: throw IOException(RemoteErrorMessages.userMessage(context, IOException("not opened")))
+        if (length == 0) return 0
+        if (bytesRemaining == 0L) return C.RESULT_END_OF_INPUT
         val n = s.read(buffer, offset, length)
         if (n == -1) {
             readerError.get()?.let { throw it }
             return C.RESULT_END_OF_INPUT
         }
-        if (bytesRemaining != C.LENGTH_UNSET.toLong()) bytesRemaining -= n.toLong()
+        if (bytesRemaining != C.LENGTH_UNSET.toLong()) {
+            bytesRemaining = (bytesRemaining - n.toLong()).coerceAtLeast(0L)
+        }
         return n
     }
 
