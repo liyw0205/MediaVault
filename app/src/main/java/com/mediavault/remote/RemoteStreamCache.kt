@@ -358,26 +358,28 @@ object RemoteStreamCache {
         val totalCap = maxTotal(context)
         var total = dir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
         val files = dir.listFiles()?.filter { it.isFile }?.toMutableList() ?: return
+        fun deleteTracked(f: File): Boolean {
+            val len = f.length()
+            if (!f.delete()) return false
+            total = (total - len).coerceAtLeast(0L)
+            files.remove(f)
+            return true
+        }
         for (f in files.toList()) {
             if (f.name.endsWith(".part")) {
                 if (now - f.lastModified() > 24 * 60 * 60 * 1000L) {
-                    total -= f.length()
-                    f.delete()
-                    files.remove(f)
+                    deleteTracked(f)
                 }
                 continue
             }
             if (now - f.lastModified() > MAX_AGE_MS) {
-                total -= f.length()
-                f.delete()
-                files.remove(f)
+                deleteTracked(f)
             }
         }
         for (f in files.sortedBy { it.lastModified() }) {
             if (!f.isFile || f.name.endsWith(".part")) continue
             if (total <= totalCap) break
-            total -= f.length()
-            f.delete()
+            deleteTracked(f)
         }
     }
 
