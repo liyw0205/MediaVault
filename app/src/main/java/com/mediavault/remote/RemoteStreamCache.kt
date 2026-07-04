@@ -210,7 +210,14 @@ object RemoteStreamCache {
                 val buf = ByteArray(64 * 1024)
                 val append = netOffset == prefixLen && prefixLen < cap
                 var cacheRemaining = if (append) (cap - prefixLen).coerceAtLeast(0L) else 0L
-                var fos = if (append && cacheRemaining > 0L) FileOutputStream(prefix, true) else null
+                var fos = if (append && cacheRemaining > 0L) {
+                    runCatching { FileOutputStream(prefix, true) }.getOrElse {
+                        cacheRemaining = 0L
+                        null
+                    }
+                } else {
+                    null
+                }
                 try {
                     var remaining = if (length > 0 && length != C.LENGTH_UNSET.toLong()) {
                         length
@@ -246,7 +253,10 @@ object RemoteStreamCache {
                         if (remaining != Long.MAX_VALUE) remaining -= n.toLong()
                     }
                 } finally {
-                    fos?.close()
+                    fos?.let { writer ->
+                        runCatching { writer.flush() }
+                        runCatching { writer.close() }
+                    }
                 }
             }
             if (alive.get()) prefix.setLastModified(System.currentTimeMillis())
