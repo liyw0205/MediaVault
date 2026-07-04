@@ -60,11 +60,12 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     private fun smbPath(relativePath: String): String {
-        var p = relativePath.replace('/', '\\').trim('\\')
-        if (rootOnShare.isNotBlank()) {
-            p = if (p.isBlank()) rootOnShare else "$rootOnShare\\$p"
+        val rel = normalizeRemoteRelative(relativePath)
+        return when {
+            rootOnShare.isBlank() -> rel
+            rel.isBlank() -> rootOnShare
+            else -> "$rootOnShare\\$rel"
         }
-        return p
     }
 
     override fun openRead(
@@ -113,7 +114,7 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     override fun list(path: String): List<RemoteEntry> {
-        val rel = normalizeListRelative(path)
+        val rel = normalizeRemoteRelative(path)
         val p = when {
             rootOnShare.isBlank() -> rel
             rel.isBlank() -> rootOnShare
@@ -130,7 +131,7 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
         }
     }
 
-    private fun normalizeListRelative(path: String): String {
+    private fun normalizeRemoteRelative(path: String): String {
         var rel = path.replace('/', '\\').trim('\\')
         if (rel.equals(shareName, ignoreCase = true)) {
             rel = ""
