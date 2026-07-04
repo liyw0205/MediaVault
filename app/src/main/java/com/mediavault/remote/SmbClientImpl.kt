@@ -24,7 +24,7 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
 
     private fun <T> withShare(block: (DiskShare) -> T): T {
         val client = SMBClient()
-        val conn: Connection = client.connect(cfg.host)
+        val conn: Connection = client.connect(cfg.host, cfg.port)
         try {
             val auth = AuthenticationContext(cfg.user, cfg.password.toCharArray(), null)
             val session: Session = conn.authenticate(auth)
@@ -75,7 +75,7 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     ): java.io.InputStream {
         val p = smbPath(relativePath)
         val client = SMBClient()
-        val conn = client.connect(cfg.host)
+        val conn = client.connect(cfg.host, cfg.port)
         val auth = AuthenticationContext(cfg.user, cfg.password.toCharArray(), null)
         val session = conn.authenticate(auth)
         val share = session.connectShare(shareName) as DiskShare
