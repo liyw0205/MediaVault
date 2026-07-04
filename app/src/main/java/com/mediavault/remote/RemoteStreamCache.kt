@@ -296,8 +296,12 @@ object RemoteStreamCache {
                 Long.MAX_VALUE
             }
             var rangeWritten = 0L
-            val fos = if (allowRangeWrite && partRange != null) {
-                FileOutputStream(partRange, false)
+            var rangeCacheFailed = false
+            var fos = if (allowRangeWrite && partRange != null) {
+                runCatching { FileOutputStream(partRange, false) }.getOrElse {
+                    rangeCacheFailed = true
+                    null
+                }
             } else {
                 null
             }
@@ -311,21 +315,30 @@ object RemoteStreamCache {
                     val n = input.read(buf, 0, toRead)
                     if (n <= 0) break
                     if (!writeOut(out, buf, 0, n, alive)) break
-                    if (fos != null) {
-                        runCatching { fos.write(buf, 0, n) }
-                        rangeWritten += n.toLong()
+                    val writer = fos
+                    if (writer != null) {
+                        val wrote = runCatching { writer.write(buf, 0, n) }.isSuccess
+                        if (wrote) {
+                            rangeWritten += n.toLong()
+                        } else {
+                            rangeCacheFailed = true
+                            runCatching { writer.close() }
+                            fos = null
+                            partRange?.delete()
+                        }
                     }
                     if (remaining != Long.MAX_VALUE) remaining -= n.toLong()
                 }
             } finally {
-                fos?.flush()
-                fos?.close()
+                fos?.let { writer ->
+                    runCatching { writer.flush() }
+                    runCatching { writer.close() }
+                }
             }
-            if (allowRangeWrite && partRange != null && rangeWritten >= length) {
+            if (!rangeCacheFailed && allowRangeWrite && partRange != null && rangeWritten >= length) {
                 synchronized(lock) {
                     val dest = rangeFile(context, key, netOffset, endExclusive)
-                    if (partRange.length() >= length) {
-                        partRange.renameTo(dest)
+                    if (partRange.length() >= length && partRange.renameTo(dest)) {
                         dest.setLastModified(System.currentTimeMillis())
                     } else {
                         partRange.delete()
