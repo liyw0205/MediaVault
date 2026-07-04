@@ -1,5 +1,6 @@
 package com.mediavault.remote
 
+import android.net.Uri
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -18,17 +19,29 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    private fun baseUrl(): String {
+    private fun requestUrl(relativePath: String, directory: Boolean = false): String {
         val scheme = if (cfg.port == 443 || cfg.port == 8443) "https" else "http"
         val hostPort = if ((scheme == "https" && cfg.port == 443) || (scheme == "http" && cfg.port == 80)) {
             cfg.host
         } else {
             "${cfg.host}:${cfg.port}"
         }
-        var path = cfg.basePath.trim()
-        if (!path.startsWith("/")) path = "/$path"
-        if (!path.endsWith("/")) path += "/"
-        return "$scheme://$hostPort$path"
+        val base = normalizePath(cfg.basePath)
+        val rel = normalizePath(relativePath)
+        val joined = when {
+            base.isBlank() -> rel
+            rel.isBlank() -> base
+            else -> "$base/$rel"
+        }
+        val encoded = joined.split('/')
+            .filter { it.isNotBlank() }
+            .joinToString("/") { Uri.encode(it) }
+        val suffix = if (directory && encoded.isNotBlank()) "/" else ""
+        return if (encoded.isBlank()) {
+            "$scheme://$hostPort/"
+        } else {
+            "$scheme://$hostPort/$encoded$suffix"
+        }
     }
 
     private fun authHeader(): String? {
@@ -37,8 +50,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     override fun fileSize(relativePath: String): Long {
-        var p = relativePath.trim().replace('\\', '/').trimStart('/')
-        val url = baseUrl() + p
+        val url = requestUrl(relativePath)
         val req = Request.Builder().url(url).head()
         authHeader()?.let { req.header("Authorization", it) }
         http.newCall(req.build()).execute().use { resp ->
@@ -54,8 +66,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         offset: Long,
         length: Long,
     ): java.io.InputStream {
-        var p = relativePath.trim().replace('\\', '/').trimStart('/')
-        val url = baseUrl() + p
+        val url = requestUrl(relativePath)
         val req = Request.Builder().url(url).get()
         authHeader()?.let { req.header("Authorization", it) }
         val wantsRange = offset > 0 || length != C.LENGTH_UNSET.toLong()
@@ -86,9 +97,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     override fun list(path: String): List<RemoteEntry> {
-        var p = path.trim().replace('\\', '/').trimStart('/')
-        if (p.isNotEmpty() && !p.endsWith("/")) p += "/"
-        val url = baseUrl() + p
+        val url = requestUrl(path, directory = true)
         val body = ByteArray(0).toRequestBody("application/xml".toMediaType())
         val req = Request.Builder().url(url).method("PROPFIND", body)
             .header("Depth", "1")
@@ -97,7 +106,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         http.newCall(req.build()).execute().use { resp ->
             if (!resp.isSuccessful) error("WebDAV ${resp.code}: ${resp.message}")
             val xml = resp.body?.string() ?: return emptyList()
-            return parsePropfind(xml, path.trim().replace('\\', '/').trimStart('/').trimEnd('/'))
+            return parsePropfind(xml, normalizePath(path))
         }
     }
 
@@ -175,7 +184,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         h = h.trim()
         if (h.isEmpty()) return null
 
-        val baseSeg = cfg.basePath.trim().trim('/')
+        val baseSeg = normalizePath(cfg.basePath)
         var pathOnly = h.trimStart('/')
         if (baseSeg.isNotEmpty()) {
             if (pathOnly == baseSeg || pathOnly == "$baseSeg/") return null
@@ -202,4 +211,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         if (parentNorm.isNotEmpty() && rel == parentNorm) return null
         return rel
     }
+
+    private fun normalizePath(path: String): String =
+        path.trim().replace('\\', '/').trim('/')
 }
