@@ -94,22 +94,28 @@ object RemoteStreamCache {
             val expectedLen = entry.endExclusive - entry.start
             if (entry.file.length() < expectedLen) continue
             var written = 0L
-            RandomAccessFile(entry.file, "r").use { raf ->
-                raf.seek(inFileOff)
-                val buf = ByteArray(64 * 1024)
-                var left = toRead
-                while (left > 0 && alive.get()) {
-                    val n = raf.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
-                    if (n <= 0) break
-                    if (!writeOut(out, buf, 0, n, alive)) break
-                    left -= n.toLong()
-                    written += n.toLong()
+            val readOk = try {
+                RandomAccessFile(entry.file, "r").use { raf ->
+                    raf.seek(inFileOff)
+                    val buf = ByteArray(64 * 1024)
+                    var left = toRead
+                    while (left > 0 && alive.get()) {
+                        val n = raf.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+                        if (n <= 0) break
+                        if (!writeOut(out, buf, 0, n, alive)) break
+                        left -= n.toLong()
+                        written += n.toLong()
+                    }
                 }
+                true
+            } catch (_: IOException) {
+                false
             }
             if (written > 0) entry.file.setLastModified(System.currentTimeMillis())
             cursor += written
             need -= if (need == Long.MAX_VALUE) written else written
             totalWritten += written
+            if (!readOk) break
             if (need <= 0L) break
         }
         return totalWritten
@@ -170,17 +176,21 @@ object RemoteStreamCache {
             avail
         }
         var written = 0L
-        RandomAccessFile(f, "r").use { raf ->
-            raf.seek(fileOffset)
-            val buf = ByteArray(64 * 1024)
-            var left = toRead
-            while (left > 0 && alive.get()) {
-                val n = raf.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
-                if (n <= 0) break
-                if (!writeOut(out, buf, 0, n, alive)) break
-                left -= n.toLong()
-                written += n.toLong()
+        try {
+            RandomAccessFile(f, "r").use { raf ->
+                raf.seek(fileOffset)
+                val buf = ByteArray(64 * 1024)
+                var left = toRead
+                while (left > 0 && alive.get()) {
+                    val n = raf.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+                    if (n <= 0) break
+                    if (!writeOut(out, buf, 0, n, alive)) break
+                    left -= n.toLong()
+                    written += n.toLong()
+                }
             }
+        } catch (_: IOException) {
+            return written
         }
         if (written > 0) f.setLastModified(System.currentTimeMillis())
         return written
@@ -282,14 +292,25 @@ object RemoteStreamCache {
         if (!alive.get()) return
         cleanup(context)
 
-        val cacheRange = shouldCacheRange(length)
-        val endExclusive = if (cacheRange) netOffset + length else 0L
-        val finalRange = if (cacheRange) rangeFile(context, key, netOffset, endExclusive) else null
+        var readOffset = netOffset
+        var readLength = length
+        val exactCacheRange = shouldCacheRange(length)
+        val exactEndExclusive = if (exactCacheRange) netOffset + length else 0L
+        val exactRange = if (exactCacheRange) rangeFile(context, key, netOffset, exactEndExclusive) else null
 
-        if (finalRange != null && finalRange.isFile && finalRange.length() >= length) {
-            readRangeHit(context, key, netOffset, length, out, alive)
-            return
+        if (exactRange != null && exactRange.isFile && exactRange.length() >= length) {
+            val cached = readRangeHit(context, key, netOffset, length, out, alive)
+            if (cached >= length || !alive.get()) return
+            runCatching { exactRange.delete() }
+            if (cached > 0L) {
+                readOffset += cached
+                readLength -= cached
+            }
         }
+
+        val cacheRange = shouldCacheRange(readLength)
+        val endExclusive = if (cacheRange) readOffset + readLength else 0L
+        val finalRange = if (cacheRange) rangeFile(context, key, readOffset, endExclusive) else null
 
         val partRange = finalRange?.let { File(it.parent, "${it.name}.part") }
         if (partRange != null && partRange.isFile) partRange.delete()
@@ -298,10 +319,10 @@ object RemoteStreamCache {
         val allowRangeWrite = cacheRange && finalRange != null &&
             cachedBytesForKey(context, key) < cap
 
-        RemoteReadRetry.openWithRetry(client, relativePath, netOffset, length).use { input ->
+        RemoteReadRetry.openWithRetry(client, relativePath, readOffset, readLength).use { input ->
             val buf = ByteArray(64 * 1024)
-            var remaining = if (length > 0 && length != C.LENGTH_UNSET.toLong()) {
-                length
+            var remaining = if (readLength > 0 && readLength != C.LENGTH_UNSET.toLong()) {
+                readLength
             } else {
                 Long.MAX_VALUE
             }
@@ -345,10 +366,10 @@ object RemoteStreamCache {
                     runCatching { writer.close() }
                 }
             }
-            if (!rangeCacheFailed && allowRangeWrite && partRange != null && rangeWritten >= length) {
+            if (!rangeCacheFailed && allowRangeWrite && partRange != null && rangeWritten >= readLength) {
                 synchronized(lock) {
-                    val dest = rangeFile(context, key, netOffset, endExclusive)
-                    if (partRange.length() >= length && partRange.renameTo(dest)) {
+                    val dest = rangeFile(context, key, readOffset, endExclusive)
+                    if (partRange.length() >= readLength && partRange.renameTo(dest)) {
                         dest.setLastModified(System.currentTimeMillis())
                     } else {
                         partRange.delete()
