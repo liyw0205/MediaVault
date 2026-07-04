@@ -387,8 +387,8 @@ object RemoteStreamCache {
         val dir = cacheDir(context)
         val now = System.currentTimeMillis()
         val totalCap = maxTotal(context)
-        var total = dir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
-        val files = dir.listFiles()?.filter { it.isFile }?.toMutableList() ?: return
+        val files = dir.listFiles()?.filter { isCacheFile(it) }?.toMutableList() ?: return
+        var total = files.sumOf { it.length() }
         fun deleteTracked(f: File): Boolean {
             val len = f.length()
             if (!f.delete()) return false
@@ -397,7 +397,7 @@ object RemoteStreamCache {
             return true
         }
         for (f in files.toList()) {
-            if (f.name.endsWith(".part")) {
+            if (isTempCacheFile(f)) {
                 if (now - f.lastModified() > 24 * 60 * 60 * 1000L) {
                     deleteTracked(f)
                 }
@@ -408,7 +408,7 @@ object RemoteStreamCache {
             }
         }
         for (f in files.sortedBy { it.lastModified() }) {
-            if (!f.isFile || f.name.endsWith(".part")) continue
+            if (!isCompleteCacheFile(f)) continue
             if (total <= totalCap) break
             deleteTracked(f)
         }
@@ -419,15 +419,45 @@ object RemoteStreamCache {
         if (!dir.isDirectory) return 0
         var n = 0
         dir.listFiles()?.forEach { f ->
-            if (f.isFile && f.delete()) n++
+            if (isCacheFile(f) && f.delete()) n++
         }
         return n
     }
 
+    private val cacheKeyNameRegex = Regex("^[0-9a-f]{64}$")
+
+    private fun isCompletePrefixCacheName(name: String): Boolean {
+        if (!name.startsWith("prefix_") || !name.endsWith(".dat")) return false
+        val key = name.removePrefix("prefix_").removeSuffix(".dat")
+        return cacheKeyNameRegex.matches(key)
+    }
+
+    private fun isCompleteRangeCacheName(name: String): Boolean {
+        if (!name.startsWith("range_") || !name.endsWith(".dat")) return false
+        val body = name.removePrefix("range_").removeSuffix(".dat")
+        val keyEnd = body.indexOf('_')
+        if (keyEnd <= 0) return false
+        val key = body.substring(0, keyEnd)
+        if (!cacheKeyNameRegex.matches(key)) return false
+        val bounds = body.substring(keyEnd + 1)
+        val split = bounds.lastIndexOf('_')
+        if (split <= 0) return false
+        val start = bounds.substring(0, split).toLongOrNull() ?: return false
+        val endExclusive = bounds.substring(split + 1).toLongOrNull() ?: return false
+        return endExclusive > start
+    }
+
+    private fun isCompleteCacheName(name: String): Boolean =
+        isCompletePrefixCacheName(name) || isCompleteRangeCacheName(name)
+
     private fun isCompleteCacheFile(f: File): Boolean =
-        f.isFile &&
-            !f.name.endsWith(".part") &&
-            (f.name.startsWith("prefix_") || f.name.startsWith("range_"))
+        f.isFile && isCompleteCacheName(f.name)
+
+    private fun isTempCacheFile(f: File): Boolean =
+        f.isFile && f.name.endsWith(".part") && isCompleteCacheName(f.name.removeSuffix(".part"))
+
+    private fun isCacheFile(f: File): Boolean =
+        isCompleteCacheFile(f) || isTempCacheFile(f)
 
     fun cacheStats(context: Context): Pair<Int, Long> {
         val dir = cacheDir(context)
