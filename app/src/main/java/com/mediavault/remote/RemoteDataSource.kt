@@ -76,6 +76,27 @@ class RemoteDataSource(
             supportsRange = null,
         )
 
+        val readLength = when {
+            requestLength != C.LENGTH_UNSET.toLong() -> requestLength
+            totalSize != C.LENGTH_UNSET.toLong() && totalSize > position -> totalSize - position
+            totalSize != C.LENGTH_UNSET.toLong() -> 0L
+            else -> C.LENGTH_UNSET.toLong()
+        }
+        if (readLength == 0L) {
+            stream = java.io.ByteArrayInputStream(ByteArray(0))
+            bytesRemaining = 0L
+            recordPlaybackCapability(
+                cfg = cfg,
+                rel = rel,
+                cacheKey = cacheKey,
+                trigger = "playback_read",
+                fileSize = totalSize,
+                canOpen = true,
+                supportsRange = null,
+            )
+            return 0L
+        }
+
         val pipeIn = PipedInputStream(256 * 1024)
         val pipeOut = PipedOutputStream(pipeIn)
         val alive = readerAlive
@@ -83,7 +104,7 @@ class RemoteDataSource(
         thread(name = "mv-remote-read", isDaemon = true) {
             try {
                 fillFromCacheAndNetwork(
-                    client, rel, cacheKey, position, requestLength, pipeOut, alive,
+                    client, rel, cacheKey, position, readLength, pipeOut, alive,
                 )
                 val elapsed = (System.currentTimeMillis() - readStartedAt).coerceAtLeast(0L)
                 recordPlaybackCapability(
@@ -118,12 +139,7 @@ class RemoteDataSource(
         }
         stream = pipeIn
 
-        bytesRemaining = when {
-            requestLength != C.LENGTH_UNSET.toLong() -> requestLength
-            totalSize != C.LENGTH_UNSET.toLong() && totalSize > position ->
-                totalSize - position
-            else -> C.LENGTH_UNSET.toLong()
-        }
+        bytesRemaining = readLength
         return bytesRemaining
     }
 
