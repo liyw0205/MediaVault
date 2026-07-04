@@ -276,6 +276,11 @@ object RemoteStreamCache {
     private fun shouldCacheRange(length: Long): Boolean =
         length > 0 && length != C.LENGTH_UNSET.toLong() && length != Long.MAX_VALUE
 
+    private fun rangeEndExclusive(start: Long, length: Long): Long? {
+        if (!shouldCacheRange(length) || start < 0L || start > Long.MAX_VALUE - length) return null
+        return start + length
+    }
+
     /**
      * seek 到 prefix 未覆盖的字节：拉网写播放器；若本次请求长度已知则同时落盘 range 区间。
      */
@@ -294,9 +299,8 @@ object RemoteStreamCache {
 
         var readOffset = netOffset
         var readLength = length
-        val exactCacheRange = shouldCacheRange(length)
-        val exactEndExclusive = if (exactCacheRange) netOffset + length else 0L
-        val exactRange = if (exactCacheRange) rangeFile(context, key, netOffset, exactEndExclusive) else null
+        val exactEndExclusive = rangeEndExclusive(netOffset, length)
+        val exactRange = exactEndExclusive?.let { rangeFile(context, key, netOffset, it) }
 
         if (exactRange != null && exactRange.isFile && exactRange.length() >= length) {
             val cached = readRangeHit(context, key, netOffset, length, out, alive)
@@ -308,17 +312,18 @@ object RemoteStreamCache {
             }
         }
 
-        val cacheRange = shouldCacheRange(readLength)
-        val endExclusive = if (cacheRange) readOffset + readLength else 0L
-        val finalRange = if (cacheRange) rangeFile(context, key, readOffset, endExclusive) else null
+        val endExclusive = rangeEndExclusive(readOffset, readLength)
+        val rangeTarget = endExclusive?.let {
+            val dest = rangeFile(context, key, readOffset, it)
+            File(dest.parent, "${dest.name}.part") to dest
+        }
 
-        val partRange = finalRange?.let { File(it.parent, "${it.name}.part") }
+        val partRange = rangeTarget?.first
         if (partRange != null && partRange.isFile) partRange.delete()
 
         val cap = maxPerFile(context)
         val remainingCacheBytes = (cap - cachedBytesForKey(context, key)).coerceAtLeast(0L)
-        val allowRangeWrite = cacheRange && finalRange != null &&
-            readLength <= remainingCacheBytes
+        val allowRangeWrite = readLength <= remainingCacheBytes
 
         RemoteReadRetry.openWithRetry(client, relativePath, readOffset, readLength).use { input ->
             val buf = ByteArray(64 * 1024)
@@ -367,13 +372,15 @@ object RemoteStreamCache {
                     runCatching { writer.close() }
                 }
             }
-            if (!rangeCacheFailed && allowRangeWrite && partRange != null && rangeWritten >= readLength) {
+            val target = rangeTarget
+            if (!rangeCacheFailed && allowRangeWrite && target != null && rangeWritten >= readLength) {
                 synchronized(lock) {
-                    val dest = rangeFile(context, key, readOffset, endExclusive)
-                    if (partRange.length() >= readLength && partRange.renameTo(dest)) {
+                    val part = target.first
+                    val dest = target.second
+                    if (part.length() >= readLength && part.renameTo(dest)) {
                         dest.setLastModified(System.currentTimeMillis())
                     } else {
-                        partRange.delete()
+                        part.delete()
                     }
                 }
             } else {

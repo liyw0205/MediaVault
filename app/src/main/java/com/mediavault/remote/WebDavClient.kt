@@ -72,7 +72,8 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         val wantsRange = offset > 0 || length != C.LENGTH_UNSET.toLong()
         if (wantsRange) {
             val end = when {
-                length != C.LENGTH_UNSET.toLong() && length > 0 -> offset + length - 1
+                length != C.LENGTH_UNSET.toLong() && length > 0 && offset <= Long.MAX_VALUE - length ->
+                    offset + length - 1
                 else -> ""
             }
             req.header("Range", "bytes=$offset-$end")
