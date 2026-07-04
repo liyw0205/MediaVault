@@ -41,10 +41,8 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     override fun testConnection(): String {
-        withShare { share ->
-            share.list("")
-        }
-        return "SMB 连接成功 (share=$shareName)"
+        val entries = list("")
+        return "SMB 连接成功 (share=$shareName，条目 ${entries.size})"
     }
 
     override fun fileSize(relativePath: String): Long = withShare { share ->
@@ -115,19 +113,36 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     override fun list(path: String): List<RemoteEntry> {
-        var p = path.ifBlank { rootOnShare }
-        p = p.replace('/', '\\').trim('\\')
-        if (rootOnShare.isNotBlank()) {
-            p = if (p.isBlank()) rootOnShare else "$rootOnShare\\$p"
+        val rel = normalizeListRelative(path)
+        val p = when {
+            rootOnShare.isBlank() -> rel
+            rel.isBlank() -> rootOnShare
+            else -> "$rootOnShare\\$rel"
         }
         return withShare { share ->
             share.list(p).mapNotNull { info ->
                 val name = info.fileName
                 if (name == "." || name == "..") return@mapNotNull null
-                val full = if (p.isBlank()) name else "$p\\$name"
+                val full = if (rel.isBlank()) name else "$rel\\$name"
                 val dir = (info.fileAttributes and FileAttributes.FILE_ATTRIBUTE_DIRECTORY.value.toLong()) != 0L
                 RemoteEntry(full.replace('\\', '/'), name, dir, info.endOfFile)
             }
         }
+    }
+
+    private fun normalizeListRelative(path: String): String {
+        var rel = path.replace('/', '\\').trim('\\')
+        if (rel.equals(shareName, ignoreCase = true)) {
+            rel = ""
+        } else if (rel.startsWith("$shareName\\", ignoreCase = true)) {
+            rel = rel.substring(shareName.length + 1)
+        }
+        if (rootOnShare.isNotBlank()) {
+            if (rel.equals(rootOnShare, ignoreCase = true)) return ""
+            if (rel.startsWith("$rootOnShare\\", ignoreCase = true)) {
+                return rel.substring(rootOnShare.length + 1)
+            }
+        }
+        return rel
     }
 }

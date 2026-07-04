@@ -46,6 +46,8 @@ class RemoteBrowseDialogHelper(
         val upBtn = view.findViewById<android.widget.Button>(R.id.remoteBrowseUp)
         val selectBtn = view.findViewById<android.widget.Button>(R.id.remoteBrowseSelect)
         list.layoutManager = LinearLayoutManager(activity)
+        list.isFocusable = true
+        list.isFocusableInTouchMode = true
 
         var browseRelPath = ""
         val baseNorm = normalizeBaseForBrowse(type, initialBasePath)
@@ -114,6 +116,8 @@ class RemoteBrowseDialogHelper(
                     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BrowseVH {
                         val row = LayoutInflater.from(parent.context)
                             .inflate(R.layout.item_remote_browse_dir, parent, false)
+                        row.isFocusable = true
+                        row.isFocusableInTouchMode = true
                         return BrowseVH(row)
                     }
 
@@ -149,6 +153,12 @@ class RemoteBrowseDialogHelper(
                 }
                 if (sorted.isEmpty()) {
                     pathTv.text = "${displayPath()}\n${activity.getString(R.string.remote_browse_empty)}"
+                    selectBtn.post { selectBtn.requestFocus() }
+                } else {
+                    list.post {
+                        val first = list.layoutManager?.findViewByPosition(0)
+                        if (first?.requestFocus() != true) list.requestFocus()
+                    }
                 }
             }
         }
