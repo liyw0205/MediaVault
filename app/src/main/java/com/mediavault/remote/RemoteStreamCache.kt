@@ -46,25 +46,40 @@ object RemoteStreamCache {
         return if (f.isFile) f.length() else 0L
     }
 
+    private val cacheKeyNameRegex = Regex("^[0-9a-f]{64}$")
+
     private fun rangeNamePrefix(key: String): String = "range_${key}_"
 
     private fun rangeFile(context: Context, key: String, start: Long, endExclusive: Long): File =
         File(cacheDir(context), "${rangeNamePrefix(key)}${start}_${endExclusive}.dat")
 
+    private data class RangeName(val key: String, val start: Long, val endExclusive: Long)
+
     private data class RangeEntry(val start: Long, val endExclusive: Long, val file: File)
+
+    private fun parseCompleteRangeName(name: String): RangeName? {
+        if (!name.startsWith("range_") || !name.endsWith(".dat")) return null
+        val body = name.removePrefix("range_").removeSuffix(".dat")
+        val keyEnd = body.indexOf('_')
+        if (keyEnd <= 0) return null
+        val key = body.substring(0, keyEnd)
+        if (!cacheKeyNameRegex.matches(key)) return null
+        val bounds = body.substring(keyEnd + 1)
+        val split = bounds.lastIndexOf('_')
+        if (split <= 0) return null
+        val start = bounds.substring(0, split).toLongOrNull() ?: return null
+        val endExclusive = bounds.substring(split + 1).toLongOrNull() ?: return null
+        if (start < 0L || endExclusive <= start) return null
+        return RangeName(key, start, endExclusive)
+    }
 
     private fun listRangeEntries(context: Context, key: String): List<RangeEntry> {
         val dir = cacheDir(context)
-        val p = rangeNamePrefix(key)
         return dir.listFiles()?.mapNotNull { f ->
-            if (!f.isFile || !f.name.startsWith(p) || !f.name.endsWith(".dat")) return@mapNotNull null
-            val mid = f.name.removePrefix(p).removeSuffix(".dat")
-            val idx = mid.lastIndexOf('_')
-            if (idx <= 0) return@mapNotNull null
-            val start = mid.substring(0, idx).toLongOrNull() ?: return@mapNotNull null
-            val endEx = mid.substring(idx + 1).toLongOrNull() ?: return@mapNotNull null
-            if (endEx <= start) return@mapNotNull null
-            RangeEntry(start, endEx, f)
+            if (!f.isFile) return@mapNotNull null
+            val range = parseCompleteRangeName(f.name) ?: return@mapNotNull null
+            if (range.key != key) return@mapNotNull null
+            RangeEntry(range.start, range.endExclusive, f)
         }?.sortedBy { it.start } ?: emptyList()
     }
 
@@ -458,28 +473,14 @@ object RemoteStreamCache {
         return n
     }
 
-    private val cacheKeyNameRegex = Regex("^[0-9a-f]{64}$")
-
     private fun isCompletePrefixCacheName(name: String): Boolean {
         if (!name.startsWith("prefix_") || !name.endsWith(".dat")) return false
         val key = name.removePrefix("prefix_").removeSuffix(".dat")
         return cacheKeyNameRegex.matches(key)
     }
 
-    private fun isCompleteRangeCacheName(name: String): Boolean {
-        if (!name.startsWith("range_") || !name.endsWith(".dat")) return false
-        val body = name.removePrefix("range_").removeSuffix(".dat")
-        val keyEnd = body.indexOf('_')
-        if (keyEnd <= 0) return false
-        val key = body.substring(0, keyEnd)
-        if (!cacheKeyNameRegex.matches(key)) return false
-        val bounds = body.substring(keyEnd + 1)
-        val split = bounds.lastIndexOf('_')
-        if (split <= 0) return false
-        val start = bounds.substring(0, split).toLongOrNull() ?: return false
-        val endExclusive = bounds.substring(split + 1).toLongOrNull() ?: return false
-        return endExclusive > start
-    }
+    private fun isCompleteRangeCacheName(name: String): Boolean =
+        parseCompleteRangeName(name) != null
 
     private fun isCompleteCacheName(name: String): Boolean =
         isCompletePrefixCacheName(name) || isCompleteRangeCacheName(name)
