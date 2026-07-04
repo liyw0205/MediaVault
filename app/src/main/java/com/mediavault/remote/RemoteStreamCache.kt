@@ -363,12 +363,14 @@ object RemoteStreamCache {
                 if (now - f.lastModified() > 24 * 60 * 60 * 1000L) {
                     total -= f.length()
                     f.delete()
+                    files.remove(f)
                 }
                 continue
             }
             if (now - f.lastModified() > MAX_AGE_MS) {
                 total -= f.length()
                 f.delete()
+                files.remove(f)
             }
         }
         for (f in files.sortedBy { it.lastModified() }) {
