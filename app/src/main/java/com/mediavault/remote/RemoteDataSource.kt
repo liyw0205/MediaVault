@@ -127,9 +127,12 @@ class RemoteDataSource(
         return bytesRemaining
     }
 
-    private fun resolveConfig(configId: String): RemoteConfig? =
-        store.readRemotesList().find { it.id == configId }
-            ?: if (configId == RemotePlayUri.PREVIEW_CONFIG_ID) RemoteBrowsePreviewHolder.config else null
+    private fun resolveConfig(configId: String): RemoteConfig? {
+        if (configId == RemotePlayUri.PREVIEW_CONFIG_ID) {
+            RemoteBrowsePreviewHolder.config?.let { return it }
+        }
+        return store.readRemotesList().find { it.id == configId }
+    }
 
     private fun fillFromCacheAndNetwork(
         client: RemoteClient,
