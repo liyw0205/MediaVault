@@ -11,8 +11,8 @@ android {
         applicationId = "com.mediavault"
         minSdk = 26
         targetSdk = 34
-        versionCode = 142
-        versionName = "0.8.19"
+        versionCode = 143
+        versionName = "0.8.20"
     }
 
     buildTypes {

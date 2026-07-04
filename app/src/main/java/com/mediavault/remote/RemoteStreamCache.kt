@@ -424,13 +424,18 @@ object RemoteStreamCache {
         return n
     }
 
+    private fun isCompleteCacheFile(f: File): Boolean =
+        f.isFile &&
+            !f.name.endsWith(".part") &&
+            (f.name.startsWith("prefix_") || f.name.startsWith("range_"))
+
     fun cacheStats(context: Context): Pair<Int, Long> {
         val dir = cacheDir(context)
         if (!dir.isDirectory) return 0 to 0L
         var bytes = 0L
         var n = 0
         dir.listFiles()?.forEach { f ->
-            if (!f.isFile || f.name.endsWith(".part")) return@forEach
+            if (!isCompleteCacheFile(f)) return@forEach
             n++
             bytes += f.length()
         }
@@ -454,7 +459,7 @@ object RemoteStreamCache {
         var rangeBytes = 0L
         if (dir.isDirectory) {
             dir.listFiles()?.forEach { f ->
-                if (!f.isFile || f.name.endsWith(".part")) return@forEach
+                if (!isCompleteCacheFile(f)) return@forEach
                 when {
                     f.name.startsWith("prefix_") -> {
                         prefixCount++
