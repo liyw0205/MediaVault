@@ -122,6 +122,8 @@ class PlayerChromeController(
         if (chromeVisible) enterImmersiveChromeHidden() else showChrome()
     }
 
+    fun isChromeVisible(): Boolean = chromeVisible
+
     fun showChrome() {
         chromeVisible = true
         topChrome.visibility = View.VISIBLE

@@ -38,6 +38,7 @@
     <string name="player_next">下一集</string>
     <string name="player_rewind">快退 10 秒</string>
     <string name="player_forward">快进 10 秒</string>
+    <string name="player_play">播放</string>
     <string name="player_pause">暂停</string>
     <string name="player_playlist">选集</string>
     <string name="player_autoplay_title">连播策略</string>

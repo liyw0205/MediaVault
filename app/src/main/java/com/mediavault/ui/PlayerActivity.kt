@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.PixelCopy
 import android.view.SurfaceView
 import android.view.TextureView
@@ -78,6 +79,7 @@ class PlayerActivity : AppCompatActivity() {
     private var pendingResumeMs: Long = 0L
     private var remoteDurationHintShown = false
     private var playbackErrorDialogShowing = false
+    private var chromeBackConsumed = false
     private val progressTick = object : Runnable {
         override fun run() {
             persistPlaybackProgress()
@@ -181,6 +183,87 @@ class PlayerActivity : AppCompatActivity() {
         progressHandler.postDelayed(progressTick, 10_000)
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (::chromeController.isInitialized) {
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                if (event.action == KeyEvent.ACTION_DOWN && chromeController.isChromeVisible()) {
+                    chromeBackConsumed = true
+                    chromeController.enterImmersiveChromeHidden()
+                    return true
+                }
+                if (event.action == KeyEvent.ACTION_UP && chromeBackConsumed) {
+                    chromeBackConsumed = false
+                    return true
+                }
+            }
+            if (event.action == KeyEvent.ACTION_DOWN && handlePlayerKey(event.keyCode)) {
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun handlePlayerKey(keyCode: Int): Boolean {
+        if (playbackErrorDialogShowing) return false
+        return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT,
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_NUMPAD_ENTER,
+            KeyEvent.KEYCODE_MENU -> {
+                if (!chromeController.isChromeVisible()) {
+                    chromeController.showChrome()
+                    true
+                } else {
+                    false
+                }
+            }
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+            KeyEvent.KEYCODE_HEADSETHOOK -> {
+                togglePlay()
+                chromeController.onUserGesture()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                player?.playWhenReady = true
+                updatePlayIcon()
+                chromeController.onUserGesture()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_STOP -> {
+                player?.playWhenReady = false
+                updatePlayIcon()
+                chromeController.onUserGesture()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                seekRel(-10_000)
+                chromeController.showChrome()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                seekRel(10_000)
+                chromeController.showChrome()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                playIndex(playlistIndex - 1)
+                chromeController.showChrome()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                playIndex(playlistIndex + 1)
+                chromeController.showChrome()
+                true
+            }
+            else -> false
+        }
+    }
+
     private fun persistPlaybackProgress(positionMs: Long? = null) {
         val p = player ?: return
         val path = currentMediaPath
@@ -250,9 +333,12 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun updatePlayIcon() {
         val playing = player?.playWhenReady == true
-        findViewById<ImageButton>(R.id.btnPlayPause).setImageResource(
-            if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-        )
+        findViewById<ImageButton>(R.id.btnPlayPause).apply {
+            setImageResource(
+                if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+            )
+            contentDescription = getString(if (playing) R.string.player_pause else R.string.player_play)
+        }
     }
 
     private fun seekRel(ms: Long) {
