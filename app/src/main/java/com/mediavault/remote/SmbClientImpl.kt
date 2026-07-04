@@ -26,19 +26,17 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
 
     private fun <T> withShare(block: (DiskShare) -> T): T {
         val client = SMBClient()
-        val conn: Connection = client.connect(cfg.host, cfg.port)
+        var conn: Connection? = null
+        var session: Session? = null
+        var share: DiskShare? = null
         try {
+            conn = client.connect(cfg.host, cfg.port)
             val auth = AuthenticationContext(cfg.user, cfg.password.toCharArray(), null)
-            val session: Session = conn.authenticate(auth)
-            val share = session.connectShare(shareName) as DiskShare
-            try {
-                return block(share)
-            } finally {
-                share.close()
-            }
+            session = conn.authenticate(auth)
+            share = session.connectShare(shareName) as DiskShare
+            return block(share)
         } finally {
-            conn.close()
-            client.close()
+            closeSmbResources(share = share, session = session, conn = conn, client = client)
         }
     }
 
@@ -77,36 +75,44 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
     ): java.io.InputStream {
         val p = smbPath(relativePath)
         val client = SMBClient()
-        val conn = client.connect(cfg.host, cfg.port)
-        val auth = AuthenticationContext(cfg.user, cfg.password.toCharArray(), null)
-        val session = conn.authenticate(auth)
-        val share = session.connectShare(shareName) as DiskShare
-        val file = share.openFile(
-            p,
-            java.util.EnumSet.of(AccessMask.GENERIC_READ),
-            null,
-            SMB2ShareAccess.ALL,
-            SMB2CreateDisposition.FILE_OPEN,
-            null,
-        )
-        val raw = file.inputStream
-        if (offset > 0) {
-            skipFully(raw, offset)
-        }
-        val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
-            RemoteLimitedInputStream(raw, length)
-        } else {
-            raw
-        }
-        return object : java.io.FilterInputStream(limited) {
-            override fun close() {
-                super.close()
-                runCatching { file.close() }
-                runCatching { share.close() }
-                runCatching { session.close() }
-                runCatching { conn.close() }
-                runCatching { client.close() }
+        var conn: Connection? = null
+        var session: Session? = null
+        var share: DiskShare? = null
+        var file: com.hierynomus.smbj.share.File? = null
+        return try {
+            conn = client.connect(cfg.host, cfg.port)
+            val auth = AuthenticationContext(cfg.user, cfg.password.toCharArray(), null)
+            session = conn.authenticate(auth)
+            share = session.connectShare(shareName) as DiskShare
+            file = share.openFile(
+                p,
+                java.util.EnumSet.of(AccessMask.GENERIC_READ),
+                null,
+                SMB2ShareAccess.ALL,
+                SMB2CreateDisposition.FILE_OPEN,
+                null,
+            )
+            val raw = file.inputStream
+            if (offset > 0) {
+                skipFully(raw, offset)
             }
+            val limited = if (length != C.LENGTH_UNSET.toLong() && length > 0) {
+                RemoteLimitedInputStream(raw, length)
+            } else {
+                raw
+            }
+            object : java.io.FilterInputStream(limited) {
+                override fun close() {
+                    try {
+                        super.close()
+                    } finally {
+                        closeSmbResources(file, share, session, conn, client)
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            closeSmbResources(file, share, session, conn, client)
+            throw t
         }
     }
 
@@ -157,5 +163,19 @@ class SmbClientImpl(private val cfg: RemoteConfig) : RemoteClient {
             }
             left--
         }
+    }
+
+    private fun closeSmbResources(
+        file: com.hierynomus.smbj.share.File? = null,
+        share: DiskShare? = null,
+        session: Session? = null,
+        conn: Connection? = null,
+        client: SMBClient? = null,
+    ) {
+        runCatching { file?.close() }
+        runCatching { share?.close() }
+        runCatching { session?.close() }
+        runCatching { conn?.close() }
+        runCatching { client?.close() }
     }
 }
