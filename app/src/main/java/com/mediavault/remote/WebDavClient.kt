@@ -27,7 +27,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
             "${cfg.host}:${cfg.port}"
         }
         val base = normalizePath(cfg.basePath)
-        val rel = normalizePath(relativePath)
+        val rel = normalizeRelativePath(relativePath, base)
         val joined = when {
             base.isBlank() -> rel
             rel.isBlank() -> base
@@ -97,6 +97,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
     }
 
     override fun list(path: String): List<RemoteEntry> {
+        val parentRel = normalizeRelativePath(path)
         val url = requestUrl(path, directory = true)
         val body = ByteArray(0).toRequestBody("application/xml".toMediaType())
         val req = Request.Builder().url(url).method("PROPFIND", body)
@@ -106,7 +107,7 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
         http.newCall(req.build()).execute().use { resp ->
             if (!resp.isSuccessful) error("WebDAV ${resp.code}: ${resp.message}")
             val xml = resp.body?.string() ?: return emptyList()
-            return parsePropfind(xml, normalizePath(path))
+            return parsePropfind(xml, parentRel)
         }
     }
 
@@ -214,4 +215,14 @@ class WebDavClient(private val cfg: RemoteConfig) : RemoteClient {
 
     private fun normalizePath(path: String): String =
         path.trim().replace('\\', '/').trim('/')
+
+    private fun normalizeRelativePath(path: String, base: String = normalizePath(cfg.basePath)): String {
+        val rel = normalizePath(path)
+        if (base.isBlank()) return rel
+        return when {
+            rel == base -> ""
+            rel.startsWith("$base/") -> rel.removePrefix("$base/").trim('/')
+            else -> rel
+        }
+    }
 }
