@@ -394,11 +394,12 @@ class LibraryDiagnosticsStore(context: Context) {
                 RemotePath.parse(it.path)?.relativePath
             }.orEmpty()
             val prev = previousByKey["${cfg.type}|${cfg.id}"] ?: previousByKey["remote|${cfg.id}"]
+            val carryPrev = if (!cfg.credentialMissing && prev?.lastErrorKind == "credential_missing") null else prev
             out.add(
                 if (probeSources) {
                     probeRemote(cfg, scannedAt, sample)
                 } else {
-                    carrySource(prev, cfg.id, cfg.type.ifBlank { "remote" }, cfg.name, scannedAt, sample)
+                    carrySource(carryPrev, cfg.id, cfg.type.ifBlank { "remote" }, cfg.name, scannedAt, sample)
                 },
             )
         }
@@ -418,11 +419,12 @@ class LibraryDiagnosticsStore(context: Context) {
                 RemotePath.parse(it.path)?.relativePath
             }.orEmpty()
             val prev = previous.firstOrNull { it.sourceId == cfg.id && it.trigger == "diagnostic" }
+            val carryPrev = if (!cfg.credentialMissing && prev?.lastErrorKind == "credential_missing") null else prev
             out.add(
                 if (probeSources) {
                     if (cfg.credentialMissing) credentialMissingCapability(cfg, sample) else probeRemoteCapability(cfg, sample)
                 } else {
-                    carryRemoteCapability(prev, cfg, sample)
+                    carryRemoteCapability(carryPrev, cfg, sample)
                 },
             )
         }

@@ -27,8 +27,8 @@ import kotlinx.coroutines.withContext
 class ScrapeDirectoriesPanelController(
     private val activity: AppCompatActivity,
     private var panelRoot: View,
-    private val onRootsChanged: () -> Unit,
-    private val pickLocalTree: () -> Unit,
+    private var onRootsChanged: () -> Unit,
+    private var pickLocalTree: () -> Unit,
 ) {
     private val store = MediaStore(activity)
     private val remotes = mutableListOf<RemoteConfig>()
@@ -102,8 +102,14 @@ class ScrapeDirectoriesPanelController(
     }
 
     /** 横竖屏重载主壳后，侧栏 View 已换新，需重绑列表与按钮。 */
-    fun rebindPanelRoot(newSection: View) {
+    fun rebindPanelRoot(
+        newSection: View,
+        onRootsChanged: () -> Unit,
+        pickLocalTree: () -> Unit,
+    ) {
         panelRoot = newSection
+        this.onRootsChanged = onRootsChanged
+        this.pickLocalTree = pickLocalTree
         bind()
     }
 

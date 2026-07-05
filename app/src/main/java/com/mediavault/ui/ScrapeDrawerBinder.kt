@@ -184,6 +184,16 @@ object ScrapeDrawerBinder {
             renderMaintenance(activity, maintenanceSummary, maintenanceIssues, repository.diagnostics.value)
         }
 
+        fun handleRootsMayHaveChanged() {
+            onRootsMayHaveChanged()
+            activity.lifecycleScope.launch {
+                val snapshot = withContext(Dispatchers.IO) {
+                    repository.refreshDiagnostics(probeSources = false)
+                }
+                renderMaintenance(activity, maintenanceSummary, maintenanceIssues, snapshot)
+            }
+        }
+
         subtitleLangGroup.setOnCheckedChangeListener { _, checkedId ->
             val lang = when (checkedId) {
                 R.id.drawerSubtitleLangHant -> SubtitlePrefs.PrimaryLang.HANT_FIRST
@@ -247,11 +257,11 @@ object ScrapeDrawerBinder {
                 directoriesPanel = ScrapeDirectoriesPanelController(
                     activity,
                     dirsSection,
-                    onRootsMayHaveChanged,
+                    ::handleRootsMayHaveChanged,
                     pickLocalTree,
                 ).also { it.bind() }
             } else {
-                directoriesPanel?.rebindPanelRoot(dirsSection)
+                directoriesPanel?.rebindPanelRoot(dirsSection, ::handleRootsMayHaveChanged, pickLocalTree)
             }
         }
 
@@ -296,7 +306,7 @@ object ScrapeDrawerBinder {
 
         dataBtn.setOnClickListener {
             drawer?.closeDrawer(GravityCompat.END, false)
-            DataStorageDialog.show(activity, repository) { onRootsMayHaveChanged() }
+            DataStorageDialog.show(activity, repository) { handleRootsMayHaveChanged() }
         }
 
         backupExportBtn.setOnClickListener {
