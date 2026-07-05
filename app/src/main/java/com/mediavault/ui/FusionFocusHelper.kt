@@ -20,13 +20,13 @@ object FusionFocusHelper {
         when (v) {
             is MaterialButton, is ImageButton, is Chip -> {
                 v.isFocusable = true
-                v.isFocusableInTouchMode = true
+                v.isFocusableInTouchMode = false
             }
             is TabLayout -> {
                 for (i in 0 until v.tabCount) {
                     v.getTabAt(i)?.view?.let { tab ->
                         tab.isFocusable = true
-                        tab.isFocusableInTouchMode = true
+                        tab.isFocusableInTouchMode = false
                     }
                 }
             }
