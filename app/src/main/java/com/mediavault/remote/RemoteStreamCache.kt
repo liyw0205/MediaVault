@@ -440,9 +440,9 @@ object RemoteStreamCache {
         val now = System.currentTimeMillis()
         val totalCap = maxTotal(context)
         val files = dir.listFiles()?.filter { isCacheFile(it) }?.toMutableList() ?: return
-        var total = files.sumOf { it.length() }
+        var total = files.sumOf { if (isCompleteCacheFile(it)) it.length() else 0L }
         fun deleteTracked(f: File): Boolean {
-            val len = f.length()
+            val len = if (isCompleteCacheFile(f)) f.length() else 0L
             if (!f.delete()) return false
             total = (total - len).coerceAtLeast(0L)
             files.remove(f)
