@@ -7,7 +7,7 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 | 包名 | `com.mediavault` |
 | 最低系统 | Android 8.0（API 26） |
 | 编译目标 | Android SDK 34 |
-| 当前版本 | **0.9.6**（versionCode 160） |
+| 当前版本 | **0.9.7**（versionCode 161） |
 
 ## 0.9.x 媒体库整理与批量维护
 
@@ -30,6 +30,8 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 0.9.5 调整播放器字幕样式：字幕改为不透明乳白底黑字，并忽略字幕内嵌颜色/字号覆盖，避免黑色视频画面里只剩黑字或透明底导致看不清。
 
 0.9.6 微调播放器字幕底色：乳白底透明度改为约 90%，降低字幕底的存在感，同时保留黑色视频画面下的遮底可读性。
+
+0.9.7 修正播放器字幕底色透明度方向：乳白底改为约 90% 透明、10% 不透明，避免 0.9.6 实际接近 90% 不透明导致变化不明显。
 
 - **一个 APK、一套业务**：不拆独立 Android TV 应用，不引入第二个 `applicationId`。
 - **竖屏手机态 + 横屏融合态**：横屏或 Android TV 类设备自动进入融合 UI；竖屏保持手机触控布局。
@@ -123,7 +125,7 @@ Termux 下必须使用仓库脚本，它会临时设置可执行的 aarch64 `aap
 
 ```bash
 bash pack_mediavault.sh
-# 生成 ../MediaVault_0.9.6_debug.apk
+# 生成 ../MediaVault_0.9.7_debug.apk
 ```
 
 不要把 `android.aapt2FromMavenOverride` 长期写入 `gradle.properties`。
