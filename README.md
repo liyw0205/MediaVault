@@ -7,7 +7,7 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 | 包名 | `com.mediavault` |
 | 最低系统 | Android 8.0（API 26） |
 | 编译目标 | Android SDK 34 |
-| 当前版本 | **0.9.4**（versionCode 158） |
+| 当前版本 | **0.9.5**（versionCode 159） |
 
 ## 0.9.x 媒体库整理与批量维护
 
@@ -26,6 +26,8 @@ MediaVault 是一个 Android 原生媒体库应用，用于管理本机文件夹
 0.9.3 修复补完远程凭据后的旧诊断状态残留：保存远程配置后会自动刷新库维护摘要；普通诊断刷新不再沿用已解决远程源的 `credential_missing` 源健康和远程能力快照，避免补完密码后仍显示旧的缺凭据状态。
 
 0.9.4 修复横屏融合态触控按钮需要双击的问题：D-pad 焦点辅助不再把按钮强制设为触摸模式可聚焦，避免播放器控制按钮第一次点击只抢焦点、第二次才执行。
+
+0.9.5 调整播放器字幕样式：字幕改为不透明乳白底黑字，并忽略字幕内嵌颜色/字号覆盖，避免黑色视频画面里只剩黑字或透明底导致看不清。
 
 - **一个 APK、一套业务**：不拆独立 Android TV 应用，不引入第二个 `applicationId`。
 - **竖屏手机态 + 横屏融合态**：横屏或 Android TV 类设备自动进入融合 UI；竖屏保持手机触控布局。
@@ -119,7 +121,7 @@ Termux 下必须使用仓库脚本，它会临时设置可执行的 aarch64 `aap
 
 ```bash
 bash pack_mediavault.sh
-# 生成 ../MediaVault_0.9.4_debug.apk
+# 生成 ../MediaVault_0.9.5_debug.apk
 ```
 
 不要把 `android.aapt2FromMavenOverride` 长期写入 `gradle.properties`。

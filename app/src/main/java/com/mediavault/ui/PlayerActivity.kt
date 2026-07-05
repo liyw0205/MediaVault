@@ -30,6 +30,7 @@ import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
@@ -123,6 +124,7 @@ class PlayerActivity : AppCompatActivity() {
 
         val playerView = findViewById<PlayerView>(R.id.playerView)
         playerView.useController = false
+        configureSubtitleOverlay(playerView)
 
         chromeController = PlayerChromeController(this, { player }) { pos ->
             persistPlaybackProgress(pos)
@@ -307,6 +309,24 @@ class PlayerActivity : AppCompatActivity() {
             name.endsWith(".ass") || name.endsWith(".ssa") -> MimeTypes.TEXT_SSA
             name.endsWith(".vtt") -> MimeTypes.TEXT_VTT
             else -> MimeTypes.APPLICATION_SUBRIP
+        }
+    }
+
+    private fun configureSubtitleOverlay(playerView: PlayerView) {
+        playerView.subtitleView?.apply {
+            setApplyEmbeddedStyles(false)
+            setApplyEmbeddedFontSizes(false)
+            setStyle(
+                CaptionStyleCompat(
+                    getColor(R.color.mv_subtitle_text),
+                    getColor(R.color.mv_subtitle_glass_bg),
+                    0x00000000,
+                    CaptionStyleCompat.EDGE_TYPE_NONE,
+                    0x00000000,
+                    null,
+                ),
+            )
+            setBottomPaddingFraction(0.08f)
         }
     }
 
