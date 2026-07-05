@@ -72,6 +72,9 @@ object ScrapeDrawerBinder {
         group.check(id)
     }
 
+    private fun formatSubtitleBgOpacityLabel(activity: AppCompatActivity, percent: Int): String =
+        activity.getString(R.string.settings_subtitle_bg_opacity_fmt, percent)
+
     private var directoriesPanel: ScrapeDirectoriesPanelController? = null
     private var onRootsCallback: (() -> Unit)? = null
     private var boundRepository: LibraryRepository? = null
@@ -125,6 +128,8 @@ object ScrapeDrawerBinder {
         val tmdbCacheHint = panelRoot.findViewById<TextView>(R.id.drawerTmdbCacheHint)
         val clearTmdbCacheBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerClearTmdbCacheBtn)
         val subtitleLangGroup = panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)
+        val subtitleBgOpacitySlider = panelRoot.findViewById<Slider>(R.id.drawerSubtitleBgOpacitySlider)
+        val subtitleBgOpacityLabel = panelRoot.findViewById<TextView>(R.id.drawerSubtitleBgOpacityLabel)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
         val backupExportBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenBackupExportBtn)
         val maintenanceSummary = panelRoot.findViewById<TextView>(R.id.drawerLibraryMaintenanceSummary)
@@ -181,6 +186,9 @@ object ScrapeDrawerBinder {
             updateCacheLabels(cacheTotalSlider.value.toInt(), cachePerSlider.value.toInt())
             refreshTmdbCacheUi(activity, tmdbCacheHint, clearTmdbCacheBtn, cfg.isOnlineMode())
             bindSubtitleLangRadio(subtitleLangGroup, SubtitlePrefs.getPrimary(activity))
+            val opacity = SubtitlePrefs.getBackgroundOpacityPercent(activity)
+            subtitleBgOpacitySlider.value = opacity.toFloat()
+            subtitleBgOpacityLabel.text = formatSubtitleBgOpacityLabel(activity, opacity)
             renderMaintenance(activity, maintenanceSummary, maintenanceIssues, repository.diagnostics.value)
         }
 
@@ -202,6 +210,14 @@ object ScrapeDrawerBinder {
                 else -> SubtitlePrefs.PrimaryLang.HANS_FIRST
             }
             SubtitlePrefs.setPrimary(activity, lang)
+        }
+
+        subtitleBgOpacitySlider.addOnChangeListener { _, value, fromUser ->
+            val percent = value.toInt()
+            subtitleBgOpacityLabel.text = formatSubtitleBgOpacityLabel(activity, percent)
+            if (fromUser) {
+                SubtitlePrefs.setBackgroundOpacityPercent(activity, percent)
+            }
         }
 
         loadUi(ScrapeConfig.readSettings(activity))
@@ -380,6 +396,10 @@ object ScrapeDrawerBinder {
         panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)?.let {
             bindSubtitleLangRadio(it, SubtitlePrefs.getPrimary(activity))
         }
+        val subtitleBgOpacity = SubtitlePrefs.getBackgroundOpacityPercent(activity)
+        panelRoot.findViewById<Slider>(R.id.drawerSubtitleBgOpacitySlider).value = subtitleBgOpacity.toFloat()
+        panelRoot.findViewById<TextView>(R.id.drawerSubtitleBgOpacityLabel).text =
+            formatSubtitleBgOpacityLabel(activity, subtitleBgOpacity)
         renderMaintenance(
             activity,
             panelRoot.findViewById(R.id.drawerLibraryMaintenanceSummary),

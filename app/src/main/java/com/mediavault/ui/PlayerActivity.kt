@@ -319,7 +319,10 @@ class PlayerActivity : AppCompatActivity() {
             setStyle(
                 CaptionStyleCompat(
                     getColor(R.color.mv_subtitle_text),
-                    getColor(R.color.mv_subtitle_glass_bg),
+                    SubtitlePrefs.subtitleBackgroundColor(
+                        this@PlayerActivity,
+                        getColor(R.color.mv_subtitle_glass_base),
+                    ),
                     0x00000000,
                     CaptionStyleCompat.EDGE_TYPE_NONE,
                     0x00000000,

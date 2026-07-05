@@ -367,6 +367,7 @@
     <string name="settings_subtitle_lang_hant">优先繁体中文</string>
     <string name="settings_subtitle_lang_en">优先英语</string>
     <string name="settings_subtitle_lang_neutral">不偏向（按文件名自然顺序）</string>
+    <string name="settings_subtitle_bg_opacity_fmt">字幕底不透明度 %1$d%%</string>
     <string name="settings_scrape_local_sources">本地来源（可与在线叠加）</string>
 
     <string name="settings_scrape_cover_files">从旁挂图片识别封面</string>

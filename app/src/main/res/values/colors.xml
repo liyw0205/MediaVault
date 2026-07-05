@@ -24,6 +24,6 @@
     <color name="mv_player_scrim_mid">#990b1220</color>
     <color name="mv_player_canvas">#000000</color>
     <color name="mv_subtitle_text">#111827</color>
-    <color name="mv_subtitle_glass_bg">#4DF5F7FA</color>
+    <color name="mv_subtitle_glass_base">#F5F7FA</color>
     <color name="mv_toolbar_icon">@color/mv_text</color>
 </resources>

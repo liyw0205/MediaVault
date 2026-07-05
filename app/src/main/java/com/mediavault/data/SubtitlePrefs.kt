@@ -8,6 +8,10 @@ object SubtitlePrefs {
     private const val KEY_PRIMARY = "primary_lang"
     private const val KEY_PERSISTED_MODE = "persisted_mode"
     private const val KEY_MANUAL_TIER = "manual_tier"
+    private const val KEY_BACKGROUND_OPACITY_PERCENT = "background_opacity_percent"
+    const val MIN_BACKGROUND_OPACITY_PERCENT = 10
+    const val MAX_BACKGROUND_OPACITY_PERCENT = 100
+    const val DEFAULT_BACKGROUND_OPACITY_PERCENT = 30
 
     enum class PrimaryLang(val store: String) {
         HANS_FIRST("hans_first"),
@@ -64,6 +68,25 @@ object SubtitlePrefs {
             .putString(KEY_PERSISTED_MODE, PersistedMode.MANUAL_TIER.store)
             .putInt(KEY_MANUAL_TIER, tier.ordinal)
             .apply()
+    }
+
+    fun getBackgroundOpacityPercent(ctx: Context): Int =
+        prefs(ctx)
+            .getInt(KEY_BACKGROUND_OPACITY_PERCENT, DEFAULT_BACKGROUND_OPACITY_PERCENT)
+            .coerceIn(MIN_BACKGROUND_OPACITY_PERCENT, MAX_BACKGROUND_OPACITY_PERCENT)
+
+    fun setBackgroundOpacityPercent(ctx: Context, percent: Int) {
+        prefs(ctx).edit()
+            .putInt(
+                KEY_BACKGROUND_OPACITY_PERCENT,
+                percent.coerceIn(MIN_BACKGROUND_OPACITY_PERCENT, MAX_BACKGROUND_OPACITY_PERCENT),
+            )
+            .apply()
+    }
+
+    fun subtitleBackgroundColor(ctx: Context, baseColor: Int): Int {
+        val alpha = (getBackgroundOpacityPercent(ctx) * 255 + 50) / 100
+        return (alpha shl 24) or (baseColor and 0x00FFFFFF)
     }
 
     fun sortSubtitlePaths(ctx: Context, paths: List<String>): List<String> {
