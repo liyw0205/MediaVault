@@ -57,7 +57,7 @@ object RemoteStreamCache {
 
     private data class RangeEntry(val start: Long, val endExclusive: Long, val file: File)
 
-    private fun parseCompleteRangeName(name: String): RangeName? {
+    private fun parseRangeName(name: String, requireValidBounds: Boolean): RangeName? {
         if (!name.startsWith("range_") || !name.endsWith(".dat")) return null
         val body = name.removePrefix("range_").removeSuffix(".dat")
         val keyEnd = body.indexOf('_')
@@ -69,9 +69,12 @@ object RemoteStreamCache {
         if (split <= 0) return null
         val start = bounds.substring(0, split).toLongOrNull() ?: return null
         val endExclusive = bounds.substring(split + 1).toLongOrNull() ?: return null
-        if (start < 0L || endExclusive <= start) return null
+        if (requireValidBounds && (start < 0L || endExclusive <= start)) return null
         return RangeName(key, start, endExclusive)
     }
+
+    private fun parseCompleteRangeName(name: String): RangeName? =
+        parseRangeName(name, requireValidBounds = true)
 
     private fun listRangeEntries(context: Context, key: String): List<RangeEntry> {
         val dir = cacheDir(context)
@@ -482,14 +485,20 @@ object RemoteStreamCache {
     private fun isCompleteRangeCacheName(name: String): Boolean =
         parseCompleteRangeName(name) != null
 
+    private fun isRangeCacheArtifactName(name: String): Boolean =
+        parseRangeName(name, requireValidBounds = false) != null
+
     private fun isCompleteCacheName(name: String): Boolean =
         isCompletePrefixCacheName(name) || isCompleteRangeCacheName(name)
 
     private fun isCompleteCacheFile(f: File): Boolean =
         f.isFile && isCompleteCacheName(f.name)
 
-    private fun isTempCacheFile(f: File): Boolean =
-        f.isFile && f.name.endsWith(".part") && isCompleteCacheName(f.name.removeSuffix(".part"))
+    private fun isTempCacheFile(f: File): Boolean {
+        if (!f.isFile || !f.name.endsWith(".part")) return false
+        val baseName = f.name.removeSuffix(".part")
+        return isCompleteCacheName(baseName) || isRangeCacheArtifactName(baseName)
+    }
 
     private fun isCacheFile(f: File): Boolean =
         isCompleteCacheFile(f) || isTempCacheFile(f)
