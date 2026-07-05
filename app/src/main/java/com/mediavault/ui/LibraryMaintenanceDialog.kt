@@ -9,6 +9,7 @@ import android.widget.CheckBox
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -36,7 +37,12 @@ object LibraryMaintenanceDialog {
         "low_confidence_match",
     )
 
-    fun show(activity: AppCompatActivity, repository: LibraryRepository, onChanged: () -> Unit) {
+    fun show(
+        activity: AppCompatActivity,
+        repository: LibraryRepository,
+        onChanged: () -> Unit,
+        onCredentialRepairRequested: (List<String>) -> Boolean = { false },
+    ) {
         val snapshot = repository.refreshDiagnostics()
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_library_maintenance, null, false)
         val summary = root.findViewById<TextView>(R.id.libraryMaintenanceSummary)
@@ -46,6 +52,7 @@ object LibraryMaintenanceDialog {
         val selectFilter = root.findViewById<MaterialButton>(R.id.libraryMaintenanceSelectFilter)
         val clearSelection = root.findViewById<MaterialButton>(R.id.libraryMaintenanceClearSelection)
         val batchRescrape = root.findViewById<MaterialButton>(R.id.libraryMaintenanceBatchRescrape)
+        val batchCredential = root.findViewById<MaterialButton>(R.id.libraryMaintenanceBatchCredential)
         val batchRecheck = root.findViewById<MaterialButton>(R.id.libraryMaintenanceBatchRecheck)
         val batchRemove = root.findViewById<MaterialButton>(R.id.libraryMaintenanceBatchRemove)
         val recycler = root.findViewById<RecyclerView>(R.id.libraryMaintenanceRecycler)
@@ -54,8 +61,23 @@ object LibraryMaintenanceDialog {
         val pageLabel = root.findViewById<TextView>(R.id.libraryMaintenancePage)
         recycler.layoutManager = LinearLayoutManager(activity)
         val selectedKeys = linkedSetOf<String>()
+        var dialog: AlertDialog? = null
         lateinit var refreshAll: () -> Unit
         lateinit var renderSelection: () -> Unit
+        fun requestCredentialRepair(remoteIds: List<String>): Boolean {
+            val ids = remoteIds.filter { it.isNotBlank() }.distinct()
+            if (ids.isEmpty()) {
+                Toast.makeText(activity, R.string.library_batch_credential_no_scope, Toast.LENGTH_LONG).show()
+                return false
+            }
+            val opened = onCredentialRepairRequested(ids)
+            if (opened) {
+                dialog?.dismiss()
+            } else {
+                Toast.makeText(activity, R.string.library_issue_missing_remote_credential_unavailable, Toast.LENGTH_LONG).show()
+            }
+            return opened
+        }
         val adapter = IssueAdapter(
             activity = activity,
             repository = repository,
@@ -63,6 +85,7 @@ object LibraryMaintenanceDialog {
             onSelectionChanged = { renderSelection() },
             onChanged = onChanged,
             onRefresh = { refreshAll() },
+            onCredentialRepairRequested = { ids -> requestCredentialRepair(ids) },
         )
         recycler.adapter = adapter
 
@@ -111,6 +134,7 @@ object LibraryMaintenanceDialog {
             selectFilter.isEnabled = filtered.isNotEmpty()
             clearSelection.isEnabled = selected.isNotEmpty()
             batchRescrape.isEnabled = selected.isNotEmpty()
+            batchCredential.isEnabled = missingCredentialRemoteIds(selected).isNotEmpty()
             batchRemove.isEnabled = selected.any { it.kind == "stale_remote" }
             batchRecheck.isEnabled = sourceCount() > 0
         }
@@ -218,6 +242,16 @@ object LibraryMaintenanceDialog {
                 renderPage()
             }
         }
+        batchCredential.setOnClickListener {
+            val issues = selectedIssues()
+            if (issues.isEmpty()) {
+                Toast.makeText(activity, R.string.library_batch_need_selection, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            confirmBatchCredentialRepair(activity, issues) { ids ->
+                requestCredentialRepair(ids)
+            }
+        }
         batchRemove.setOnClickListener {
             val issues = selectedIssues()
             if (issues.isEmpty()) {
@@ -302,7 +336,7 @@ object LibraryMaintenanceDialog {
             )
         }
         applySnapshot(snapshot)
-        MvDialog.showStyled(
+        dialog = MvDialog.showStyled(
             MvDialog.builder(activity)
                 .setTitle(R.string.library_maintenance_title)
                 .setView(root)
@@ -343,6 +377,7 @@ object LibraryMaintenanceDialog {
         private val onSelectionChanged: () -> Unit,
         private val onChanged: () -> Unit,
         private val onRefresh: () -> Unit,
+        private val onCredentialRepairRequested: (List<String>) -> Boolean,
     ) : RecyclerView.Adapter<IssueVH>() {
         private var issues: List<LibraryIssue> = emptyList()
 
@@ -389,6 +424,13 @@ object LibraryMaintenanceDialog {
             }
             holder.rescrape.setOnClickListener {
                 rescrapeIssue(issue)
+            }
+            val credentialRemoteIds = missingCredentialRemoteIds(listOf(issue))
+            val canRepairCredential = credentialRemoteIds.isNotEmpty()
+            holder.rescrape.visibility = if (canRepairCredential) View.GONE else View.VISIBLE
+            holder.credential.visibility = if (canRepairCredential) View.VISIBLE else View.GONE
+            holder.credential.setOnClickListener {
+                onCredentialRepairRequested(credentialRemoteIds)
             }
             holder.remove.setOnClickListener {
                 confirmRemove(issue)
@@ -499,7 +541,38 @@ object LibraryMaintenanceDialog {
         val open: MaterialButton = view.findViewById(R.id.libraryIssueOpen)
         val evidence: MaterialButton = view.findViewById(R.id.libraryIssueEvidence)
         val rescrape: MaterialButton = view.findViewById(R.id.libraryIssueRescrape)
+        val credential: MaterialButton = view.findViewById(R.id.libraryIssueCredential)
         val remove: MaterialButton = view.findViewById(R.id.libraryIssueRemove)
+    }
+
+    private fun confirmBatchCredentialRepair(
+        activity: AppCompatActivity,
+        issues: List<LibraryIssue>,
+        onConfirmed: (List<String>) -> Boolean,
+    ) {
+        val remoteIds = missingCredentialRemoteIds(issues)
+        if (remoteIds.isEmpty()) {
+            Toast.makeText(activity, R.string.library_batch_credential_no_scope, Toast.LENGTH_LONG).show()
+            return
+        }
+        val credentialIssues = issues.count {
+            it.kind == "missing_remote_credential" && RemotePath.parse(it.path)?.configId?.isNotBlank() == true
+        }
+        val skipped = issues.size - credentialIssues
+        MvDialog.show(
+            MvDialog.builder(activity)
+                .setTitle(R.string.library_batch_credential_title)
+                .setMessage(
+                    activity.getString(
+                        R.string.library_batch_credential_confirm_fmt,
+                        remoteIds.size,
+                        credentialIssues,
+                        skipped,
+                    ),
+                )
+                .setPositiveButton(android.R.string.ok) { _, _ -> onConfirmed(remoteIds) }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
     }
 
     private fun confirmBatchRescrape(
@@ -609,6 +682,14 @@ object LibraryMaintenanceDialog {
         val remoteIds: List<String>,
         val skippedCount: Int,
     )
+
+    private fun missingCredentialRemoteIds(issues: List<LibraryIssue>): List<String> =
+        issues.asSequence()
+            .filter { it.kind == "missing_remote_credential" }
+            .mapNotNull { RemotePath.parse(it.path)?.configId }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
 
     private fun issueKey(issue: LibraryIssue): String = issue.kind + "\u001F" + issue.path
 

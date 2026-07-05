@@ -268,11 +268,30 @@ object ScrapeDrawerBinder {
         }
 
         maintenanceOpenBtn.setOnClickListener {
-            LibraryMaintenanceDialog.show(activity, repository) {
-                val snapshot = repository.diagnostics.value
-                renderMaintenance(activity, maintenanceSummary, maintenanceIssues, snapshot)
-                onRootsMayHaveChanged()
-            }
+            LibraryMaintenanceDialog.show(
+                activity = activity,
+                repository = repository,
+                onChanged = {
+                    val snapshot = repository.diagnostics.value
+                    renderMaintenance(activity, maintenanceSummary, maintenanceIssues, snapshot)
+                    onRootsMayHaveChanged()
+                },
+                onCredentialRepairRequested = repair@ { remoteIds ->
+                    val ids = remoteIds.filter { it.isNotBlank() }.distinct()
+                    if (ids.isEmpty()) {
+                        return@repair false
+                    }
+                    panelRoot.post {
+                        (activity as? MainActivity)?.openScrapeDrawer()
+                            ?: drawer?.openDrawer(GravityCompat.END, false)
+                        val opened = promptCredentialCompletion(ids)
+                        if (!opened) {
+                            Toast.makeText(activity, R.string.library_issue_missing_remote_credential_unavailable, Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    true
+                },
+            )
         }
 
         dataBtn.setOnClickListener {
