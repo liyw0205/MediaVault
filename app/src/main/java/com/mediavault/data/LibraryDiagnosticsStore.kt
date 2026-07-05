@@ -283,7 +283,9 @@ class LibraryDiagnosticsStore(context: Context) {
         previousRemoteCapabilities: List<RemoteCapability>,
     ): LibraryDiagnosticsSnapshot {
         val scannedAt = nowText()
-        val remoteIds = store.readRemotesList().map { it.id }.toSet()
+        val remotes = store.readRemotesList()
+        val remoteById = remotes.associateBy { it.id }
+        val remoteIds = remoteById.keys
         val pathCounts = items.groupingBy { it.path }.eachCount()
         val titleCounts = items
             .mapNotNull { normalizedTitleKey(it)?.let { key -> key to it } }
@@ -307,6 +309,9 @@ class LibraryDiagnosticsStore(context: Context) {
                 val parsed = RemotePath.parse(item.path)
                 if (parsed == null || parsed.configId !in remoteIds) {
                     issues.add(item.issue("stale_remote", "远程配置不存在或已删除"))
+                } else if (remoteById[parsed.configId]?.credentialMissing == true) {
+                    val name = remoteById[parsed.configId]?.name?.ifBlank { parsed.configId } ?: parsed.configId
+                    issues.add(item.issue("missing_remote_credential", "远程配置“$name”缺少密码，需补凭据后再复检"))
                 }
             }
             if (item.coverLocalPath().isNullOrBlank()) {
@@ -321,7 +326,6 @@ class LibraryDiagnosticsStore(context: Context) {
 
         val counts = issues.groupingBy { it.kind }.eachCount().toSortedMap()
         val evidenceByPath = items.associate { it.path to ScrapeEvidence.fromItem(it) }
-        val remotes = store.readRemotesList()
         return LibraryDiagnosticsSnapshot(
             scannedAt = scannedAt,
             itemCount = items.size,
@@ -390,7 +394,13 @@ class LibraryDiagnosticsStore(context: Context) {
                 RemotePath.parse(it.path)?.relativePath
             }.orEmpty()
             val prev = previousByKey["${cfg.type}|${cfg.id}"] ?: previousByKey["remote|${cfg.id}"]
-            out.add(if (probeSources) probeRemote(cfg, scannedAt, sample) else carrySource(prev, cfg.id, cfg.type.ifBlank { "remote" }, cfg.name, scannedAt, sample))
+            out.add(
+                if (probeSources) {
+                    probeRemote(cfg, scannedAt, sample)
+                } else {
+                    carrySource(prev, cfg.id, cfg.type.ifBlank { "remote" }, cfg.name, scannedAt, sample)
+                },
+            )
         }
         return out
     }
@@ -410,7 +420,7 @@ class LibraryDiagnosticsStore(context: Context) {
             val prev = previous.firstOrNull { it.sourceId == cfg.id && it.trigger == "diagnostic" }
             out.add(
                 if (probeSources) {
-                    probeRemoteCapability(cfg, sample)
+                    if (cfg.credentialMissing) credentialMissingCapability(cfg, sample) else probeRemoteCapability(cfg, sample)
                 } else {
                     carryRemoteCapability(prev, cfg, sample)
                 },
@@ -483,6 +493,20 @@ class LibraryDiagnosticsStore(context: Context) {
 
     private fun probeRemote(cfg: RemoteConfig, scannedAt: String, samplePath: String): SourceHealth {
         val checkedAt = nowText()
+        if (cfg.credentialMissing) {
+            return SourceHealth(
+                sourceId = cfg.id,
+                sourceType = cfg.type.ifBlank { "remote" },
+                name = cfg.name,
+                lastCheckedAt = checkedAt,
+                lastScanAt = scannedAt,
+                reachable = false,
+                supportsRange = null,
+                lastErrorKind = "credential_missing",
+                lastErrorMessage = "远程配置缺少密码，请在管理媒体目录补充后再复检",
+                samplePath = samplePath,
+            )
+        }
         return runCatching {
             val client = RemoteClients.create(cfg)
             val entries = client.list("")
@@ -526,6 +550,29 @@ class LibraryDiagnosticsStore(context: Context) {
             )
         }
     }
+
+    private fun credentialMissingCapability(cfg: RemoteConfig, samplePath: String): RemoteCapability =
+        RemoteCapability(
+            key = RemoteCapability.keyFor(cfg.id, samplePath, "diagnostic"),
+            sourceId = cfg.id,
+            sourceType = cfg.type.ifBlank { "remote" },
+            name = cfg.name,
+            relativePath = samplePath,
+            lastCheckedAt = nowText(),
+            trigger = "diagnostic",
+            canList = false,
+            canOpen = false,
+            supportsRange = null,
+            fileSize = C.LENGTH_UNSET.toLong(),
+            firstByteMs = -1L,
+            seekReadMs = -1L,
+            cachePrefixBytes = 0L,
+            cacheRangeFiles = 0,
+            cacheRangeBytes = 0L,
+            cacheTotalBytes = 0L,
+            lastErrorKind = "credential_missing",
+            lastErrorMessage = "远程配置缺少密码，请在管理媒体目录补充后再复检",
+        )
 
     private fun carryRemoteCapability(
         previous: RemoteCapability?,

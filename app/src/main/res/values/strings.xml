@@ -426,6 +426,8 @@
     <string name="remote_capability_issue_fmt">%1$s · %2$s：%3$s</string>
     <string name="remote_capability_range_no">不支持 Range，拖动到未缓存位置可能失败</string>
     <string name="library_issue_missing_path">无路径</string>
+    <string name="library_issue_missing_remote_credential">缺远程凭据</string>
+    <string name="library_issue_missing_remote_credential_action">请先在管理媒体目录中补充远程密码，再执行重刮或复检。</string>
     <string name="library_issue_duplicate_path">重复路径</string>
     <string name="library_issue_duplicate_title">疑似重复</string>
     <string name="library_issue_stale_remote">失效远程</string>

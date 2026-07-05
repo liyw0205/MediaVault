@@ -400,6 +400,7 @@ object ScrapeDrawerBinder {
     private fun issueLabel(activity: AppCompatActivity, kind: String): String {
         val resId = when (kind) {
             "missing_path" -> R.string.library_issue_missing_path
+            "missing_remote_credential" -> R.string.library_issue_missing_remote_credential
             "duplicate_path" -> R.string.library_issue_duplicate_path
             "duplicate_title" -> R.string.library_issue_duplicate_title
             "stale_remote" -> R.string.library_issue_stale_remote

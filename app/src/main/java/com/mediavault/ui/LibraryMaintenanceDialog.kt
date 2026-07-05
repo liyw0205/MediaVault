@@ -29,6 +29,7 @@ object LibraryMaintenanceDialog {
     private const val PAGE_SIZE = 50
     private const val REPAIR_QUEUE_KIND = "__repair_queue"
     private val REPAIR_QUEUE_ISSUE_KINDS = setOf(
+        "missing_remote_credential",
         "stale_remote",
         "missing_cover",
         "unmatched",
@@ -438,6 +439,11 @@ object LibraryMaintenanceDialog {
         private fun rescrapeRemote(issue: LibraryIssue): Boolean {
             val parsed = RemotePath.parse(issue.path) ?: return false
             val app = activity.application as MediaVaultApp
+            val cfg = app.repository.store.readRemotesList().firstOrNull { it.id == parsed.configId }
+            if (cfg?.credentialMissing == true) {
+                Toast.makeText(activity, R.string.library_issue_missing_remote_credential_action, Toast.LENGTH_LONG).show()
+                return true
+            }
             if (app.scrapeManager.isRunning()) {
                 Toast.makeText(activity, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
                 return true
@@ -556,7 +562,7 @@ object LibraryMaintenanceDialog {
         issues: List<LibraryIssue>,
     ): BatchRescrapePlan {
         val localRoots = repository.store.readLocalRootUris().sortedByDescending { it.length }
-        val remoteIds = repository.store.readRemotesList().map { it.id }.toSet()
+        val remoteById = repository.store.readRemotesList().associateBy { it.id }
         val scopedPaths = linkedSetOf<String>()
         val scopedLocalRoots = linkedSetOf<String>()
         val scopedRemoteIds = linkedSetOf<String>()
@@ -568,7 +574,10 @@ object LibraryMaintenanceDialog {
             .forEach { path ->
                 val parsed = RemotePath.parse(path)
                 when {
-                    parsed != null && parsed.configId in remoteIds -> {
+                    parsed != null && remoteById[parsed.configId]?.credentialMissing == true -> {
+                        skipped++
+                    }
+                    parsed != null && parsed.configId in remoteById -> {
                         scopedPaths.add(path)
                         scopedRemoteIds.add(parsed.configId)
                     }
@@ -606,6 +615,7 @@ object LibraryMaintenanceDialog {
     private fun issueLabel(activity: AppCompatActivity, kind: String): String {
         val resId = when (kind) {
             "missing_path" -> R.string.library_issue_missing_path
+            "missing_remote_credential" -> R.string.library_issue_missing_remote_credential
             "duplicate_path" -> R.string.library_issue_duplicate_path
             "duplicate_title" -> R.string.library_issue_duplicate_title
             "stale_remote" -> R.string.library_issue_stale_remote
