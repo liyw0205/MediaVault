@@ -136,6 +136,27 @@ class LibraryRepository(context: Context) {
         true
     }
 
+    fun removeItemsByPaths(paths: Collection<String>): Result<LibraryBatchRemoveResult> = runCatching {
+        val targets = paths.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        if (targets.isEmpty()) {
+            return@runCatching LibraryBatchRemoveResult(0, 0, 0, 0)
+        }
+        val existing = _library.value.items
+        val matchedPathCount = existing.map { it.path }.toSet().count { it in targets }
+        val kept = existing.filter { it.path !in targets }
+        val removedItemCount = existing.size - kept.size
+        if (removedItemCount > 0) {
+            store.writeLibraryJson(kept).getOrThrow()
+            reload()
+        }
+        LibraryBatchRemoveResult(
+            requestedPathCount = targets.size,
+            matchedPathCount = matchedPathCount,
+            removedItemCount = removedItemCount,
+            missingPathCount = targets.size - matchedPathCount,
+        )
+    }
+
     fun dataSizes(): DataSizes {
         val lib = store.libraryFile
         val covers = File(app.filesDir, "mediavault/covers")
@@ -198,4 +219,11 @@ data class DataSizes(
     val videoCount: Int,
     val remoteStreamFiles: Int = 0,
     val remoteStreamBytes: Long = 0L,
+)
+
+data class LibraryBatchRemoveResult(
+    val requestedPathCount: Int,
+    val matchedPathCount: Int,
+    val removedItemCount: Int,
+    val missingPathCount: Int,
 )

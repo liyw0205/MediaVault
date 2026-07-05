@@ -142,19 +142,28 @@ class MediaStore(private val context: Context) {
     }
 
     fun clearScrapeRecordPath(path: String): Boolean {
-        if (!scrapeRecordFile.isFile) return false
-        val target = path.trim()
+        return clearScrapeRecordPaths(listOf(path)) > 0
+    }
+
+    fun clearScrapeRecordPaths(paths: Collection<String>): Int {
+        if (!scrapeRecordFile.isFile) return 0
+        val targets = paths.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        if (targets.isEmpty()) return 0
         var removed = false
+        var removedCount = 0
         val lines = scrapeRecordFile.readLines().filter { line ->
             val p = line.trim()
-            val keep = p.isEmpty() || p != target
-            if (!keep) removed = true
+            val keep = p.isEmpty() || p !in targets
+            if (!keep) {
+                removed = true
+                removedCount++
+            }
             keep
         }
         if (removed) {
             scrapeRecordFile.writeText(lines.joinToString("\n").let { if (it.isEmpty()) "" else "$it\n" })
         }
-        return removed
+        return removedCount
     }
 
     fun readRemotesJsonText(): String {
