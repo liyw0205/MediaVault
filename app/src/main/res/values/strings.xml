@@ -208,6 +208,13 @@
     <string name="tmdb_match_weak_suffix">（弱匹配，可点「重新匹配」）</string>
     <string name="tmdb_match_year_fmt">%1$s (%2$s)</string>
     <string name="tmdb_rematch_btn">重新匹配</string>
+    <string name="detail_maintenance_title">整理状态</string>
+    <string name="detail_maintenance_ok_summary_fmt">暂无待处理问题 · 上次检查 %1$s</string>
+    <string name="detail_maintenance_summary_fmt">待处理 %1$d 项 · 上次检查 %2$s</string>
+    <string name="detail_maintenance_evidence_fmt">来源：%1$s\n文件：%2$s\n解析：%3$s\nNFO：%4$s · TMDB：%5$s\n封面：%6$s · 字幕 %7$d · 旁挂 %8$d</string>
+    <string name="detail_maintenance_rescrape">重刮此条</string>
+    <string name="detail_maintenance_repair_credential">补凭据</string>
+    <string name="detail_maintenance_open_issue">查看问题</string>
     <string name="tmdb_rematch_title">在 TMDB 重新匹配</string>
     <string name="tmdb_rematch_field_title">标题（必填）</string>
     <string name="tmdb_rematch_field_year">年份（可空）</string>

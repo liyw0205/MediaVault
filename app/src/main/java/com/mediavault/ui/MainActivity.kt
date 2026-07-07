@@ -39,6 +39,8 @@ import kotlinx.coroutines.withContext
 class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_SEARCH_TAG = "search_tag"
+        const val EXTRA_OPEN_MAINTENANCE_KIND = "open_maintenance_kind"
+        const val EXTRA_REPAIR_REMOTE_IDS = "repair_remote_ids"
         private const val TAG_HOME = "tab_home"
         private const val TAG_SEARCH = "tab_search"
         private const val TAG_COLLECTIONS = "tab_collections"
@@ -143,6 +145,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         wireMainActivityShell(savedInstanceState)
+        if (savedInstanceState == null) {
+            handleExternalNavigationIntent(intent)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleExternalNavigationIntent(intent)
     }
 
     private fun wireMainActivityShell(savedInstanceState: Bundle?) {
@@ -454,17 +465,45 @@ class MainActivity : AppCompatActivity() {
                     ScrapeDrawerBinder.reloadOptions(this, drawerContent)
                 }
             },
-            onCredentialRepairRequested = repair@ { remoteIds ->
-                val ids = remoteIds.filter { it.isNotBlank() }.distinct()
-                if (ids.isEmpty()) return@repair false
-                showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
-                val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
-                ScrapeDrawerBinder.reloadOptions(this, drawerContent)
-                ScrapeDrawerBinder.reloadDirectories(this, drawerContent)
-                drawerLayout.openDrawer(GravityCompat.END)
-                ScrapeDrawerBinder.promptCredentialCompletion(ids)
+            onCredentialRepairRequested = { remoteIds ->
+                openCredentialRepair(remoteIds)
             },
         )
+    }
+
+    fun openCredentialRepair(remoteIds: List<String>): Boolean {
+        val ids = remoteIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) return false
+        showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+        val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+        ScrapeDrawerBinder.reloadOptions(this, drawerContent)
+        ScrapeDrawerBinder.reloadDirectories(this, drawerContent)
+        drawerLayout.openDrawer(GravityCompat.END)
+        val opened = ScrapeDrawerBinder.promptCredentialCompletion(ids)
+        if (!opened) {
+            Toast.makeText(this, R.string.library_issue_missing_remote_credential_unavailable, Toast.LENGTH_LONG).show()
+        }
+        return opened
+    }
+
+    private fun handleExternalNavigationIntent(source: Intent) {
+        val repairIds = source.getStringArrayListExtra(EXTRA_REPAIR_REMOTE_IDS)
+            ?.filter { it.isNotBlank() }
+            ?.distinct()
+            .orEmpty()
+        if (repairIds.isNotEmpty()) {
+            val opened = openCredentialRepair(repairIds)
+            source.removeExtra(EXTRA_REPAIR_REMOTE_IDS)
+            source.removeExtra(EXTRA_OPEN_MAINTENANCE_KIND)
+            if (!opened) openLibraryMaintenance("missing_remote_credential")
+            return
+        }
+
+        if (source.hasExtra(EXTRA_OPEN_MAINTENANCE_KIND)) {
+            val kind = source.getStringExtra(EXTRA_OPEN_MAINTENANCE_KIND)?.takeIf { it.isNotBlank() }
+            source.removeExtra(EXTRA_OPEN_MAINTENANCE_KIND)
+            openLibraryMaintenance(kind)
+        }
     }
 
     fun openTaskCenter() {

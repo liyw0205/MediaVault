@@ -21,9 +21,11 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
+import com.mediavault.data.ScrapeEvidence
 import com.mediavault.data.TmdbMatchHeuristics
 import com.mediavault.data.WatchQueueStore
 import com.mediavault.playback.PlaylistBuilder
+import com.mediavault.remote.RemotePath
 import kotlinx.coroutines.launch
 
 class VideoDetailActivity : AppCompatActivity() {
@@ -127,6 +129,7 @@ class VideoDetailActivity : AppCompatActivity() {
 
         bindNfoFields(item)
         bindTmdbMatchRow(item)
+        bindMaintenancePanel(item)
 
         val coverPath = item.coverLocalPath()
         val coverView = findViewById<android.widget.ImageView>(R.id.detailCover)
@@ -319,6 +322,7 @@ class VideoDetailActivity : AppCompatActivity() {
             repo.reload()
             val refreshed = repo.library.value.items.find { it.path == path } ?: return@launch
             bindTmdbMatchRow(refreshed)
+            bindMaintenancePanel(refreshed)
             findViewById<TextView>(R.id.detailTitle).text = refreshed.displayTitle()
             findViewById<TextView>(R.id.detailPlot).apply {
                 if (refreshed.plot.isBlank()) visibility = View.GONE
@@ -330,6 +334,164 @@ class VideoDetailActivity : AppCompatActivity() {
             bindNfoFields(refreshed)
         }
     }
+
+    private fun bindMaintenancePanel(item: MediaItem) {
+        val repo = (application as MediaVaultApp).repository
+        val snapshot = if (repo.diagnostics.value.itemCount == repo.library.value.items.size) {
+            repo.diagnostics.value
+        } else {
+            runCatching { repo.refreshDiagnostics() }.getOrDefault(repo.diagnostics.value)
+        }
+        val issues = snapshot.issues.filter { it.path == item.path }
+        val evidence = issues.firstNotNullOfOrNull { it.evidence }
+            ?: snapshot.scrapeEvidence[item.path]
+            ?: ScrapeEvidence.fromItem(item)
+        val topIssueKind = issues.groupingBy { it.kind }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .firstOrNull()
+            ?.key
+
+        findViewById<TextView>(R.id.detailMaintenanceSummary).text = if (issues.isEmpty()) {
+            getString(R.string.detail_maintenance_ok_summary_fmt, snapshot.scannedAt)
+        } else {
+            getString(R.string.detail_maintenance_summary_fmt, issues.size, snapshot.scannedAt)
+        }
+
+        val issueGroup = findViewById<ChipGroup>(R.id.detailMaintenanceIssues)
+        issueGroup.removeAllViews()
+        issueGroup.visibility = if (issues.isEmpty()) View.GONE else View.VISIBLE
+        issues.distinctBy { it.kind }.forEach { issue ->
+            val chip = Chip(this, null, R.style.Widget_MediaVault_Chip_Tag)
+            chip.text = LibraryMaintenanceDialog.issueLabel(this, issue.kind)
+            chip.isClickable = true
+            chip.setOnClickListener { openMaintenanceIssue(issue.kind) }
+            issueGroup.addView(chip)
+        }
+
+        findViewById<TextView>(R.id.detailMaintenanceEvidence).text = getString(
+            R.string.detail_maintenance_evidence_fmt,
+            maintenanceSourceLine(evidence),
+            evidence.fileName.ifBlank { "-" },
+            evidence.parsedTitle.ifBlank { "-" },
+            if (evidence.nfoHit) getString(R.string.library_issue_evidence_yes) else getString(R.string.library_issue_evidence_no),
+            maintenanceTmdbLine(evidence),
+            maintenanceCoverLine(evidence),
+            evidence.subtitles.size,
+            evidence.sidecarFiles.size,
+        )
+
+        val missingCredentialRemoteIds = issues.asSequence()
+            .filter { it.kind == "missing_remote_credential" }
+            .mapNotNull { RemotePath.parse(it.path)?.configId }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
+        findViewById<MaterialButton>(R.id.detailMaintenanceRescrapeBtn).setOnClickListener {
+            rescrapeDetailItem(item, topIssueKind)
+        }
+        findViewById<MaterialButton>(R.id.detailMaintenanceRepairCredentialBtn).apply {
+            visibility = if (missingCredentialRemoteIds.isEmpty()) View.GONE else View.VISIBLE
+            setOnClickListener { openCredentialRepair(missingCredentialRemoteIds) }
+        }
+        findViewById<MaterialButton>(R.id.detailMaintenanceOpenIssueBtn).apply {
+            visibility = if (issues.isEmpty()) View.GONE else View.VISIBLE
+            setOnClickListener { openMaintenanceIssue(topIssueKind) }
+        }
+    }
+
+    private fun rescrapeDetailItem(item: MediaItem, issueKind: String?) {
+        val app = application as MediaVaultApp
+        if (app.scrapeManager.isRunning()) {
+            Toast.makeText(this, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val parsed = RemotePath.parse(item.path)
+        if (parsed != null) {
+            val cfg = app.repository.store.readRemotesList().firstOrNull { it.id == parsed.configId }
+            if (cfg?.credentialMissing == true) {
+                Toast.makeText(this, R.string.library_issue_missing_remote_credential_action, Toast.LENGTH_LONG).show()
+                openCredentialRepair(listOf(parsed.configId))
+                return
+            }
+            if (cfg == null) {
+                openMaintenanceIssue(issueKind ?: "stale_remote")
+                Toast.makeText(this, R.string.library_issue_rescrape_no_scope, Toast.LENGTH_LONG).show()
+                return
+            }
+            app.repository.store.clearScrapeRecordPath(item.path)
+            app.scrapeManager.start(
+                rebuild = false,
+                remoteIds = listOf(parsed.configId),
+                taskTitle = getString(R.string.task_title_issue_rescrape),
+                taskDetail = item.displayTitle(),
+                taskIssueKind = issueKind,
+            )
+            Toast.makeText(this, getString(R.string.library_issue_rescrape_started, item.displayTitle()), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val root = app.repository.store.readLocalRootUris()
+            .sortedByDescending { it.length }
+            .firstOrNull { item.path.startsWith(it) }
+        if (root == null) {
+            Toast.makeText(this, R.string.library_issue_rescrape_no_scope, Toast.LENGTH_LONG).show()
+            return
+        }
+        app.repository.store.clearScrapeRecordPath(item.path)
+        app.scrapeManager.start(
+            rebuild = false,
+            localRootUris = listOf(root),
+            taskTitle = getString(R.string.task_title_issue_rescrape),
+            taskDetail = item.displayTitle(),
+            taskIssueKind = issueKind,
+        )
+        Toast.makeText(this, getString(R.string.library_issue_rescrape_started, item.displayTitle()), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun openMaintenanceIssue(issueKind: String?) {
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            issueKind?.takeIf { it.isNotBlank() }?.let {
+                putExtra(MainActivity.EXTRA_OPEN_MAINTENANCE_KIND, it)
+            }
+        })
+    }
+
+    private fun openCredentialRepair(remoteIds: List<String>) {
+        val ids = remoteIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) {
+            Toast.makeText(this, R.string.library_issue_missing_remote_credential_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putStringArrayListExtra(MainActivity.EXTRA_REPAIR_REMOTE_IDS, ArrayList(ids))
+            putExtra(MainActivity.EXTRA_OPEN_MAINTENANCE_KIND, "missing_remote_credential")
+        })
+    }
+
+    private fun maintenanceSourceLine(evidence: ScrapeEvidence): String =
+        listOf(evidence.sourceType, evidence.sourcePath)
+            .filter { it.isNotBlank() }
+            .joinToString(" · ")
+            .ifBlank { "-" }
+
+    private fun maintenanceTmdbLine(evidence: ScrapeEvidence): String {
+        val title = evidence.tmdbTitle.ifBlank { evidence.tmdbId }.ifBlank { "-" }
+        val confidence = evidence.tmdbConfidence.ifBlank { evidence.tmdbReason }
+        return listOf(title, confidence)
+            .filter { it.isNotBlank() && it != "-" }
+            .joinToString(" · ")
+            .ifBlank { "-" }
+    }
+
+    private fun maintenanceCoverLine(evidence: ScrapeEvidence): String =
+        listOf(evidence.coverSource, evidence.coverLocal)
+            .filter { it.isNotBlank() }
+            .joinToString(" · ")
+            .ifBlank { "-" }
 
     private fun bindNfoFields(item: MediaItem) {
         val grid = findViewById<android.view.ViewGroup>(R.id.nfoInfoGrid) ?: return
