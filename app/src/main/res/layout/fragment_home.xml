@@ -74,6 +74,15 @@
                 android:textColor="@color/mv_muted"
                 android:textSize="12sp" />
 
+            <TextView
+                android:id="@+id/homeWorkbenchLatestTask"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:text="@string/home_workbench_no_tasks"
+                android:textColor="@color/mv_muted"
+                android:textSize="12sp" />
+
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/homePendingIssueChips"
                 android:layout_width="match_parent"
@@ -94,16 +103,36 @@
                 android:textSize="12sp"
                 android:visibility="gone" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/homeWorkbenchOpenMaintenance"
-                style="@style/Widget.MediaVault.Button"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:minWidth="0dp"
-                android:paddingHorizontal="12dp"
-                android:text="@string/home_workbench_open_maintenance"
-                android:textSize="13sp" />
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/homeWorkbenchOpenMaintenance"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/home_workbench_open_maintenance"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/homeWorkbenchOpenTasks"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/home_workbench_open_tasks"
+                    android:textSize="13sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout

@@ -149,19 +149,46 @@
                             android:text="@string/home_workbench_sources_placeholder"
                             android:textColor="@color/mv_muted"
                             android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/homeWorkbenchLatestTask"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/home_workbench_no_tasks"
+                            android:textColor="@color/mv_muted"
+                            android:textSize="10sp" />
                     </LinearLayout>
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/homeWorkbenchOpenMaintenance"
-                        style="@style/Widget.MediaVault.Button"
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
-                        android:minHeight="@dimen/mv_fusion_btn_min_height"
-                        android:minWidth="0dp"
-                        android:paddingHorizontal="8dp"
-                        android:text="@string/home_workbench_open_maintenance"
-                        android:textSize="@dimen/mv_fusion_pager_btn_text" />
+                        android:orientation="vertical">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/homeWorkbenchOpenMaintenance"
+                            style="@style/Widget.MediaVault.Button"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="@dimen/mv_fusion_btn_min_height"
+                            android:minWidth="0dp"
+                            android:paddingHorizontal="8dp"
+                            android:text="@string/home_workbench_open_maintenance"
+                            android:textSize="@dimen/mv_fusion_pager_btn_text" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/homeWorkbenchOpenTasks"
+                            style="@style/Widget.MediaVault.Button"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="@dimen/mv_fusion_btn_min_height"
+                            android:minWidth="0dp"
+                            android:paddingHorizontal="8dp"
+                            android:text="@string/home_workbench_open_tasks"
+                            android:textSize="@dimen/mv_fusion_pager_btn_text" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <com.google.android.material.chip.ChipGroup

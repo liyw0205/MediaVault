@@ -21,6 +21,7 @@ import com.google.android.material.chip.ChipGroup
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.LibraryDiagnosticsSnapshot
+import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.MediaItem
 import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.data.WatchQueueStore
@@ -263,7 +264,25 @@ class HomeFragment : Fragment() {
         view.findViewById<MaterialButton>(R.id.homeWorkbenchOpenMaintenance).setOnClickListener {
             act.openLibraryMaintenance()
         }
+        view.findViewById<MaterialButton>(R.id.homeWorkbenchOpenTasks).setOnClickListener {
+            act.openTaskCenter()
+        }
+        bindLatestTask(view)
         bindPendingIssues(view, snapshot)
+    }
+
+    private fun bindLatestTask(view: View) {
+        val latest = LibraryTaskStore(requireContext()).latest()
+        view.findViewById<TextView>(R.id.homeWorkbenchLatestTask).text = if (latest == null) {
+            getString(R.string.home_workbench_no_tasks)
+        } else {
+            getString(
+                R.string.home_workbench_latest_task_fmt,
+                latest.title,
+                LibraryTaskCenterDialog.statusLabel(requireContext(), latest.status),
+                latest.updatedAt,
+            )
+        }
     }
 
     private fun bindPendingIssues(view: View, snapshot: LibraryDiagnosticsSnapshot) {

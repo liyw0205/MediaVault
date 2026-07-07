@@ -30,6 +30,7 @@ import com.mediavault.data.BackupMissingRemoteCredential
 import com.mediavault.data.BackupRollbackSnapshot
 import com.mediavault.data.BackupRollbackSnapshotPreview
 import com.mediavault.data.ExportArchive
+import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.MediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -466,6 +467,12 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    fun openTaskCenter() {
+        LibraryTaskCenterDialog.show(this) {
+            refreshHome(recommendPathsOnly = false)
+        }
+    }
+
     fun closeScrapeDrawer(animate: Boolean = false) {
         val lp = drawerPanel.layoutParams as? DrawerLayout.LayoutParams ?: return
         if (lp.gravity == Gravity.NO_GRAVITY) return
@@ -632,19 +639,53 @@ class MainActivity : AppCompatActivity() {
 
     private fun runBackupImport(uri: Uri) {
         Toast.makeText(this, R.string.backup_import_importing, Toast.LENGTH_SHORT).show()
+        val taskStore = LibraryTaskStore(this)
+        val taskId = taskStore.recordStarted(
+            type = LibraryTaskStore.TYPE_IMPORT_BACKUP,
+            title = getString(R.string.task_title_import_backup),
+            summary = getString(R.string.backup_import_importing),
+        )
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching { BackupImportManager(this@MainActivity).importBackup(uri, repository) }
             }
             result
                 .onSuccess { imported ->
+                    val needsRepair = imported.missingRemoteCredentials.isNotEmpty() || imported.tmdbKeyStillMissing
+                    taskStore.finish(
+                        id = taskId,
+                        status = if (needsRepair) LibraryTaskStore.STATUS_PARTIAL else LibraryTaskStore.STATUS_SUCCESS,
+                        summary = getString(
+                            R.string.task_import_done_fmt,
+                            imported.itemCount,
+                            imported.localRootCount,
+                            imported.remoteCount,
+                        ),
+                        detail = getString(
+                            R.string.task_import_detail_fmt,
+                            imported.missingRemoteCredentials.size,
+                            if (imported.tmdbKeyStillMissing) {
+                                getString(R.string.task_import_tmdb_missing)
+                            } else {
+                                getString(R.string.task_import_tmdb_ok)
+                            },
+                        ),
+                        issueKind = if (imported.missingRemoteCredentials.isNotEmpty()) "missing_remote_credential" else null,
+                    )
                     refreshHome(recommendPathsOnly = false)
                     refreshSearch()
                     scrapeFragment()?.refreshRootsFromOutside()
                     showBackupImportResult(imported)
                 }
                 .onFailure { e ->
-                    Toast.makeText(this@MainActivity, e.message ?: getString(R.string.action_failed), Toast.LENGTH_LONG).show()
+                    val msg = e.message ?: getString(R.string.action_failed)
+                    taskStore.finish(
+                        id = taskId,
+                        status = LibraryTaskStore.STATUS_FAILED,
+                        summary = getString(R.string.task_failed_fmt, msg),
+                    )
+                    refreshHome(recommendPathsOnly = false)
+                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
                 }
         }
     }
@@ -900,25 +941,49 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshImportedSourceHealth() {
         Toast.makeText(this, R.string.backup_import_rechecking_sources, Toast.LENGTH_SHORT).show()
+        val taskStore = LibraryTaskStore(this)
+        val taskId = taskStore.recordStarted(
+            type = LibraryTaskStore.TYPE_SOURCE_RECHECK,
+            title = getString(R.string.task_title_source_recheck),
+            summary = getString(R.string.backup_import_rechecking_sources),
+            localScopeCount = repository.store.readLocalRootUris().size,
+            remoteScopeCount = repository.store.readRemotesList().size,
+        )
         lifecycleScope.launch {
-            val snapshot = withContext(Dispatchers.IO) {
-                repository.refreshDiagnostics(probeSources = true)
+            val result = withContext(Dispatchers.IO) {
+                runCatching { repository.refreshDiagnostics(probeSources = true) }
             }
-            refreshHome(recommendPathsOnly = false)
-            refreshSearch()
-            scrapeFragment()?.refreshRootsFromOutside()
-            if (::drawerPanel.isInitialized) {
-                val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
-                ScrapeDrawerBinder.reloadOptions(this@MainActivity, drawerContent)
-            }
-            val ok = snapshot.sourceHealth.count { it.reachable == true }
-            val bad = snapshot.sourceHealth.count { it.reachable == false }
-            val unchecked = snapshot.sourceHealth.count { it.reachable == null }
-            Toast.makeText(
-                this@MainActivity,
-                getString(R.string.backup_import_recheck_sources_done_fmt, snapshot.sourceHealth.size, ok, bad, unchecked),
-                Toast.LENGTH_LONG,
-            ).show()
+            result
+                .onSuccess { snapshot ->
+                    refreshHome(recommendPathsOnly = false)
+                    refreshSearch()
+                    scrapeFragment()?.refreshRootsFromOutside()
+                    if (::drawerPanel.isInitialized) {
+                        val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+                        ScrapeDrawerBinder.reloadOptions(this@MainActivity, drawerContent)
+                    }
+                    val ok = snapshot.sourceHealth.count { it.reachable == true }
+                    val bad = snapshot.sourceHealth.count { it.reachable == false }
+                    val unchecked = snapshot.sourceHealth.count { it.reachable == null }
+                    val summaryText = getString(R.string.task_source_recheck_done_fmt, snapshot.sourceHealth.size, ok, bad, unchecked)
+                    taskStore.finish(
+                        id = taskId,
+                        status = if (bad > 0 || unchecked > 0) LibraryTaskStore.STATUS_PARTIAL else LibraryTaskStore.STATUS_SUCCESS,
+                        summary = summaryText,
+                        issueKind = if (bad > 0) "stale_remote" else null,
+                    )
+                    Toast.makeText(this@MainActivity, summaryText, Toast.LENGTH_LONG).show()
+                }
+                .onFailure { e ->
+                    val msg = e.message ?: getString(R.string.action_failed)
+                    taskStore.finish(
+                        id = taskId,
+                        status = LibraryTaskStore.STATUS_FAILED,
+                        summary = getString(R.string.task_failed_fmt, msg),
+                    )
+                    refreshHome(recommendPathsOnly = false)
+                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
+                }
         }
     }
 

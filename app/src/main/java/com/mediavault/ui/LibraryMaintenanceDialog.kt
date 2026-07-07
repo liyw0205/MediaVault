@@ -21,6 +21,7 @@ import com.mediavault.R
 import com.mediavault.data.LibraryDiagnosticsSnapshot
 import com.mediavault.data.LibraryIssue
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.ScrapeEvidence
 import com.mediavault.remote.RemotePath
 import kotlinx.coroutines.Dispatchers
@@ -271,9 +272,29 @@ object LibraryMaintenanceDialog {
                     .setTitle(R.string.library_batch_remove_title)
                     .setMessage(activity.getString(R.string.library_batch_remove_confirm_fmt, staleIssues.size, skipped))
                     .setPositiveButton(android.R.string.ok) { _, _ ->
+                        val taskStore = LibraryTaskStore(activity)
+                        val taskId = taskStore.recordStarted(
+                            type = LibraryTaskStore.TYPE_BATCH_REMOVE,
+                            title = activity.getString(R.string.task_title_batch_remove_stale),
+                            summary = activity.getString(R.string.library_batch_remove_confirm_fmt, staleIssues.size, skipped),
+                            issueKind = "stale_remote",
+                            remoteScopeCount = staleIssues.size,
+                        )
                         activity.lifecycleScope.launch {
                             repository.removeItemsByPaths(staleIssues.map { it.path })
                                 .onSuccess { result ->
+                                    taskStore.finish(
+                                        id = taskId,
+                                        status = LibraryTaskStore.STATUS_SUCCESS,
+                                        summary = activity.getString(
+                                            R.string.task_batch_remove_done_fmt,
+                                            result.requestedPathCount,
+                                            result.matchedPathCount,
+                                            result.removedItemCount,
+                                            result.missingPathCount,
+                                        ),
+                                        issueKind = "stale_remote",
+                                    )
                                     staleIssues.forEach { selectedKeys.remove(issueKey(it)) }
                                     onChanged()
                                     applySnapshot(repository.diagnostics.value)
@@ -293,7 +314,14 @@ object LibraryMaintenanceDialog {
                                     )
                                 }
                                 .onFailure { e ->
-                                    Toast.makeText(activity, e.message ?: activity.getString(R.string.action_failed), Toast.LENGTH_LONG).show()
+                                    val msg = e.message ?: activity.getString(R.string.action_failed)
+                                    taskStore.finish(
+                                        id = taskId,
+                                        status = LibraryTaskStore.STATUS_FAILED,
+                                        summary = activity.getString(R.string.task_failed_fmt, msg),
+                                        issueKind = "stale_remote",
+                                    )
+                                    Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
                                 }
                         }
                     }
@@ -308,30 +336,56 @@ object LibraryMaintenanceDialog {
                     .setMessage(activity.getString(R.string.library_batch_recheck_confirm_fmt, count))
                     .setPositiveButton(android.R.string.ok) { _, _ ->
                         Toast.makeText(activity, R.string.library_batch_recheck_running, Toast.LENGTH_SHORT).show()
+                        val taskStore = LibraryTaskStore(activity)
+                        val taskId = taskStore.recordStarted(
+                            type = LibraryTaskStore.TYPE_SOURCE_RECHECK,
+                            title = activity.getString(R.string.task_title_source_recheck),
+                            summary = activity.getString(R.string.library_batch_recheck_confirm_fmt, count),
+                            localScopeCount = repository.store.readLocalRootUris().size,
+                            remoteScopeCount = repository.store.readRemotesList().size,
+                        )
                         batchRecheck.isEnabled = false
                         activity.lifecycleScope.launch {
-                            val nextSnapshot = withContext(Dispatchers.IO) {
-                                repository.refreshDiagnostics(probeSources = true)
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching { repository.refreshDiagnostics(probeSources = true) }
                             }
-                            onChanged()
-                            applySnapshot(nextSnapshot)
-                            val ok = nextSnapshot.sourceHealth.count { it.reachable == true }
-                            val bad = nextSnapshot.sourceHealth.count { it.reachable == false }
-                            val unchecked = nextSnapshot.sourceHealth.count { it.reachable == null }
-                            MvDialog.show(
-                                MvDialog.builder(activity)
-                                    .setTitle(R.string.library_batch_recheck_title)
-                                    .setMessage(
-                                        activity.getString(
-                                            R.string.library_batch_recheck_result_fmt,
-                                            nextSnapshot.sourceHealth.size,
-                                            ok,
-                                            bad,
-                                            unchecked,
-                                        ),
+                            batchRecheck.isEnabled = true
+                            result
+                                .onSuccess { nextSnapshot ->
+                                    onChanged()
+                                    applySnapshot(nextSnapshot)
+                                    val ok = nextSnapshot.sourceHealth.count { it.reachable == true }
+                                    val bad = nextSnapshot.sourceHealth.count { it.reachable == false }
+                                    val unchecked = nextSnapshot.sourceHealth.count { it.reachable == null }
+                                    val summaryText = activity.getString(
+                                        R.string.task_source_recheck_done_fmt,
+                                        nextSnapshot.sourceHealth.size,
+                                        ok,
+                                        bad,
+                                        unchecked,
                                     )
-                                    .setPositiveButton(android.R.string.ok, null),
-                            )
+                                    taskStore.finish(
+                                        id = taskId,
+                                        status = if (bad > 0 || unchecked > 0) LibraryTaskStore.STATUS_PARTIAL else LibraryTaskStore.STATUS_SUCCESS,
+                                        summary = summaryText,
+                                        issueKind = if (bad > 0) "stale_remote" else null,
+                                    )
+                                    MvDialog.show(
+                                        MvDialog.builder(activity)
+                                            .setTitle(R.string.library_batch_recheck_title)
+                                            .setMessage(summaryText)
+                                            .setPositiveButton(android.R.string.ok, null),
+                                    )
+                                }
+                                .onFailure { e ->
+                                    val msg = e.message ?: activity.getString(R.string.action_failed)
+                                    taskStore.finish(
+                                        id = taskId,
+                                        status = LibraryTaskStore.STATUS_FAILED,
+                                        summary = activity.getString(R.string.task_failed_fmt, msg),
+                                    )
+                                    Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
+                                }
                         }
                     }
                     .setNegativeButton(android.R.string.cancel, null),
@@ -493,7 +547,13 @@ object LibraryMaintenanceDialog {
                 return true
             }
             app.repository.store.clearScrapeRecordPath(issue.path)
-            app.scrapeManager.start(false, remoteIds = listOf(parsed.configId))
+            app.scrapeManager.start(
+                rebuild = false,
+                remoteIds = listOf(parsed.configId),
+                taskTitle = activity.getString(R.string.task_title_issue_rescrape),
+                taskDetail = issue.title.ifBlank { issue.path },
+                taskIssueKind = issue.kind,
+            )
             Toast.makeText(activity, activity.getString(R.string.library_issue_rescrape_started, issue.title.ifBlank { issue.path }), Toast.LENGTH_SHORT).show()
             return true
         }
@@ -506,7 +566,13 @@ object LibraryMaintenanceDialog {
                 return true
             }
             app.repository.store.clearScrapeRecordPath(issue.path)
-            app.scrapeManager.start(false, localRootUris = listOf(root))
+            app.scrapeManager.start(
+                rebuild = false,
+                localRootUris = listOf(root),
+                taskTitle = activity.getString(R.string.task_title_issue_rescrape),
+                taskDetail = issue.title.ifBlank { issue.path },
+                taskIssueKind = issue.kind,
+            )
             Toast.makeText(activity, activity.getString(R.string.library_issue_rescrape_started, issue.title.ifBlank { issue.path }), Toast.LENGTH_SHORT).show()
             return true
         }
@@ -605,6 +671,11 @@ object LibraryMaintenanceDialog {
                     ),
                 )
                 .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val topIssueKind = issues.groupingBy { it.kind }.eachCount()
+                        .entries
+                        .sortedByDescending { it.value }
+                        .firstOrNull()
+                        ?.key
                     if (app.scrapeManager.isRunning()) {
                         Toast.makeText(activity, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
                         return@setPositiveButton
@@ -614,6 +685,15 @@ object LibraryMaintenanceDialog {
                         rebuild = false,
                         localRootUris = plan.localRoots.takeIf { it.isNotEmpty() },
                         remoteIds = plan.remoteIds.takeIf { it.isNotEmpty() },
+                        taskTitle = activity.getString(R.string.task_title_batch_rescrape),
+                        taskDetail = activity.getString(
+                            R.string.library_batch_rescrape_started_fmt,
+                            plan.scopedPaths.size,
+                            plan.localRoots.size,
+                            plan.remoteIds.size,
+                            plan.skippedCount,
+                        ),
+                        taskIssueKind = topIssueKind,
                     )
                     Toast.makeText(
                         activity,

@@ -3,7 +3,9 @@ package com.mediavault.scrape
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import com.mediavault.R
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.TmdbMatchHeuristics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,13 +50,27 @@ class ScrapeManager(
         rebuild: Boolean,
         localRootUris: List<String>? = null,
         remoteIds: List<String>? = null,
+        taskTitle: String? = null,
+        taskDetail: String = "",
+        taskIssueKind: String? = null,
     ) {
         if (isRunning()) return
+        val (localScopeCount, remoteScopeCount) = taskScopeCounts(localRootUris, remoteIds)
+        val taskId = LibraryTaskStore(app).recordStarted(
+            type = LibraryTaskStore.TYPE_SCRAPE,
+            title = taskTitle ?: scrapeTaskTitle(rebuild, localRootUris, remoteIds),
+            summary = app.getString(R.string.task_started_scope_fmt, localScopeCount, remoteScopeCount),
+            detail = taskDetail,
+            issueKind = taskIssueKind,
+            localScopeCount = localScopeCount,
+            remoteScopeCount = remoteScopeCount,
+        )
         writeJob(JSONObject().apply {
             put("running", true)
             put("rebuild", rebuild)
             put("interrupted", false)
             put("startedAt", now())
+            put("taskId", taskId)
             if (!localRootUris.isNullOrEmpty()) {
                 put("rootUris", JSONArray(localRootUris))
             }
@@ -135,6 +151,7 @@ class ScrapeManager(
     }
 
     internal fun onFinished(totalInLibrary: Int, scannedThisRun: Int) {
+        val taskId = currentTaskId()
         writeJob(JSONObject().apply {
             put("running", false)
             put("interrupted", false)
@@ -157,6 +174,13 @@ class ScrapeManager(
             }
         }
         val weakCount = TmdbMatchHeuristics.weakTmdbItems(repository.library.value.items).size
+        LibraryTaskStore(app).finish(
+            id = taskId,
+            status = LibraryTaskStore.STATUS_SUCCESS,
+            summary = app.getString(R.string.task_scrape_done_fmt, scannedThisRun, totalInLibrary),
+            detail = app.getString(R.string.task_scrape_done_detail_fmt, tmdbHits, tmdbMisses, coverAdded),
+            issueKind = if (weakCount > 0) "low_confidence_match" else null,
+        )
         _state.value = ScrapeUiState(
             phase = ScrapePhase.DONE,
             message = "完成：本轮 $scannedThisRun 条，库中共 $totalInLibrary 条$reportSuffix",
@@ -168,7 +192,13 @@ class ScrapeManager(
     }
 
     internal fun onError(msg: String) {
+        val taskId = currentTaskId()
         markInterrupted()
+        LibraryTaskStore(app).finish(
+            id = taskId,
+            status = LibraryTaskStore.STATUS_FAILED,
+            summary = app.getString(R.string.task_failed_fmt, msg),
+        )
         _state.value = _state.value.copy(
             phase = ScrapePhase.ERROR,
             message = msg,
@@ -177,7 +207,13 @@ class ScrapeManager(
     }
 
     internal fun onCancelled(partial: Int, totalInLibrary: Int) {
+        val taskId = currentTaskId()
         markInterrupted()
+        LibraryTaskStore(app).finish(
+            id = taskId,
+            status = LibraryTaskStore.STATUS_CANCELLED,
+            summary = app.getString(R.string.task_scrape_cancelled_fmt, partial, totalInLibrary),
+        )
         _state.value = ScrapeUiState(
             phase = ScrapePhase.CANCELLED,
             message = "已停止（已写入 $partial 条，库中共 $totalInLibrary 条）",
@@ -199,9 +235,35 @@ class ScrapeManager(
         JSONObject(jobFile.readText())
     }.getOrNull()
 
+    private fun currentTaskId(): String =
+        readJob()?.optString("taskId", "").orEmpty()
+
     private fun writeJob(o: JSONObject) {
         jobFile.parentFile?.mkdirs()
         jobFile.writeText(o.toString(2))
+    }
+
+    private fun taskScopeCounts(localRootUris: List<String>?, remoteIds: List<String>?): Pair<Int, Int> {
+        val fullScope = localRootUris.isNullOrEmpty() && remoteIds.isNullOrEmpty()
+        val localCount = if (fullScope) repository.store.readLocalRootUris().size else localRootUris.orEmpty().size
+        val remoteCount = if (fullScope) repository.store.readRemotesList().size else remoteIds.orEmpty().size
+        return localCount to remoteCount
+    }
+
+    private fun scrapeTaskTitle(
+        rebuild: Boolean,
+        localRootUris: List<String>?,
+        remoteIds: List<String>?,
+    ): String {
+        val scoped = !localRootUris.isNullOrEmpty() || !remoteIds.isNullOrEmpty()
+        return app.getString(
+            when {
+                scoped && rebuild -> R.string.task_title_scrape_scope_rebuild
+                scoped -> R.string.task_title_scrape_scope
+                rebuild -> R.string.task_title_scrape_rebuild
+                else -> R.string.task_title_scrape_incremental
+            },
+        )
     }
 
     private fun now(): String =

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/mv_dialog_bg"
+    android:orientation="vertical"
+    android:paddingVertical="10dp">
+
+    <TextView
+        android:id="@+id/taskItemTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/mv_text"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/taskItemMeta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/mv_muted"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/taskItemSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textColor="@color/mv_text_secondary"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/taskItemDetail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:textColor="@color/mv_muted"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/taskItemOpenIssues"
+        style="@style/Widget.MediaVault.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:minWidth="0dp"
+        android:text="@string/task_item_open_issues"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>
