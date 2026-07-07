@@ -84,10 +84,18 @@ object SubtitlePrefs {
             .apply()
     }
 
-    fun subtitleBackgroundColor(ctx: Context, baseColor: Int): Int {
-        val alpha = (getBackgroundOpacityPercent(ctx) * 255 + 50) / 100
+    fun backgroundAlphaFromPercent(percent: Int): Int {
+        val bounded = percent.coerceIn(MIN_BACKGROUND_OPACITY_PERCENT, MAX_BACKGROUND_OPACITY_PERCENT)
+        return (bounded * 255 + 50) / 100
+    }
+
+    fun subtitleBackgroundColorForPercent(percent: Int, baseColor: Int): Int {
+        val alpha = backgroundAlphaFromPercent(percent)
         return (alpha shl 24) or (baseColor and 0x00FFFFFF)
     }
+
+    fun subtitleBackgroundColor(ctx: Context, baseColor: Int): Int =
+        subtitleBackgroundColorForPercent(getBackgroundOpacityPercent(ctx), baseColor)
 
     fun sortSubtitlePaths(ctx: Context, paths: List<String>): List<String> {
         if (paths.size <= 1) return paths

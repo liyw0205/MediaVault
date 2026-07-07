@@ -1,5 +1,6 @@
 package com.mediavault.ui
 
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -41,6 +42,7 @@ object LibraryMaintenanceDialog {
         activity: AppCompatActivity,
         repository: LibraryRepository,
         onChanged: () -> Unit,
+        initialIssueKind: String? = null,
         onCredentialRepairRequested: (List<String>) -> Boolean = { false },
     ) {
         val snapshot = repository.refreshDiagnostics()
@@ -90,7 +92,7 @@ object LibraryMaintenanceDialog {
         recycler.adapter = adapter
 
         var allIssues = snapshot.issues
-        var selectedKind: String? = null
+        var selectedKind: String? = initialIssueKind?.takeIf { it.isNotBlank() }
         var pageIndex = 0
         var options: List<FilterOption> = emptyList()
         var currentPage: List<LibraryIssue> = emptyList()
@@ -693,7 +695,7 @@ object LibraryMaintenanceDialog {
 
     private fun issueKey(issue: LibraryIssue): String = issue.kind + "\u001F" + issue.path
 
-    private fun issueLabel(activity: AppCompatActivity, kind: String): String {
+    fun issueLabel(context: Context, kind: String): String {
         val resId = when (kind) {
             "missing_path" -> R.string.library_issue_missing_path
             "missing_remote_credential" -> R.string.library_issue_missing_remote_credential
@@ -705,7 +707,7 @@ object LibraryMaintenanceDialog {
             "low_confidence_match" -> R.string.library_issue_low_confidence_match
             else -> 0
         }
-        return if (resId != 0) activity.getString(resId) else kind
+        return if (resId != 0) context.getString(resId) else kind
     }
 
     private fun sourceHealthSummary(

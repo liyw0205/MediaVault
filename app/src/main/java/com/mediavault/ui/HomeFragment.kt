@@ -20,9 +20,11 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
+import com.mediavault.data.LibraryDiagnosticsSnapshot
 import com.mediavault.data.MediaItem
 import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.data.WatchQueueStore
+import com.mediavault.remote.RemotePath
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -142,6 +144,7 @@ class HomeFragment : Fragment() {
         view.findViewById<TextView>(R.id.statItems).text = items.size.toString()
         view.findViewById<TextView>(R.id.statRoots).text = LibraryUi.distinctRoots(items).size.toString()
 
+        bindWorkbench(view, items)
         bindWorkflowSections(view, items)
         val list = currentList(items)
         bindLibraryTitle(view, list.size)
@@ -229,6 +232,85 @@ class HomeFragment : Fragment() {
                 bindPagedStatus(view, list.size)
             }
         }
+    }
+
+    private fun bindWorkbench(view: View, items: List<MediaItem>) {
+        val act = activity as? MainActivity ?: return
+        val snapshot = act.repository.diagnostics.value
+        val localCount = if (snapshot.itemCount == items.size) {
+            snapshot.localCount
+        } else {
+            items.count { !RemotePath.isRemote(it.path) }
+        }
+        val remoteCount = if (snapshot.itemCount == items.size) {
+            snapshot.remoteCount
+        } else {
+            items.count { RemotePath.isRemote(it.path) }
+        }
+        val badSources = snapshot.sourceHealth.count { it.reachable == false }
+        val uncheckedSources = snapshot.sourceHealth.count { it.reachable == null }
+
+        view.findViewById<TextView>(R.id.homeWorkbenchSummary).text =
+            getString(R.string.home_workbench_summary_fmt, items.size, localCount, remoteCount, snapshot.totalIssues)
+        view.findViewById<TextView>(R.id.homeWorkbenchSources).text =
+            getString(
+                R.string.home_workbench_sources_fmt,
+                snapshot.sourceHealth.size,
+                badSources,
+                uncheckedSources,
+                snapshot.scannedAt,
+            )
+        view.findViewById<MaterialButton>(R.id.homeWorkbenchOpenMaintenance).setOnClickListener {
+            act.openLibraryMaintenance()
+        }
+        bindPendingIssues(view, snapshot)
+    }
+
+    private fun bindPendingIssues(view: View, snapshot: LibraryDiagnosticsSnapshot) {
+        val group = view.findViewById<ChipGroup>(R.id.homePendingIssueChips)
+        val empty = view.findViewById<TextView>(R.id.homePendingIssueEmpty)
+        val entries = pendingIssueEntries(snapshot)
+        val fusion = HomeUiPrefs.useTvFusionUi(requireContext())
+        val ctx = requireContext()
+
+        FusionTagLayoutHelper.applyFusionChipGroup(group, fusion)
+        group.isSingleSelection = false
+        group.removeAllViews()
+        group.isVisible = entries.isNotEmpty()
+        empty.isVisible = entries.isEmpty()
+
+        entries.forEach { entry ->
+            val chip = Chip(ctx)
+            chip.text = getString(
+                R.string.home_pending_issue_chip_fmt,
+                LibraryMaintenanceDialog.issueLabel(ctx, entry.kind),
+                entry.count,
+            )
+            chip.isCheckable = false
+            chip.isFocusable = true
+            FusionTagLayoutHelper.styleFilterChip(chip, fusion)
+            chip.setOnClickListener {
+                (activity as? MainActivity)?.openLibraryMaintenance(entry.kind)
+            }
+            group.addView(chip)
+        }
+    }
+
+    private fun pendingIssueEntries(snapshot: LibraryDiagnosticsSnapshot): List<PendingIssueEntry> = buildList {
+        addIssue("missing_remote_credential", snapshot.issueCounts["missing_remote_credential"] ?: 0)
+        addIssue("stale_remote", snapshot.issueCounts["stale_remote"] ?: 0)
+        addIssue("missing_cover", snapshot.issueCounts["missing_cover"] ?: 0)
+        addIssue("low_confidence_match", snapshot.issueCounts["low_confidence_match"] ?: 0)
+        addIssue("unmatched", snapshot.issueCounts["unmatched"] ?: 0)
+        addIssue("missing_path", snapshot.issueCounts["missing_path"] ?: 0)
+        val duplicateTitleCount = snapshot.issueCounts["duplicate_title"] ?: 0
+        val duplicatePathCount = snapshot.issueCounts["duplicate_path"] ?: 0
+        val duplicateKind = if (duplicateTitleCount > 0) "duplicate_title" else "duplicate_path"
+        addIssue(duplicateKind, duplicateTitleCount + duplicatePathCount)
+    }
+
+    private fun MutableList<PendingIssueEntry>.addIssue(kind: String, count: Int) {
+        if (count > 0) add(PendingIssueEntry(kind, count))
     }
 
     private fun bindPagedStatus(view: View, total: Int) {
@@ -598,6 +680,11 @@ class HomeFragment : Fragment() {
         val queue: Int,
         val history: Int,
         val all: Int,
+    )
+
+    private data class PendingIssueEntry(
+        val kind: String,
+        val count: Int,
     )
 
     private fun isRecommendFilter(): Boolean =

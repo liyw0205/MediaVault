@@ -439,6 +439,33 @@ class MainActivity : AppCompatActivity() {
         drawerLayout.openDrawer(GravityCompat.END)
     }
 
+    fun openLibraryMaintenance(initialIssueKind: String? = null) {
+        LibraryMaintenanceDialog.show(
+            activity = this,
+            repository = repository,
+            initialIssueKind = initialIssueKind,
+            onChanged = {
+                refreshHome(recommendPathsOnly = false)
+                refreshSearch()
+                scrapeFragment()?.refreshRootsFromOutside()
+                if (::drawerPanel.isInitialized) {
+                    val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+                    ScrapeDrawerBinder.reloadOptions(this, drawerContent)
+                }
+            },
+            onCredentialRepairRequested = repair@ { remoteIds ->
+                val ids = remoteIds.filter { it.isNotBlank() }.distinct()
+                if (ids.isEmpty()) return@repair false
+                showTab(TAG_SCRAPE, getString(R.string.tab_scrape))
+                val drawerContent = findViewById<View>(R.id.scrapeDrawerContent)
+                ScrapeDrawerBinder.reloadOptions(this, drawerContent)
+                ScrapeDrawerBinder.reloadDirectories(this, drawerContent)
+                drawerLayout.openDrawer(GravityCompat.END)
+                ScrapeDrawerBinder.promptCredentialCompletion(ids)
+            },
+        )
+    }
+
     fun closeScrapeDrawer(animate: Boolean = false) {
         val lp = drawerPanel.layoutParams as? DrawerLayout.LayoutParams ?: return
         if (lp.gravity == Gravity.NO_GRAVITY) return

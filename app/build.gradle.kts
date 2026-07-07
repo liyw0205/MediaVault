@@ -11,8 +11,8 @@ android {
         applicationId = "com.mediavault"
         minSdk = 26
         targetSdk = 34
-        versionCode = 163
-        versionName = "0.9.9"
+        versionCode = 164
+        versionName = "1.0.0"
     }
 
     buildTypes {
@@ -52,4 +52,5 @@ dependencies {
     implementation("androidx.viewpager2:viewpager2:1.1.0")
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
+    testImplementation("junit:junit:4.13.2")
 }

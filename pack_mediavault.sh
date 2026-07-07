@@ -33,6 +33,11 @@ if [[ -f "$ZIP" ]]; then
 fi
 
 chmod +x "$ROOT/gradlew" 2>/dev/null || true
+if [[ "$#" -gt 0 ]]; then
+  GRADLE_TASKS=("$@")
+else
+  GRADLE_TASKS=(assembleDebug)
+fi
 
 # 选用可在本机执行的 aapt2（勿把此行提交进 gradle.properties，否则 CI 会找 Termux 路径）
 find_local_aapt2() {
@@ -76,7 +81,20 @@ else
   printf '\n# pack_mediavault.sh only — restored on exit; do not commit\nandroid.aapt2FromMavenOverride=%s\n' "$AAPT2" >> "$GRADLE_PROPS"
 fi
 
-./gradlew assembleDebug --no-daemon
+./gradlew "${GRADLE_TASKS[@]}" --no-daemon
+
+COPY_APK=false
+for task in "${GRADLE_TASKS[@]}"; do
+  case "$task" in
+    assembleDebug|:app:assembleDebug)
+      COPY_APK=true
+      ;;
+  esac
+done
+
+if [[ "$COPY_APK" != true ]]; then
+  exit 0
+fi
 
 OUT="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 VN=$(grep versionName "$ROOT/app/build.gradle.kts" | head -1 | sed 's/.*"\(.*\)".*/\1/')

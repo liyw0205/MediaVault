@@ -39,6 +39,74 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/homeWorkbenchPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/mv_surface"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="10dp">
+
+            <TextView
+                android:id="@+id/homeWorkbenchTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/home_workbench_title"
+                android:textColor="@color/mv_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/homeWorkbenchSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:text="@string/home_workbench_summary_placeholder"
+                android:textColor="@color/mv_text_secondary"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/homeWorkbenchSources"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:text="@string/home_workbench_sources_placeholder"
+                android:textColor="@color/mv_muted"
+                android:textSize="12sp" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/homePendingIssueChips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="6dp"
+                app:chipSpacingHorizontal="6dp"
+                app:chipSpacingVertical="4dp"
+                app:singleLine="false"
+                app:singleSelection="false" />
+
+            <TextView
+                android:id="@+id/homePendingIssueEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="6dp"
+                android:text="@string/home_pending_issue_empty"
+                android:textColor="@color/mv_muted"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/homeWorkbenchOpenMaintenance"
+                style="@style/Widget.MediaVault.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="12dp"
+                android:text="@string/home_workbench_open_maintenance"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/homeWorkflowSections"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

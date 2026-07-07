@@ -132,6 +132,14 @@
     <string name="home_recently_added">最近入库</string>
     <string name="home_recent_empty">扫描或刮削后会显示最近更新的视频。</string>
     <string name="home_section_count_title_fmt">%1$s %2$d</string>
+    <string name="home_workbench_title">媒体库工作台</string>
+    <string name="home_workbench_summary_fmt">库 %1$d 条 · 本机 %2$d · 远程 %3$d · 待处理 %4$d</string>
+    <string name="home_workbench_summary_placeholder">库 0 条 · 本机 0 · 远程 0 · 待处理 0</string>
+    <string name="home_workbench_sources_fmt">源 %1$d 个 · 异常 %2$d · 未检查 %3$d · 上次检查 %4$s</string>
+    <string name="home_workbench_sources_placeholder">源 0 个 · 异常 0 · 未检查 0 · 上次检查 --</string>
+    <string name="home_workbench_open_maintenance">打开维护中心</string>
+    <string name="home_pending_issue_chip_fmt">%1$s %2$d</string>
+    <string name="home_pending_issue_empty">暂无待处理问题。</string>
     <string name="home_library_section">媒体库</string>
     <string name="home_library_current_title_fmt">媒体库 · %1$s %2$d</string>
     <string name="home_filter_nested_label_fmt">%1$s · %2$s</string>
@@ -382,7 +390,7 @@
     <string name="settings_remote_cache_total_fmt">远程缓存总上限 %1$s</string>
     <string name="settings_remote_cache_per_file_fmt">单文件缓存上限 %1$s</string>
     <string name="data_remote_cache_limit_fmt">上限 %1$s</string>
-    <string name="library_maintenance_title">库维护</string>
+    <string name="library_maintenance_title">维护中心</string>
     <string name="library_maintenance_summary_fmt">库 %1$d 条 · 本机 %2$d · 远程 %3$d · 问题 %4$d</string>
     <string name="library_maintenance_scanned_fmt">上次检查：%1$s</string>
     <string name="library_maintenance_no_issues">暂无可见问题</string>
