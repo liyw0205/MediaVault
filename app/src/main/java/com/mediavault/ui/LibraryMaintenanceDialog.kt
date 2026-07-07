@@ -31,6 +31,7 @@ import kotlinx.coroutines.withContext
 object LibraryMaintenanceDialog {
     private const val PAGE_SIZE = 50
     private const val REPAIR_QUEUE_KIND = "__repair_queue"
+    private const val SOURCE_FILTER_PREFIX = "__remote_source:"
     private val REPAIR_QUEUE_ISSUE_KINDS = setOf(
         "missing_remote_credential",
         "stale_remote",
@@ -54,6 +55,7 @@ object LibraryMaintenanceDialog {
         val selectPage = root.findViewById<MaterialButton>(R.id.libraryMaintenanceSelectPage)
         val selectFilter = root.findViewById<MaterialButton>(R.id.libraryMaintenanceSelectFilter)
         val clearSelection = root.findViewById<MaterialButton>(R.id.libraryMaintenanceClearSelection)
+        val sourceManager = root.findViewById<MaterialButton>(R.id.libraryMaintenanceSourceManager)
         val batchRescrape = root.findViewById<MaterialButton>(R.id.libraryMaintenanceBatchRescrape)
         val batchCredential = root.findViewById<MaterialButton>(R.id.libraryMaintenanceBatchCredential)
         val batchRecheck = root.findViewById<MaterialButton>(R.id.libraryMaintenanceBatchRecheck)
@@ -102,12 +104,20 @@ object LibraryMaintenanceDialog {
             when (val kind = selectedKind) {
                 null -> allIssues
                 REPAIR_QUEUE_KIND -> allIssues.filter { it.kind in REPAIR_QUEUE_ISSUE_KINDS }
-                else -> allIssues.filter { it.kind == kind }
+                else -> if (kind.startsWith(SOURCE_FILTER_PREFIX)) {
+                    val remoteId = kind.removePrefix(SOURCE_FILTER_PREFIX)
+                    allIssues.filter { RemotePath.parse(it.path)?.configId == remoteId }
+                } else {
+                    allIssues.filter { it.kind == kind }
+                }
             }
 
         fun filterStillExists(kind: String): Boolean =
             if (kind == REPAIR_QUEUE_KIND) {
                 allIssues.any { it.kind in REPAIR_QUEUE_ISSUE_KINDS }
+            } else if (kind.startsWith(SOURCE_FILTER_PREFIX)) {
+                val remoteId = kind.removePrefix(SOURCE_FILTER_PREFIX)
+                allIssues.any { RemotePath.parse(it.path)?.configId == remoteId }
             } else {
                 allIssues.any { it.kind == kind }
             }
@@ -181,6 +191,7 @@ object LibraryMaintenanceDialog {
                 counts.entries.sortedByDescending { it.value }.forEach { (kind, count) ->
                     add(FilterOption(kind, activity.getString(R.string.library_maintenance_filter_kind, issueLabel(activity, kind), count)))
                 }
+                addAll(remoteSourceFilterOptions(activity, repository, allIssues))
             }
             val labels = options.map { it.label }
             filter.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, labels)
@@ -203,6 +214,13 @@ object LibraryMaintenanceDialog {
 
         refreshAll = {
             applySnapshot(repository.refreshDiagnostics())
+        }
+
+        fun applySourceFilter(remoteId: String) {
+            selectedKind = SOURCE_FILTER_PREFIX + remoteId
+            pageIndex = 0
+            rebuildFilterOptions()
+            renderPage()
         }
 
         filter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -233,6 +251,15 @@ object LibraryMaintenanceDialog {
         clearSelection.setOnClickListener {
             selectedKeys.clear()
             notifySelectionChanged()
+        }
+        sourceManager.setOnClickListener {
+            RemoteSourceManagerDialog.show(
+                activity = activity,
+                repository = repository,
+                snapshot = repository.diagnostics.value,
+                onSourceIssuesRequested = { remoteId -> applySourceFilter(remoteId) },
+                onCredentialRepairRequested = { ids -> requestCredentialRepair(ids) },
+            )
         }
         batchRescrape.setOnClickListener {
             val issues = selectedIssues()
@@ -798,6 +825,37 @@ object LibraryMaintenanceDialog {
         val bad = sources.count { it.reachable == false }
         val unchecked = sources.count { it.reachable == null }
         return activity.getString(R.string.source_health_summary_fmt, sources.size, ok, bad, unchecked)
+    }
+
+    private fun remoteSourceFilterOptions(
+        context: Context,
+        repository: LibraryRepository,
+        issues: List<LibraryIssue>,
+    ): List<FilterOption> {
+        val issueCounts = issues
+            .mapNotNull { RemotePath.parse(it.path)?.configId }
+            .groupingBy { it }
+            .eachCount()
+        if (issueCounts.isEmpty()) return emptyList()
+        val mediaCounts = repository.library.value.items
+            .mapNotNull { RemotePath.parse(it.path)?.configId }
+            .groupingBy { it }
+            .eachCount()
+        return repository.store.readRemotesList()
+            .mapNotNull { cfg ->
+                val issueCount = issueCounts[cfg.id] ?: return@mapNotNull null
+                val mediaCount = mediaCounts[cfg.id] ?: 0
+                val name = cfg.name.ifBlank { cfg.id }
+                FilterOption(
+                    kind = SOURCE_FILTER_PREFIX + cfg.id,
+                    label = context.getString(
+                        R.string.library_maintenance_filter_remote_source,
+                        name,
+                        issueCount,
+                        mediaCount,
+                    ),
+                )
+            }
     }
 
     private data class FilterOption(
