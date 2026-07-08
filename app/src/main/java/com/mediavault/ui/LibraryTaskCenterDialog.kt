@@ -4,8 +4,12 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,22 +27,45 @@ object LibraryTaskCenterDialog {
         val store = LibraryTaskStore(activity)
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_library_task_center, null, false)
         val summary = root.findViewById<TextView>(R.id.taskCenterSummary)
+        val filter = root.findViewById<Spinner>(R.id.taskCenterFilter)
         val empty = root.findViewById<TextView>(R.id.taskCenterEmpty)
         val clear = root.findViewById<MaterialButton>(R.id.taskCenterClearFinished)
         val recycler = root.findViewById<RecyclerView>(R.id.taskCenterRecycler)
-        var dialog: androidx.appcompat.app.AlertDialog? = null
+        var dialog: AlertDialog? = null
+        var selectedFilter = TaskFilter.ALL
+        val filterOptions = listOf(
+            FilterOption(TaskFilter.ALL, activity.getString(R.string.task_center_filter_all)),
+            FilterOption(TaskFilter.RUNNING, activity.getString(R.string.task_center_filter_running)),
+            FilterOption(TaskFilter.ATTENTION, activity.getString(R.string.task_center_filter_attention)),
+            FilterOption(TaskFilter.FAILED, activity.getString(R.string.task_center_filter_failed)),
+            FilterOption(TaskFilter.ACTIONABLE, activity.getString(R.string.task_center_filter_actionable)),
+        )
 
-        val adapter = TaskAdapter(activity) { issueKind ->
+        fun openIssue(issueKind: String) {
             dialog?.dismiss()
             (activity as? MainActivity)?.openLibraryMaintenance(issueKind)
         }
+
+        val adapter = TaskAdapter(
+            activity = activity,
+            onOpenIssue = { issueKind -> openIssue(issueKind) },
+            onOpenDetail = { task -> showTaskDetail(activity, task) { issueKind -> openIssue(issueKind) } },
+        )
         recycler.layoutManager = LinearLayoutManager(activity)
         recycler.adapter = adapter
+        filter.adapter = ArrayAdapter(
+            activity,
+            android.R.layout.simple_spinner_dropdown_item,
+            filterOptions.map { it.label },
+        )
 
         fun render() {
             val tasks = store.read()
             val running = tasks.count { it.status == LibraryTaskStore.STATUS_RUNNING }
+            val attention = tasks.count { requiresAttention(it) }
             val latest = tasks.firstOrNull()
+            val visibleTasks = tasks.filter { selectedFilter.accepts(it) }
+            val filterLabel = filterOptions.firstOrNull { it.filter == selectedFilter }?.label.orEmpty()
             summary.text = if (latest == null) {
                 activity.getString(R.string.task_center_summary_empty)
             } else {
@@ -46,15 +73,30 @@ object LibraryTaskCenterDialog {
                     R.string.task_center_summary_fmt,
                     tasks.size,
                     running,
+                    attention,
+                    filterLabel,
+                    visibleTasks.size,
                     latest.updatedAt,
                     latest.title,
                     statusLabel(activity, latest.status),
                 )
             }
-            empty.isVisible = tasks.isEmpty()
-            recycler.isVisible = tasks.isNotEmpty()
+            empty.text = activity.getString(
+                if (tasks.isEmpty()) R.string.task_center_empty else R.string.task_center_empty_filtered,
+            )
+            empty.isVisible = visibleTasks.isEmpty()
+            recycler.isVisible = visibleTasks.isNotEmpty()
             clear.isEnabled = tasks.any { it.status != LibraryTaskStore.STATUS_RUNNING }
-            adapter.submit(tasks)
+            adapter.submit(visibleTasks)
+        }
+
+        filter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                selectedFilter = filterOptions.getOrNull(position)?.filter ?: TaskFilter.ALL
+                render()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
 
         clear.setOnClickListener {
@@ -86,9 +128,94 @@ object LibraryTaskCenterDialog {
         return if (resId == 0) status else context.getString(resId)
     }
 
+    private fun typeLabel(context: Context, type: String): String {
+        val resId = when (type) {
+            LibraryTaskStore.TYPE_SCRAPE -> R.string.task_type_scrape
+            LibraryTaskStore.TYPE_SOURCE_RECHECK -> R.string.task_type_source_recheck
+            LibraryTaskStore.TYPE_IMPORT_BACKUP -> R.string.task_type_import_backup
+            LibraryTaskStore.TYPE_BATCH_REMOVE -> R.string.task_type_batch_remove
+            else -> 0
+        }
+        return if (resId == 0) type.ifBlank { context.getString(R.string.task_detail_empty_value) } else context.getString(resId)
+    }
+
+    private fun showTaskDetail(
+        activity: AppCompatActivity,
+        task: LibraryTaskEntry,
+        onOpenIssue: (String) -> Unit,
+    ) {
+        val issueKind = task.issueKind?.takeIf { it.isNotBlank() }
+        val issueText = issueKind
+            ?.let { LibraryMaintenanceDialog.issueLabel(activity, it) }
+            ?: activity.getString(R.string.task_detail_issue_none)
+        val empty = activity.getString(R.string.task_detail_empty_value)
+        val message = buildString {
+            append(
+                activity.getString(
+                    R.string.task_detail_message_fmt,
+                    task.title.ifBlank { empty },
+                    typeLabel(activity, task.type),
+                    statusLabel(activity, task.status),
+                    task.createdAt.ifBlank { empty },
+                    task.updatedAt.ifBlank { empty },
+                    task.localScopeCount,
+                    task.remoteScopeCount,
+                    task.summary.ifBlank { empty },
+                    task.detail.ifBlank { empty },
+                    issueText,
+                ),
+            )
+            if (requiresAttention(task) && issueKind == null) {
+                append("\n\n")
+                append(activity.getString(R.string.task_detail_no_action))
+            }
+        }
+        val builder = MvDialog.builder(activity)
+            .setTitle(R.string.task_detail_title)
+            .setMessage(message)
+        if (issueKind == null) {
+            builder.setPositiveButton(android.R.string.ok, null)
+        } else {
+            builder
+                .setPositiveButton(R.string.task_item_open_issues) { _, _ -> onOpenIssue(issueKind) }
+                .setNegativeButton(android.R.string.cancel, null)
+        }
+        MvDialog.show(builder)
+    }
+
+    private fun requiresAttention(task: LibraryTaskEntry): Boolean =
+        task.status == LibraryTaskStore.STATUS_PARTIAL ||
+            task.status == LibraryTaskStore.STATUS_FAILED ||
+            task.status == LibraryTaskStore.STATUS_CANCELLED
+
+    private enum class TaskFilter {
+        ALL,
+        RUNNING,
+        ATTENTION,
+        FAILED,
+        ACTIONABLE;
+
+        fun accepts(task: LibraryTaskEntry): Boolean =
+            when (this) {
+                ALL -> true
+                RUNNING -> task.status == LibraryTaskStore.STATUS_RUNNING
+                ATTENTION -> task.status == LibraryTaskStore.STATUS_PARTIAL ||
+                    task.status == LibraryTaskStore.STATUS_FAILED ||
+                    task.status == LibraryTaskStore.STATUS_CANCELLED
+                FAILED -> task.status == LibraryTaskStore.STATUS_FAILED
+                ACTIONABLE -> task.issueKind?.isNotBlank() == true
+            }
+    }
+
+    private data class FilterOption(
+        val filter: TaskFilter,
+        val label: String,
+    )
+
     private class TaskAdapter(
         private val activity: AppCompatActivity,
         private val onOpenIssue: (String) -> Unit,
+        private val onOpenDetail: (LibraryTaskEntry) -> Unit,
     ) : RecyclerView.Adapter<TaskVH>() {
         private var items: List<LibraryTaskEntry> = emptyList()
 
@@ -117,6 +244,8 @@ object LibraryTaskCenterDialog {
             holder.summary.text = item.summary
             holder.detail.text = item.detail
             holder.detail.isVisible = item.detail.isNotBlank()
+            holder.itemView.setOnClickListener { onOpenDetail(item) }
+            holder.openDetail.setOnClickListener { onOpenDetail(item) }
             holder.openIssues.isVisible = item.issueKind?.isNotBlank() == true
             holder.openIssues.setOnClickListener {
                 item.issueKind?.let(onOpenIssue)
@@ -129,6 +258,7 @@ object LibraryTaskCenterDialog {
         val meta: TextView = view.findViewById(R.id.taskItemMeta)
         val summary: TextView = view.findViewById(R.id.taskItemSummary)
         val detail: TextView = view.findViewById(R.id.taskItemDetail)
+        val openDetail: MaterialButton = view.findViewById(R.id.taskItemDetailAction)
         val openIssues: MaterialButton = view.findViewById(R.id.taskItemOpenIssues)
     }
 }

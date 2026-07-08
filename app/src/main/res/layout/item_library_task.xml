@@ -43,14 +43,31 @@
         android:textSize="12sp"
         android:visibility="gone" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/taskItemOpenIssues"
-        style="@style/Widget.MediaVault.Button.TextButton"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/taskItemActions"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:minWidth="0dp"
-        android:text="@string/task_item_open_issues"
-        android:textSize="12sp"
-        android:visibility="gone" />
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/taskItemDetailAction"
+            style="@style/Widget.MediaVault.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:text="@string/task_item_detail"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/taskItemOpenIssues"
+            style="@style/Widget.MediaVault.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:minWidth="0dp"
+            android:text="@string/task_item_open_issues"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
 </LinearLayout>

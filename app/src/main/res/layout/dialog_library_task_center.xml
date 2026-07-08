@@ -18,6 +18,12 @@
         android:textColor="@color/mv_text"
         android:textSize="14sp" />
 
+    <Spinner
+        android:id="@+id/taskCenterFilter"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/taskCenterClearFinished"
         style="@style/Widget.MediaVault.Button.TextButton"
