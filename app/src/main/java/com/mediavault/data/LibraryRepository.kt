@@ -74,14 +74,37 @@ class LibraryRepository(context: Context) {
         items: List<MediaItem> = _library.value.items,
         probeSources: Boolean = false,
     ): LibraryDiagnosticsSnapshot {
-        val persistedCapabilities = diagnosticsStore.readSnapshot()?.remoteCapabilities.orEmpty()
-        val previousCapabilities = (_diagnostics.value.remoteCapabilities + persistedCapabilities)
+        val persisted = diagnosticsStore.readSnapshot()
+        val previousCapabilities = (_diagnostics.value.remoteCapabilities + persisted?.remoteCapabilities.orEmpty())
             .distinctBy { it.key }
         val snapshot = diagnosticsStore.scanAndPersist(
             store,
             items,
             probeSources = probeSources,
-            previousSourceHealth = _diagnostics.value.sourceHealth,
+            previousSourceHealth = (_diagnostics.value.sourceHealth + persisted?.sourceHealth.orEmpty())
+                .distinctBy { it.sourceType + "|" + it.sourceId },
+            previousRemoteCapabilities = previousCapabilities,
+        )
+        _diagnostics.value = snapshot
+        return snapshot
+    }
+
+    fun refreshDiagnosticsForRemoteIds(
+        remoteIds: Collection<String>,
+        items: List<MediaItem> = _library.value.items,
+    ): LibraryDiagnosticsSnapshot {
+        val ids = remoteIds.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        if (ids.isEmpty()) return refreshDiagnostics(items, probeSources = false)
+        val persisted = diagnosticsStore.readSnapshot()
+        val previousCapabilities = (_diagnostics.value.remoteCapabilities + persisted?.remoteCapabilities.orEmpty())
+            .distinctBy { it.key }
+        val snapshot = diagnosticsStore.scanAndPersist(
+            store,
+            items,
+            probeSources = true,
+            probeRemoteIds = ids,
+            previousSourceHealth = (_diagnostics.value.sourceHealth + persisted?.sourceHealth.orEmpty())
+                .distinctBy { it.sourceType + "|" + it.sourceId },
             previousRemoteCapabilities = previousCapabilities,
         )
         _diagnostics.value = snapshot

@@ -257,6 +257,7 @@ object LibraryMaintenanceDialog {
                 activity = activity,
                 repository = repository,
                 snapshot = repository.diagnostics.value,
+                onDiagnosticsChanged = onChanged,
                 onSourceIssuesRequested = { remoteId -> applySourceFilter(remoteId) },
                 onCredentialRepairRequested = { ids -> requestCredentialRepair(ids) },
             )

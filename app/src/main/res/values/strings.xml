@@ -450,6 +450,7 @@
     <string name="task_title_issue_rescrape">问题条目重刮</string>
     <string name="task_title_batch_rescrape">维护中心批量重刮</string>
     <string name="task_title_source_recheck">复检源健康</string>
+    <string name="task_title_source_recheck_scope">远程源复检</string>
     <string name="task_title_source_rescrape">远程源重刮</string>
     <string name="task_title_import_backup">导入备份包</string>
     <string name="task_title_batch_remove_stale">批量移除失效记录</string>
@@ -494,6 +495,11 @@
     <string name="remote_source_range_unknown">未知</string>
     <string name="remote_source_open_issues">查看问题</string>
     <string name="remote_source_open_media">查看媒体</string>
+    <string name="remote_source_recheck">复检</string>
+    <string name="remote_source_recheck_bad">复检异常源</string>
+    <string name="remote_source_recheck_bad_empty">当前没有异常或未检查远程源。</string>
+    <string name="remote_source_recheck_running_fmt">正在复检 %1$d 个远程源…</string>
+    <string name="remote_source_recheck_done_fmt">远程源复检完成：%1$d 个，可达 %2$d，异常 %3$d，未检查 %4$d。</string>
     <string name="remote_source_rescrape">重刮此源</string>
     <string name="remote_source_no_issues">该远程源暂无待处理问题。</string>
     <string name="remote_source_rescrape_started_fmt">已开始重刮远程源：%1$s</string>

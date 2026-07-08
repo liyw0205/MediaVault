@@ -17,6 +17,15 @@
         android:textColor="@color/mv_text"
         android:textSize="14sp" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/remoteSourceRecheckBad"
+        style="@style/Widget.MediaVault.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/remote_source_recheck_bad"
+        android:textSize="12sp" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/remoteSourceManagerRecycler"
         android:layout_width="match_parent"

@@ -256,10 +256,11 @@ class LibraryDiagnosticsStore(context: Context) {
         store: MediaStore,
         items: List<MediaItem>,
         probeSources: Boolean = false,
+        probeRemoteIds: Set<String>? = null,
         previousSourceHealth: List<SourceHealth> = emptyList(),
         previousRemoteCapabilities: List<RemoteCapability> = emptyList(),
     ): LibraryDiagnosticsSnapshot {
-        val snapshot = scan(store, items, probeSources, previousSourceHealth, previousRemoteCapabilities)
+        val snapshot = scan(store, items, probeSources, probeRemoteIds, previousSourceHealth, previousRemoteCapabilities)
         writeSnapshot(snapshot)
         return snapshot
     }
@@ -279,6 +280,7 @@ class LibraryDiagnosticsStore(context: Context) {
         store: MediaStore,
         items: List<MediaItem>,
         probeSources: Boolean,
+        probeRemoteIds: Set<String>?,
         previousSourceHealth: List<SourceHealth>,
         previousRemoteCapabilities: List<RemoteCapability>,
     ): LibraryDiagnosticsSnapshot {
@@ -334,12 +336,13 @@ class LibraryDiagnosticsStore(context: Context) {
             issueCounts = counts,
             sampleIssues = issues.take(20),
             issues = issues,
-            sourceHealth = buildSourceHealth(store, items, scannedAt, probeSources, previousSourceHealth, remotes),
+            sourceHealth = buildSourceHealth(store, items, scannedAt, probeSources, probeRemoteIds, previousSourceHealth, remotes),
             scrapeEvidence = evidenceByPath,
             remoteCapabilities = buildRemoteCapabilities(
                 remotes,
                 items,
                 probeSources,
+                probeRemoteIds,
                 previousRemoteCapabilities,
             ),
         )
@@ -379,15 +382,17 @@ class LibraryDiagnosticsStore(context: Context) {
         items: List<MediaItem>,
         scannedAt: String,
         probeSources: Boolean,
+        probeRemoteIds: Set<String>?,
         previous: List<SourceHealth>,
         remotes: List<RemoteConfig> = store.readRemotesList(),
     ): List<SourceHealth> {
         val previousByKey = previous.associateBy { it.sourceType + "|" + it.sourceId }
         val out = mutableListOf<SourceHealth>()
+        val probeAll = probeSources && probeRemoteIds == null
         for (uri in store.readLocalRootUris()) {
             val sample = items.firstOrNull { it.path.startsWith(uri) }?.path.orEmpty()
             val prev = previousByKey["local|$uri"]
-            out.add(if (probeSources) probeLocal(uri, scannedAt, sample) else carrySource(prev, uri, "local", localName(uri), scannedAt, sample))
+            out.add(if (probeAll) probeLocal(uri, scannedAt, sample) else carrySource(prev, uri, "local", localName(uri), scannedAt, sample))
         }
         for (cfg in remotes) {
             val sample = items.firstOrNull { RemotePath.parse(it.path)?.configId == cfg.id }?.let {
@@ -395,8 +400,9 @@ class LibraryDiagnosticsStore(context: Context) {
             }.orEmpty()
             val prev = previousByKey["${cfg.type}|${cfg.id}"] ?: previousByKey["remote|${cfg.id}"]
             val carryPrev = if (!cfg.credentialMissing && prev?.lastErrorKind == "credential_missing") null else prev
+            val probeThisRemote = probeSources && (probeRemoteIds == null || cfg.id in probeRemoteIds)
             out.add(
-                if (probeSources) {
+                if (probeThisRemote) {
                     probeRemote(cfg, scannedAt, sample)
                 } else {
                     carrySource(carryPrev, cfg.id, cfg.type.ifBlank { "remote" }, cfg.name, scannedAt, sample)
@@ -410,6 +416,7 @@ class LibraryDiagnosticsStore(context: Context) {
         remotes: List<RemoteConfig>,
         items: List<MediaItem>,
         probeSources: Boolean,
+        probeRemoteIds: Set<String>?,
         previous: List<RemoteCapability>,
     ): List<RemoteCapability> {
         val remoteIds = remotes.map { it.id }.toSet()
@@ -420,8 +427,9 @@ class LibraryDiagnosticsStore(context: Context) {
             }.orEmpty()
             val prev = previous.firstOrNull { it.sourceId == cfg.id && it.trigger == "diagnostic" }
             val carryPrev = if (!cfg.credentialMissing && prev?.lastErrorKind == "credential_missing") null else prev
+            val probeThisRemote = probeSources && (probeRemoteIds == null || cfg.id in probeRemoteIds)
             out.add(
-                if (probeSources) {
+                if (probeThisRemote) {
                     if (cfg.credentialMissing) credentialMissingCapability(cfg, sample) else probeRemoteCapability(cfg, sample)
                 } else {
                     carryRemoteCapability(carryPrev, cfg, sample)

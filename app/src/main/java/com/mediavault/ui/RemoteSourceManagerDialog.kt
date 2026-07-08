@@ -7,6 +7,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
@@ -15,38 +16,35 @@ import com.mediavault.R
 import com.mediavault.data.LibraryDiagnosticsSnapshot
 import com.mediavault.data.LibraryIssue
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.MediaItem
 import com.mediavault.data.RemoteCapability
 import com.mediavault.data.SourceHealth
 import com.mediavault.remote.RemoteConfig
 import com.mediavault.remote.RemotePath
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object RemoteSourceManagerDialog {
     fun show(
         activity: AppCompatActivity,
         repository: LibraryRepository,
         snapshot: LibraryDiagnosticsSnapshot,
+        onDiagnosticsChanged: () -> Unit = {},
         onSourceIssuesRequested: (String) -> Unit,
         onCredentialRepairRequested: (List<String>) -> Boolean,
     ) {
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_remote_source_manager, null, false)
         val summary = root.findViewById<TextView>(R.id.remoteSourceManagerSummary)
+        val recheckBad = root.findViewById<MaterialButton>(R.id.remoteSourceRecheckBad)
         val recycler = root.findViewById<RecyclerView>(R.id.remoteSourceManagerRecycler)
-        val sources = buildSources(repository, snapshot)
-        summary.text = activity.getString(
-            R.string.remote_source_manager_summary_fmt,
-            sources.size,
-            sources.sumOf { it.mediaCount },
-            sources.sumOf { it.issueCount },
-            sources.count { it.isBad },
-            sources.count { it.isUnchecked },
-        )
-
         var dialog: AlertDialog? = null
+        var currentSources = emptyList<RemoteSourceStatus>()
         recycler.layoutManager = LinearLayoutManager(activity)
-        recycler.adapter = SourceAdapter(
+        lateinit var adapter: SourceAdapter
+        adapter = SourceAdapter(
             activity = activity,
-            sources = sources,
             onOpenIssues = { source ->
                 if (source.issueCount <= 0) {
                     Toast.makeText(activity, R.string.remote_source_no_issues, Toast.LENGTH_SHORT).show()
@@ -63,12 +61,33 @@ object RemoteSourceManagerDialog {
             onOpenMedia = { source ->
                 showSourceMedia(activity, source, onSourceIssuesRequested)
             },
+            onRecheck = { source ->
+                recheckRemoteSources(activity, repository, listOf(source.config.id)) { nextSnapshot ->
+                    currentSources = render(activity, repository, summary, recheckBad, adapter, nextSnapshot)
+                    onDiagnosticsChanged()
+                }
+            },
             onRescrape = { source ->
                 if (rescrapeSource(activity, repository, source)) {
                     dialog?.dismiss()
                 }
             },
         )
+        recycler.adapter = adapter
+        currentSources = render(activity, repository, summary, recheckBad, adapter, snapshot)
+        recheckBad.setOnClickListener {
+            val ids = currentSources
+                .filter { it.shouldRecheck }
+                .map { it.config.id }
+            if (ids.isEmpty()) {
+                Toast.makeText(activity, R.string.remote_source_recheck_bad_empty, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            recheckRemoteSources(activity, repository, ids) { nextSnapshot ->
+                currentSources = render(activity, repository, summary, recheckBad, adapter, nextSnapshot)
+                onDiagnosticsChanged()
+            }
+        }
         dialog = MvDialog.showStyled(
             MvDialog.builder(activity)
                 .setTitle(R.string.remote_source_manager_title)
@@ -76,6 +95,28 @@ object RemoteSourceManagerDialog {
                 .setNegativeButton(android.R.string.cancel, null),
             inputRoot = root,
         )
+    }
+
+    private fun render(
+        activity: AppCompatActivity,
+        repository: LibraryRepository,
+        summary: TextView,
+        recheckBad: MaterialButton,
+        adapter: SourceAdapter,
+        snapshot: LibraryDiagnosticsSnapshot,
+    ): List<RemoteSourceStatus> {
+        val sources = buildSources(repository, snapshot)
+        summary.text = activity.getString(
+            R.string.remote_source_manager_summary_fmt,
+            sources.size,
+            sources.sumOf { it.mediaCount },
+            sources.sumOf { it.issueCount },
+            sources.count { it.isBad },
+            sources.count { it.isUnchecked },
+        )
+        recheckBad.isEnabled = sources.any { it.shouldRecheck }
+        adapter.submit(sources)
+        return sources
     }
 
     private fun buildSources(
@@ -143,6 +184,65 @@ object RemoteSourceManagerDialog {
         return true
     }
 
+    private fun recheckRemoteSources(
+        activity: AppCompatActivity,
+        repository: LibraryRepository,
+        remoteIds: List<String>,
+        onDone: (LibraryDiagnosticsSnapshot) -> Unit,
+    ) {
+        val ids = remoteIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) return
+        val taskStore = LibraryTaskStore(activity)
+        val runningText = activity.getString(R.string.remote_source_recheck_running_fmt, ids.size)
+        val taskId = taskStore.recordStarted(
+            type = LibraryTaskStore.TYPE_SOURCE_RECHECK,
+            title = activity.getString(R.string.task_title_source_recheck_scope),
+            summary = runningText,
+            remoteScopeCount = ids.size,
+        )
+        Toast.makeText(activity, runningText, Toast.LENGTH_SHORT).show()
+        activity.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { repository.refreshDiagnosticsForRemoteIds(ids) }
+            }
+            result
+                .onSuccess { snapshot ->
+                    val health = snapshot.sourceHealth.filter { it.sourceId in ids }
+                    val ok = health.count { it.reachable == true }
+                    val bad = health.count { it.reachable == false }
+                    val unchecked = health.count { it.reachable == null }
+                    val summary = activity.getString(
+                        R.string.remote_source_recheck_done_fmt,
+                        ids.size,
+                        ok,
+                        bad,
+                        unchecked,
+                    )
+                    taskStore.finish(
+                        id = taskId,
+                        status = if (bad > 0 || unchecked > 0) LibraryTaskStore.STATUS_PARTIAL else LibraryTaskStore.STATUS_SUCCESS,
+                        summary = summary,
+                        issueKind = when {
+                            health.any { it.lastErrorKind == "credential_missing" } -> "missing_remote_credential"
+                            bad > 0 -> "stale_remote"
+                            else -> null
+                        },
+                    )
+                    onDone(snapshot)
+                    Toast.makeText(activity, summary, Toast.LENGTH_LONG).show()
+                }
+                .onFailure { e ->
+                    val msg = e.message ?: activity.getString(R.string.action_failed)
+                    taskStore.finish(
+                        id = taskId,
+                        status = LibraryTaskStore.STATUS_FAILED,
+                        summary = activity.getString(R.string.task_failed_fmt, msg),
+                    )
+                    Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
     private fun showSourceMedia(
         activity: AppCompatActivity,
         source: RemoteSourceStatus,
@@ -176,12 +276,19 @@ object RemoteSourceManagerDialog {
 
     private class SourceAdapter(
         private val activity: AppCompatActivity,
-        private val sources: List<RemoteSourceStatus>,
         private val onOpenIssues: (RemoteSourceStatus) -> Unit,
         private val onRepairCredential: (RemoteSourceStatus) -> Unit,
         private val onOpenMedia: (RemoteSourceStatus) -> Unit,
+        private val onRecheck: (RemoteSourceStatus) -> Unit,
         private val onRescrape: (RemoteSourceStatus) -> Unit,
     ) : RecyclerView.Adapter<SourceVH>() {
+        private var sources: List<RemoteSourceStatus> = emptyList()
+
+        fun submit(next: List<RemoteSourceStatus>) {
+            sources = next
+            notifyDataSetChanged()
+        }
+
         override fun getItemCount(): Int = sources.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SourceVH {
@@ -221,6 +328,7 @@ object RemoteSourceManagerDialog {
             holder.openIssues.setOnClickListener { onOpenIssues(source) }
             holder.openMedia.isEnabled = source.mediaCount > 0
             holder.openMedia.setOnClickListener { onOpenMedia(source) }
+            holder.recheck.setOnClickListener { onRecheck(source) }
             holder.rescrape.isEnabled = !source.config.credentialMissing
             holder.rescrape.setOnClickListener { onRescrape(source) }
             holder.credential.visibility = if (source.config.credentialMissing) View.VISIBLE else View.GONE
@@ -261,6 +369,7 @@ object RemoteSourceManagerDialog {
         val error: TextView = view.findViewById(R.id.remoteSourceStatusError)
         val openIssues: MaterialButton = view.findViewById(R.id.remoteSourceStatusOpenIssues)
         val openMedia: MaterialButton = view.findViewById(R.id.remoteSourceStatusOpenMedia)
+        val recheck: MaterialButton = view.findViewById(R.id.remoteSourceStatusRecheck)
         val rescrape: MaterialButton = view.findViewById(R.id.remoteSourceStatusRescrape)
         val credential: MaterialButton = view.findViewById(R.id.remoteSourceStatusCredential)
     }
@@ -340,6 +449,7 @@ object RemoteSourceManagerDialog {
             ?.key
         val isBad: Boolean = config.credentialMissing || health?.reachable == false
         val isUnchecked: Boolean = !config.credentialMissing && (health == null || health.reachable == null)
+        val shouldRecheck: Boolean = isBad || isUnchecked
         val lastCheckedAt: String = health?.lastCheckedAt?.takeIf { it.isNotBlank() }
             ?: latestCapability?.lastCheckedAt?.takeIf { it.isNotBlank() }
             ?: "--"
