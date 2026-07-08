@@ -493,9 +493,13 @@
     <string name="remote_source_range_no">不支持</string>
     <string name="remote_source_range_unknown">未知</string>
     <string name="remote_source_open_issues">查看问题</string>
+    <string name="remote_source_open_media">查看媒体</string>
     <string name="remote_source_rescrape">重刮此源</string>
     <string name="remote_source_no_issues">该远程源暂无待处理问题。</string>
     <string name="remote_source_rescrape_started_fmt">已开始重刮远程源：%1$s</string>
+    <string name="remote_source_media_title">源内媒体</string>
+    <string name="remote_source_media_summary_fmt">%1$s · 媒体 %2$d 条 · 有问题 %3$d 条 · 待处理 %4$d 项</string>
+    <string name="remote_source_media_issues_fmt">待处理 %1$d 项：%2$s</string>
     <string name="remote_capability_empty">远程能力：暂无记录</string>
     <string name="remote_capability_summary_fmt">远程能力：%1$d 条，可打开 %2$d，Range %3$d，受限/异常 %4$d</string>
     <string name="remote_capability_cache_fmt">缓存索引：prefix %1$s，range %2$d 个 / %3$s</string>

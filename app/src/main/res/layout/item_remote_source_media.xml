@@ -8,7 +8,7 @@
     android:paddingBottom="10dp">
 
     <TextView
-        android:id="@+id/remoteSourceStatusName"
+        android:id="@+id/remoteSourceMediaTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ellipsize="end"
@@ -18,39 +18,23 @@
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/remoteSourceStatusMeta"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/mv_text_secondary"
-        android:textSize="12sp" />
-
-    <TextView
-        android:id="@+id/remoteSourceStatusCounts"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textColor="@color/mv_text_secondary"
-        android:textSize="13sp" />
-
-    <TextView
-        android:id="@+id/remoteSourceStatusHealth"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:textColor="@color/mv_text_secondary"
-        android:textSize="13sp" />
-
-    <TextView
-        android:id="@+id/remoteSourceStatusError"
+        android:id="@+id/remoteSourceMediaMeta"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="3dp"
         android:ellipsize="end"
         android:maxLines="2"
-        android:textColor="@color/mv_danger"
+        android:textColor="@color/mv_text_secondary"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/remoteSourceMediaIssues"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textColor="@color/mv_amber"
         android:textSize="12sp"
         android:visibility="gone" />
 
@@ -62,35 +46,19 @@
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/remoteSourceStatusOpenIssues"
+            android:id="@+id/remoteSourceMediaDetail"
+            style="@style/Widget.MediaVault.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/detail"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/remoteSourceMediaOpenSourceIssues"
             style="@style/Widget.MediaVault.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/remote_source_open_issues"
-            android:textSize="12sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/remoteSourceStatusOpenMedia"
-            style="@style/Widget.MediaVault.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/remote_source_open_media"
-            android:textSize="12sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/remoteSourceStatusRescrape"
-            style="@style/Widget.MediaVault.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/remote_source_rescrape"
-            android:textSize="12sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/remoteSourceStatusCredential"
-            style="@style/Widget.MediaVault.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/library_issue_complete_credential"
             android:textSize="12sp"
             android:visibility="gone" />
     </LinearLayout>

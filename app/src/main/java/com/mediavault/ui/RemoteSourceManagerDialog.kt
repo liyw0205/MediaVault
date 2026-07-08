@@ -15,6 +15,7 @@ import com.mediavault.R
 import com.mediavault.data.LibraryDiagnosticsSnapshot
 import com.mediavault.data.LibraryIssue
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.MediaItem
 import com.mediavault.data.RemoteCapability
 import com.mediavault.data.SourceHealth
 import com.mediavault.remote.RemoteConfig
@@ -59,6 +60,9 @@ object RemoteSourceManagerDialog {
                     dialog?.dismiss()
                 }
             },
+            onOpenMedia = { source ->
+                showSourceMedia(activity, source, onSourceIssuesRequested)
+            },
             onRescrape = { source ->
                 if (rescrapeSource(activity, repository, source)) {
                     dialog?.dismiss()
@@ -84,6 +88,7 @@ object RemoteSourceManagerDialog {
             .groupingBy { it }
             .eachCount()
         val issuesByRemote = snapshot.issues.groupBy { RemotePath.parse(it.path)?.configId.orEmpty() }
+        val issuesByPath = snapshot.issues.groupBy { it.path }
         val healthById = snapshot.sourceHealth.associateBy { it.sourceId }
         val capabilitiesById = snapshot.remoteCapabilities.groupBy { it.sourceId }
         return repository.store.readRemotesList()
@@ -101,6 +106,10 @@ object RemoteSourceManagerDialog {
                     config = cfg,
                     mediaCount = mediaCounts[cfg.id] ?: 0,
                     issues = issuesByRemote[cfg.id].orEmpty(),
+                    mediaItems = items
+                        .filter { RemotePath.parse(it.path)?.configId == cfg.id }
+                        .sortedBy { it.displayTitle() },
+                    issuesByPath = issuesByPath,
                     health = health,
                     latestCapability = latestCapabilities.maxByOrNull { it.lastCheckedAt },
                     cacheBytes = cacheBytes,
@@ -134,11 +143,43 @@ object RemoteSourceManagerDialog {
         return true
     }
 
+    private fun showSourceMedia(
+        activity: AppCompatActivity,
+        source: RemoteSourceStatus,
+        onSourceIssuesRequested: (String) -> Unit,
+    ) {
+        val root = LayoutInflater.from(activity).inflate(R.layout.dialog_remote_source_media, null, false)
+        val summary = root.findViewById<TextView>(R.id.remoteSourceMediaSummary)
+        val recycler = root.findViewById<RecyclerView>(R.id.remoteSourceMediaRecycler)
+        val issueItemCount = source.mediaItems.count { source.issuesByPath[it.path].orEmpty().isNotEmpty() }
+        summary.text = activity.getString(
+            R.string.remote_source_media_summary_fmt,
+            source.name,
+            source.mediaItems.size,
+            issueItemCount,
+            source.issueCount,
+        )
+        recycler.layoutManager = LinearLayoutManager(activity)
+        recycler.adapter = MediaAdapter(
+            activity = activity,
+            source = source,
+            onOpenSourceIssues = onSourceIssuesRequested,
+        )
+        MvDialog.showStyled(
+            MvDialog.builder(activity)
+                .setTitle(R.string.remote_source_media_title)
+                .setView(root)
+                .setNegativeButton(android.R.string.cancel, null),
+            inputRoot = root,
+        )
+    }
+
     private class SourceAdapter(
         private val activity: AppCompatActivity,
         private val sources: List<RemoteSourceStatus>,
         private val onOpenIssues: (RemoteSourceStatus) -> Unit,
         private val onRepairCredential: (RemoteSourceStatus) -> Unit,
+        private val onOpenMedia: (RemoteSourceStatus) -> Unit,
         private val onRescrape: (RemoteSourceStatus) -> Unit,
     ) : RecyclerView.Adapter<SourceVH>() {
         override fun getItemCount(): Int = sources.size
@@ -178,6 +219,8 @@ object RemoteSourceManagerDialog {
             }
             holder.openIssues.isEnabled = source.issueCount > 0
             holder.openIssues.setOnClickListener { onOpenIssues(source) }
+            holder.openMedia.isEnabled = source.mediaCount > 0
+            holder.openMedia.setOnClickListener { onOpenMedia(source) }
             holder.rescrape.isEnabled = !source.config.credentialMissing
             holder.rescrape.setOnClickListener { onRescrape(source) }
             holder.credential.visibility = if (source.config.credentialMissing) View.VISIBLE else View.GONE
@@ -217,14 +260,72 @@ object RemoteSourceManagerDialog {
         val health: TextView = view.findViewById(R.id.remoteSourceStatusHealth)
         val error: TextView = view.findViewById(R.id.remoteSourceStatusError)
         val openIssues: MaterialButton = view.findViewById(R.id.remoteSourceStatusOpenIssues)
+        val openMedia: MaterialButton = view.findViewById(R.id.remoteSourceStatusOpenMedia)
         val rescrape: MaterialButton = view.findViewById(R.id.remoteSourceStatusRescrape)
         val credential: MaterialButton = view.findViewById(R.id.remoteSourceStatusCredential)
+    }
+
+    private class MediaAdapter(
+        private val activity: AppCompatActivity,
+        private val source: RemoteSourceStatus,
+        private val onOpenSourceIssues: (String) -> Unit,
+    ) : RecyclerView.Adapter<MediaVH>() {
+        override fun getItemCount(): Int = source.mediaItems.size
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MediaVH {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_remote_source_media, parent, false)
+            return MediaVH(view)
+        }
+
+        override fun onBindViewHolder(holder: MediaVH, position: Int) {
+            val item = source.mediaItems[position]
+            val issues = source.issuesByPath[item.path].orEmpty()
+            holder.title.text = item.displayTitle()
+            holder.meta.text = mediaMeta(item)
+            holder.issues.apply {
+                visibility = if (issues.isEmpty()) View.GONE else View.VISIBLE
+                text = activity.getString(
+                    R.string.remote_source_media_issues_fmt,
+                    issues.size,
+                    issues.map { LibraryMaintenanceDialog.issueLabel(activity, it.kind) }
+                        .distinct()
+                        .take(4)
+                        .joinToString("、"),
+                )
+            }
+            holder.detail.setOnClickListener {
+                activity.startActivity(VideoDetailActivity.intent(activity, item.path))
+            }
+            holder.openSourceIssues.apply {
+                visibility = if (issues.isEmpty()) View.GONE else View.VISIBLE
+                setOnClickListener { onOpenSourceIssues(source.config.id) }
+            }
+        }
+
+        private fun mediaMeta(item: MediaItem): String {
+            val parsed = RemotePath.parse(item.path)
+            val rel = parsed?.relativePath.orEmpty().ifBlank { item.path }
+            val row = LibraryUi.rowSubtitle(item)
+            return listOf(row, rel)
+                .filter { it.isNotBlank() }
+                .joinToString("\n")
+        }
+    }
+
+    private class MediaVH(view: View) : RecyclerView.ViewHolder(view) {
+        val title: TextView = view.findViewById(R.id.remoteSourceMediaTitle)
+        val meta: TextView = view.findViewById(R.id.remoteSourceMediaMeta)
+        val issues: TextView = view.findViewById(R.id.remoteSourceMediaIssues)
+        val detail: MaterialButton = view.findViewById(R.id.remoteSourceMediaDetail)
+        val openSourceIssues: MaterialButton = view.findViewById(R.id.remoteSourceMediaOpenSourceIssues)
     }
 
     private data class RemoteSourceStatus(
         val config: RemoteConfig,
         val mediaCount: Int,
         val issues: List<LibraryIssue>,
+        val mediaItems: List<MediaItem>,
+        val issuesByPath: Map<String, List<LibraryIssue>>,
         val health: SourceHealth?,
         val latestCapability: RemoteCapability?,
         val cacheBytes: Long,
