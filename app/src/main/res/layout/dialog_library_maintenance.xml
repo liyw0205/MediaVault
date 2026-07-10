@@ -32,6 +32,31 @@
         android:layout_height="48dp"
         android:layout_marginTop="10dp" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <Spinner
+            android:id="@+id/libraryMaintenanceSourceTypeFilter"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1" />
+
+        <Spinner
+            android:id="@+id/libraryMaintenanceSourceFilter"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1" />
+    </LinearLayout>
+
+    <Spinner
+        android:id="@+id/libraryMaintenanceTimeFilter"
+        android:layout_width="match_parent"
+        android:layout_height="48dp" />
+
     <TextView
         android:id="@+id/libraryMaintenanceSelectionSummary"
         android:layout_width="match_parent"

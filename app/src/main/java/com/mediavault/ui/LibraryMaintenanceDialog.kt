@@ -1,6 +1,7 @@
 package com.mediavault.ui
 
 import android.content.Context
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -22,16 +23,20 @@ import com.mediavault.data.LibraryDiagnosticsSnapshot
 import com.mediavault.data.LibraryIssue
 import com.mediavault.data.LibraryRepository
 import com.mediavault.data.LibraryTaskStore
+import com.mediavault.data.MediaItem
 import com.mediavault.data.ScrapeEvidence
 import com.mediavault.remote.RemotePath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 object LibraryMaintenanceDialog {
     private const val PAGE_SIZE = 50
     private const val REPAIR_QUEUE_KIND = "__repair_queue"
     private const val SOURCE_FILTER_PREFIX = "__remote_source:"
+    private const val LOCAL_ROOT_FILTER_PREFIX = "__local_root:"
     private val REPAIR_QUEUE_ISSUE_KINDS = setOf(
         "missing_remote_credential",
         "stale_remote",
@@ -51,6 +56,9 @@ object LibraryMaintenanceDialog {
         val root = LayoutInflater.from(activity).inflate(R.layout.dialog_library_maintenance, null, false)
         val summary = root.findViewById<TextView>(R.id.libraryMaintenanceSummary)
         val filter = root.findViewById<Spinner>(R.id.libraryMaintenanceFilter)
+        val sourceTypeFilter = root.findViewById<Spinner>(R.id.libraryMaintenanceSourceTypeFilter)
+        val sourceFilter = root.findViewById<Spinner>(R.id.libraryMaintenanceSourceFilter)
+        val timeFilter = root.findViewById<Spinner>(R.id.libraryMaintenanceTimeFilter)
         val selectionSummary = root.findViewById<TextView>(R.id.libraryMaintenanceSelectionSummary)
         val selectPage = root.findViewById<MaterialButton>(R.id.libraryMaintenanceSelectPage)
         val selectFilter = root.findViewById<MaterialButton>(R.id.libraryMaintenanceSelectFilter)
@@ -96,34 +104,66 @@ object LibraryMaintenanceDialog {
 
         var allIssues = snapshot.issues
         var selectedKind: String? = initialIssueKind?.takeIf { it.isNotBlank() }
+        var selectedSourceType = SourceTypeFilter.ALL
+        var selectedSourceKey: String? = null
+        var selectedTimeFilter = TimeFilter.ALL
         var pageIndex = 0
         var options: List<FilterOption> = emptyList()
+        var sourceTypeOptions: List<SourceTypeOption> = emptyList()
+        var sourceOptions: List<FilterOption> = emptyList()
+        var timeOptions: List<TimeFilterOption> = emptyList()
         var currentPage: List<LibraryIssue> = emptyList()
 
-        fun filteredIssues(): List<LibraryIssue> =
+        fun issueLookup(): IssueLookup = buildIssueLookup(repository)
+
+        fun issueMatchesKind(issue: LibraryIssue): Boolean =
             when (val kind = selectedKind) {
-                null -> allIssues
-                REPAIR_QUEUE_KIND -> allIssues.filter { it.kind in REPAIR_QUEUE_ISSUE_KINDS }
-                else -> if (kind.startsWith(SOURCE_FILTER_PREFIX)) {
-                    val remoteId = kind.removePrefix(SOURCE_FILTER_PREFIX)
-                    allIssues.filter { RemotePath.parse(it.path)?.configId == remoteId }
-                } else {
-                    allIssues.filter { it.kind == kind }
+                null -> true
+                REPAIR_QUEUE_KIND -> issue.kind in REPAIR_QUEUE_ISSUE_KINDS
+                else -> issue.kind == kind
+            }
+
+        fun issueMatchesSource(issue: LibraryIssue, lookup: IssueLookup): Boolean {
+            val isRemote = RemotePath.parse(issue.path) != null
+            val typeMatches = when (selectedSourceType) {
+                SourceTypeFilter.ALL -> true
+                SourceTypeFilter.LOCAL -> !isRemote
+                SourceTypeFilter.REMOTE -> isRemote
+            }
+            if (!typeMatches) return false
+            return when (val key = selectedSourceKey) {
+                null -> true
+                else -> when {
+                    key.startsWith(SOURCE_FILTER_PREFIX) -> {
+                        RemotePath.parse(issue.path)?.configId == key.removePrefix(SOURCE_FILTER_PREFIX)
+                    }
+                    key.startsWith(LOCAL_ROOT_FILTER_PREFIX) -> {
+                        lookup.localRootForPath(issue.path) == key.removePrefix(LOCAL_ROOT_FILTER_PREFIX)
+                    }
+                    else -> true
                 }
             }
+        }
+
+        fun issueMatchesTime(issue: LibraryIssue, lookup: IssueLookup): Boolean =
+            selectedTimeFilter.accepts(lookup.modifiedAtMillis(issue.path))
+
+        fun filteredIssues(): List<LibraryIssue> {
+            val lookup = issueLookup()
+            return allIssues.filter { issue ->
+                issueMatchesKind(issue) && issueMatchesSource(issue, lookup) && issueMatchesTime(issue, lookup)
+            }
+        }
 
         fun filterStillExists(kind: String): Boolean =
             if (kind == REPAIR_QUEUE_KIND) {
                 allIssues.any { it.kind in REPAIR_QUEUE_ISSUE_KINDS }
-            } else if (kind.startsWith(SOURCE_FILTER_PREFIX)) {
-                val remoteId = kind.removePrefix(SOURCE_FILTER_PREFIX)
-                allIssues.any { RemotePath.parse(it.path)?.configId == remoteId }
             } else {
                 allIssues.any { it.kind == kind }
             }
 
-        fun selectedIssues(): List<LibraryIssue> {
-            val byKey = allIssues.associateBy { issueKey(it) }
+        fun selectedIssues(issues: List<LibraryIssue> = filteredIssues()): List<LibraryIssue> {
+            val byKey = issues.associateBy { issueKey(it) }
             return selectedKeys.mapNotNull { byKey[it] }
         }
 
@@ -135,17 +175,19 @@ object LibraryMaintenanceDialog {
 
         renderSelection = {
             val filtered = filteredIssues()
-            val selected = selectedIssues()
+            val selected = selectedIssues(filtered)
+            val allSelected = selectedKeys.mapNotNull { key -> allIssues.firstOrNull { issueKey(it) == key } }
             val selectedPathCount = selected.map { it.path }.filter { it.isNotBlank() }.toSet().size
             selectionSummary.text = activity.getString(
                 R.string.library_batch_selection_fmt,
                 selected.size,
                 selectedPathCount,
+                allSelected.size,
                 filtered.size,
             )
             selectPage.isEnabled = currentPage.isNotEmpty()
             selectFilter.isEnabled = filtered.isNotEmpty()
-            clearSelection.isEnabled = selected.isNotEmpty()
+            clearSelection.isEnabled = allSelected.isNotEmpty()
             batchRescrape.isEnabled = selected.isNotEmpty()
             batchCredential.isEnabled = missingCredentialRemoteIds(selected).isNotEmpty()
             batchRemove.isEnabled = selected.any { it.kind == "stale_remote" }
@@ -191,13 +233,46 @@ object LibraryMaintenanceDialog {
                 counts.entries.sortedByDescending { it.value }.forEach { (kind, count) ->
                     add(FilterOption(kind, activity.getString(R.string.library_maintenance_filter_kind, issueLabel(activity, kind), count)))
                 }
-                addAll(remoteSourceFilterOptions(activity, repository, allIssues))
             }
             val labels = options.map { it.label }
             filter.adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, labels)
             val selected = options.indexOfFirst { it.kind == selectedKind }.takeIf { it >= 0 } ?: 0
             filter.setSelection(selected, false)
             selectedKind = options.getOrNull(selected)?.kind
+
+            val lookup = issueLookup()
+            sourceTypeOptions = buildSourceTypeOptions(activity, allIssues)
+            sourceTypeFilter.adapter = ArrayAdapter(
+                activity,
+                android.R.layout.simple_spinner_dropdown_item,
+                sourceTypeOptions.map { it.label },
+            )
+            val selectedSourceTypeIndex = sourceTypeOptions.indexOfFirst { it.type == selectedSourceType }
+                .takeIf { it >= 0 } ?: 0
+            sourceTypeFilter.setSelection(selectedSourceTypeIndex, false)
+            selectedSourceType = sourceTypeOptions.getOrNull(selectedSourceTypeIndex)?.type ?: SourceTypeFilter.ALL
+
+            sourceOptions = sourceFilterOptions(activity, repository, allIssues, lookup, selectedSourceType)
+            sourceFilter.adapter = ArrayAdapter(
+                activity,
+                android.R.layout.simple_spinner_dropdown_item,
+                sourceOptions.map { it.label },
+            )
+            val selectedSourceIndex = sourceOptions.indexOfFirst { it.kind == selectedSourceKey }
+                .takeIf { it >= 0 } ?: 0
+            sourceFilter.setSelection(selectedSourceIndex, false)
+            selectedSourceKey = sourceOptions.getOrNull(selectedSourceIndex)?.kind
+
+            timeOptions = timeFilterOptions(activity, allIssues, lookup)
+            timeFilter.adapter = ArrayAdapter(
+                activity,
+                android.R.layout.simple_spinner_dropdown_item,
+                timeOptions.map { it.label },
+            )
+            val selectedTimeIndex = timeOptions.indexOfFirst { it.filter == selectedTimeFilter }
+                .takeIf { it >= 0 } ?: 0
+            timeFilter.setSelection(selectedTimeIndex, false)
+            selectedTimeFilter = timeOptions.getOrNull(selectedTimeIndex)?.filter ?: TimeFilter.ALL
         }
 
         fun applySnapshot(nextSnapshot: LibraryDiagnosticsSnapshot) {
@@ -217,7 +292,8 @@ object LibraryMaintenanceDialog {
         }
 
         fun applySourceFilter(remoteId: String) {
-            selectedKind = SOURCE_FILTER_PREFIX + remoteId
+            selectedSourceType = SourceTypeFilter.REMOTE
+            selectedSourceKey = SOURCE_FILTER_PREFIX + remoteId
             pageIndex = 0
             rebuildFilterOptions()
             renderPage()
@@ -226,6 +302,38 @@ object LibraryMaintenanceDialog {
         filter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 selectedKind = options.getOrNull(position)?.kind
+                pageIndex = 0
+                renderPage()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        sourceTypeFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val nextType = sourceTypeOptions.getOrNull(position)?.type ?: SourceTypeFilter.ALL
+                if (nextType != selectedSourceType) {
+                    selectedSourceType = nextType
+                    selectedSourceKey = null
+                    pageIndex = 0
+                    rebuildFilterOptions()
+                }
+                renderPage()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        sourceFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                selectedSourceKey = sourceOptions.getOrNull(position)?.kind
+                pageIndex = 0
+                renderPage()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        timeFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                selectedTimeFilter = timeOptions.getOrNull(position)?.filter ?: TimeFilter.ALL
                 pageIndex = 0
                 renderPage()
             }
@@ -828,6 +936,72 @@ object LibraryMaintenanceDialog {
         return activity.getString(R.string.source_health_summary_fmt, sources.size, ok, bad, unchecked)
     }
 
+    private fun buildSourceTypeOptions(
+        context: Context,
+        issues: List<LibraryIssue>,
+    ): List<SourceTypeOption> {
+        val localCount = issues.count { RemotePath.parse(it.path) == null }
+        val remoteCount = issues.size - localCount
+        return listOf(
+            SourceTypeOption(SourceTypeFilter.ALL, context.getString(R.string.library_maintenance_filter_source_type_all)),
+            SourceTypeOption(SourceTypeFilter.LOCAL, context.getString(R.string.library_maintenance_filter_source_type_local, localCount)),
+            SourceTypeOption(SourceTypeFilter.REMOTE, context.getString(R.string.library_maintenance_filter_source_type_remote, remoteCount)),
+        )
+    }
+
+    private fun sourceFilterOptions(
+        context: Context,
+        repository: LibraryRepository,
+        issues: List<LibraryIssue>,
+        lookup: IssueLookup,
+        sourceType: SourceTypeFilter,
+    ): List<FilterOption> = buildList {
+        val scopedIssues = issues.filter { issue ->
+            val isRemote = RemotePath.parse(issue.path) != null
+            when (sourceType) {
+                SourceTypeFilter.ALL -> true
+                SourceTypeFilter.LOCAL -> !isRemote
+                SourceTypeFilter.REMOTE -> isRemote
+            }
+        }
+        add(FilterOption(null, context.getString(R.string.library_maintenance_filter_source_all, scopedIssues.size)))
+        if (sourceType != SourceTypeFilter.REMOTE) {
+            addAll(localRootFilterOptions(context, repository, scopedIssues, lookup))
+        }
+        if (sourceType != SourceTypeFilter.LOCAL) {
+            addAll(remoteSourceFilterOptions(context, repository, scopedIssues))
+        }
+    }
+
+    private fun localRootFilterOptions(
+        context: Context,
+        repository: LibraryRepository,
+        issues: List<LibraryIssue>,
+        lookup: IssueLookup,
+    ): List<FilterOption> {
+        val issueCounts = issues
+            .mapNotNull { lookup.localRootForPath(it.path) }
+            .groupingBy { it }
+            .eachCount()
+        if (issueCounts.isEmpty()) return emptyList()
+        val mediaCounts = repository.library.value.items
+            .mapNotNull { lookup.localRootForPath(it.path) }
+            .groupingBy { it }
+            .eachCount()
+        return lookup.localRoots.mapNotNull { root ->
+            val issueCount = issueCounts[root] ?: return@mapNotNull null
+            FilterOption(
+                kind = LOCAL_ROOT_FILTER_PREFIX + root,
+                label = context.getString(
+                    R.string.library_maintenance_filter_local_root,
+                    localRootLabel(root),
+                    issueCount,
+                    mediaCounts[root] ?: 0,
+                ),
+            )
+        }
+    }
+
     private fun remoteSourceFilterOptions(
         context: Context,
         repository: LibraryRepository,
@@ -859,9 +1033,88 @@ object LibraryMaintenanceDialog {
             }
     }
 
+    private fun timeFilterOptions(
+        context: Context,
+        issues: List<LibraryIssue>,
+        lookup: IssueLookup,
+    ): List<TimeFilterOption> = TimeFilter.values().map { filter ->
+        val count = issues.count { filter.accepts(lookup.modifiedAtMillis(it.path)) }
+        val label = when (filter) {
+            TimeFilter.ALL -> context.getString(R.string.library_maintenance_filter_time_all, issues.size)
+            TimeFilter.RECENT_7_DAYS -> context.getString(R.string.library_maintenance_filter_time_7d, count)
+            TimeFilter.RECENT_30_DAYS -> context.getString(R.string.library_maintenance_filter_time_30d, count)
+            TimeFilter.OLDER -> context.getString(R.string.library_maintenance_filter_time_older, count)
+            TimeFilter.UNKNOWN -> context.getString(R.string.library_maintenance_filter_time_unknown, count)
+        }
+        TimeFilterOption(filter, label)
+    }
+
+    private fun buildIssueLookup(repository: LibraryRepository): IssueLookup = IssueLookup(
+        byPath = repository.library.value.items.associateBy { it.path },
+        localRoots = repository.store.readLocalRootUris().sortedByDescending { it.length },
+    )
+
     private data class FilterOption(
         val kind: String?,
         val label: String,
+    )
+
+    private data class SourceTypeOption(
+        val type: SourceTypeFilter,
+        val label: String,
+    )
+
+    private data class TimeFilterOption(
+        val filter: TimeFilter,
+        val label: String,
+    )
+
+    private data class IssueLookup(
+        val byPath: Map<String, MediaItem>,
+        val localRoots: List<String>,
+    ) {
+        fun localRootForPath(path: String): String? = localRoots.firstOrNull { path.startsWith(it) }
+
+        fun modifiedAtMillis(path: String): Long? = byPath[path]?.modified?.let(::parseModifiedMillis)
+    }
+
+    private enum class SourceTypeFilter {
+        ALL,
+        LOCAL,
+        REMOTE,
+    }
+
+    private enum class TimeFilter {
+        ALL,
+        RECENT_7_DAYS,
+        RECENT_30_DAYS,
+        OLDER,
+        UNKNOWN;
+
+        fun accepts(modifiedAtMillis: Long?): Boolean = when (this) {
+            ALL -> true
+            UNKNOWN -> modifiedAtMillis == null
+            RECENT_7_DAYS -> modifiedAtMillis != null && modifiedAtMillis >= System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+            RECENT_30_DAYS -> modifiedAtMillis != null && modifiedAtMillis >= System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+            OLDER -> modifiedAtMillis != null && modifiedAtMillis < System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+        }
+    }
+
+    private fun parseModifiedMillis(value: String): Long? {
+        val text = value.trim()
+        if (text.isBlank()) return null
+        return MODIFIED_FORMATS.firstNotNullOfOrNull { format ->
+            runCatching { format.parse(text)?.time }.getOrNull()
+        }
+    }
+
+    private fun localRootLabel(root: String): String = runCatching {
+        Uri.parse(root).lastPathSegment?.substringAfterLast(':')?.ifBlank { null }
+    }.getOrNull() ?: root.substringAfterLast('/').ifBlank { root }
+
+    private val MODIFIED_FORMATS = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US),
+        SimpleDateFormat("yyyy-MM-dd", Locale.US),
     )
 
     private fun sourceLine(evidence: ScrapeEvidence): String =
