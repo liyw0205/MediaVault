@@ -42,4 +42,31 @@ class LibraryTaskStoreTest {
 
         assertNull(parsed.issueKind)
     }
+
+    @Test
+    fun taskEntry_roundTripsStructuredStatistics() {
+        val entry = LibraryTaskEntry(
+            id = "task-stats",
+            type = LibraryTaskStore.TYPE_SCRAPE,
+            title = "增量刮削",
+            status = LibraryTaskStore.STATUS_SUCCESS,
+            createdAt = "2026-07-13 08:00:00",
+            updatedAt = "2026-07-13 08:01:00",
+            summary = "完成",
+            statistics = LibraryTaskStatistics(12, 10, 2, 1, 8, 4, 3),
+        )
+
+        assertEquals(entry, LibraryTaskEntry.fromJson(entry.toJson()))
+    }
+
+    @Test
+    fun taskEntry_withoutStatistics_usesEmptyStatistics() {
+        val parsed = LibraryTaskEntry.fromJson(org.json.JSONObject().apply {
+            put("id", "legacy-task")
+            put("type", LibraryTaskStore.TYPE_SCRAPE)
+            put("title", "旧任务")
+        })
+
+        assertEquals(LibraryTaskStatistics(), parsed.statistics)
+    }
 }

@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import com.mediavault.R
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.LibraryTaskStatistics
 import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.TmdbMatchHeuristics
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -180,6 +181,14 @@ class ScrapeManager(
             summary = app.getString(R.string.task_scrape_done_fmt, scannedThisRun, totalInLibrary),
             detail = app.getString(R.string.task_scrape_done_detail_fmt, tmdbHits, tmdbMisses, coverAdded),
             issueKind = if (weakCount > 0) "low_confidence_match" else null,
+            statistics = LibraryTaskStatistics(
+                discoveredCount = scannedThisRun,
+                writtenCount = scannedThisRun,
+                issueCount = weakCount,
+                tmdbHitCount = tmdbHits,
+                tmdbMissCount = tmdbMisses,
+                coverAddedCount = coverAdded,
+            ),
         )
         _state.value = ScrapeUiState(
             phase = ScrapePhase.DONE,
@@ -213,6 +222,7 @@ class ScrapeManager(
             id = taskId,
             status = LibraryTaskStore.STATUS_CANCELLED,
             summary = app.getString(R.string.task_scrape_cancelled_fmt, partial, totalInLibrary),
+            statistics = LibraryTaskStatistics(discoveredCount = partial, writtenCount = partial),
         )
         _state.value = ScrapeUiState(
             phase = ScrapePhase.CANCELLED,

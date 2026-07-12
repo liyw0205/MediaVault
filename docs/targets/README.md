@@ -5,7 +5,7 @@
 | 顺序 | 文件 | 状态 | 目标 |
 | --- | --- | --- | --- |
 | 01 | `01_detail_remove_and_source_context.md` | 已完成（1.0.8） | 详情页安全移出库与来源上下文 |
-| 02 | `02_task_structured_statistics.md` | 待开始 | 任务中心扫描与刮削结构化统计 |
+| 02 | `02_task_structured_statistics.md` | 已完成（1.0.9） | 任务中心扫描与刮削结构化统计 |
 | 03 | `03_task_retry_explanation.md` | 待开始 | 可解释失败重试与最近错误 |
 | 04 | `04_remote_mapping_migration_preview.md` | 待开始 | 远程源映射变更影响预览 |
 | 05 | `05_remote_mapping_migration_apply.md` | 待开始 | 远程源映射安全应用与复检 |

@@ -8,6 +8,43 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class LibraryTaskStatistics(
+    val discoveredCount: Int = 0,
+    val writtenCount: Int = 0,
+    val skippedCount: Int = 0,
+    val issueCount: Int = 0,
+    val tmdbHitCount: Int = 0,
+    val tmdbMissCount: Int = 0,
+    val coverAddedCount: Int = 0,
+) {
+    fun isEmpty(): Boolean = listOf(
+        discoveredCount, writtenCount, skippedCount, issueCount,
+        tmdbHitCount, tmdbMissCount, coverAddedCount,
+    ).all { it == 0 }
+
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("discoveredCount", discoveredCount)
+        put("writtenCount", writtenCount)
+        put("skippedCount", skippedCount)
+        put("issueCount", issueCount)
+        put("tmdbHitCount", tmdbHitCount)
+        put("tmdbMissCount", tmdbMissCount)
+        put("coverAddedCount", coverAddedCount)
+    }
+
+    companion object {
+        fun fromJson(value: JSONObject?): LibraryTaskStatistics = LibraryTaskStatistics(
+            discoveredCount = value?.optInt("discoveredCount", 0) ?: 0,
+            writtenCount = value?.optInt("writtenCount", 0) ?: 0,
+            skippedCount = value?.optInt("skippedCount", 0) ?: 0,
+            issueCount = value?.optInt("issueCount", 0) ?: 0,
+            tmdbHitCount = value?.optInt("tmdbHitCount", 0) ?: 0,
+            tmdbMissCount = value?.optInt("tmdbMissCount", 0) ?: 0,
+            coverAddedCount = value?.optInt("coverAddedCount", 0) ?: 0,
+        )
+    }
+}
+
 data class LibraryTaskEntry(
     val id: String,
     val type: String,
@@ -20,6 +57,7 @@ data class LibraryTaskEntry(
     val issueKind: String? = null,
     val localScopeCount: Int = 0,
     val remoteScopeCount: Int = 0,
+    val statistics: LibraryTaskStatistics = LibraryTaskStatistics(),
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -33,6 +71,7 @@ data class LibraryTaskEntry(
         put("issueKind", issueKind ?: "")
         put("localScopeCount", localScopeCount)
         put("remoteScopeCount", remoteScopeCount)
+        put("statistics", statistics.toJson())
     }
 
     companion object {
@@ -48,6 +87,7 @@ data class LibraryTaskEntry(
             issueKind = o.optString("issueKind", "").takeIf { it.isNotBlank() },
             localScopeCount = o.optInt("localScopeCount", 0),
             remoteScopeCount = o.optInt("remoteScopeCount", 0),
+            statistics = LibraryTaskStatistics.fromJson(o.optJSONObject("statistics")),
         )
     }
 }
@@ -69,6 +109,7 @@ class LibraryTaskStore(context: Context) {
         issueKind: String? = null,
         localScopeCount: Int = 0,
         remoteScopeCount: Int = 0,
+        statistics: LibraryTaskStatistics = LibraryTaskStatistics(),
     ): String = synchronized(LOCK) {
         val now = nowText()
         val entries = readUnlocked()
@@ -85,6 +126,7 @@ class LibraryTaskStore(context: Context) {
             issueKind = issueKind,
             localScopeCount = localScopeCount,
             remoteScopeCount = remoteScopeCount,
+            statistics = statistics,
         )
         writeUnlocked(listOf(entry) + entries.filterNot { it.id == id })
         id
@@ -99,6 +141,7 @@ class LibraryTaskStore(context: Context) {
         issueKind: String? = null,
         localScopeCount: Int = 0,
         remoteScopeCount: Int = 0,
+        statistics: LibraryTaskStatistics = LibraryTaskStatistics(),
     ): String = synchronized(LOCK) {
         val now = nowText()
         val entries = readUnlocked()
@@ -115,6 +158,7 @@ class LibraryTaskStore(context: Context) {
             issueKind = issueKind,
             localScopeCount = localScopeCount,
             remoteScopeCount = remoteScopeCount,
+            statistics = statistics,
         )
         writeUnlocked(listOf(entry) + entries.filterNot { it.id == id })
         id
@@ -126,6 +170,7 @@ class LibraryTaskStore(context: Context) {
         summary: String,
         detail: String = "",
         issueKind: String? = null,
+        statistics: LibraryTaskStatistics? = null,
     ) {
         if (id.isBlank()) return
         synchronized(LOCK) {
@@ -138,6 +183,7 @@ class LibraryTaskStore(context: Context) {
                         summary = summary,
                         detail = detail.ifBlank { entry.detail },
                         issueKind = issueKind ?: entry.issueKind,
+                        statistics = statistics ?: entry.statistics,
                     )
                 } else {
                     entry

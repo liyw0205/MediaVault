@@ -165,6 +165,19 @@ object LibraryTaskCenterDialog {
                     issueText,
                 ),
             )
+            task.statistics.takeUnless { it.isEmpty() }?.let { stats ->
+                append("\n\n")
+                append(activity.getString(
+                    R.string.task_detail_statistics_fmt,
+                    stats.discoveredCount,
+                    stats.writtenCount,
+                    stats.skippedCount,
+                    stats.issueCount,
+                    stats.tmdbHitCount,
+                    stats.tmdbMissCount,
+                    stats.coverAddedCount,
+                ))
+            }
             if (requiresAttention(task) && issueKind == null) {
                 append("\n\n")
                 append(activity.getString(R.string.task_detail_no_action))
