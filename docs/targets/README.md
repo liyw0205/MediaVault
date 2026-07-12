@@ -8,6 +8,7 @@
 | 02 | `02_task_structured_statistics.md` | 已完成（1.0.9） | 任务中心扫描与刮削结构化统计 |
 | 03 | `03_task_retry_explanation.md` | 已完成（1.0.10） | 可解释失败重试与最近错误 |
 | 04 | `04_remote_mapping_migration_preview.md` | 已完成（1.0.11） | 远程源映射变更影响预览 |
-| 05 | `05_remote_mapping_migration_apply.md` | 待开始 | 远程源映射安全应用与复检 |
+| 05 | `05_remote_mapping_migration_apply.md` | 已完成（1.0.12） | 远程源映射安全应用与复检 |
+| 06 | `06_task_scope_retry_replay.md` | 待开始 | 任务原始范围安全重试 |
 
 约束：不删除用户源文件，不清空远程配置，不导出明文密码；涉及移除、迁移或批量修复时必须先展示影响范围，并提供可理解的结果反馈。

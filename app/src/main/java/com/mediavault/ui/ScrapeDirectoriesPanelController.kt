@@ -13,6 +13,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.mediavault.R
+import com.mediavault.MediaVaultApp
+import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.MediaStore
 import com.mediavault.data.MediaLibrary
 import com.mediavault.data.RemoteMappingPreview
@@ -34,6 +36,7 @@ class ScrapeDirectoriesPanelController(
 ) {
     private val store = MediaStore(activity)
     private val remotes = mutableListOf<RemoteConfig>()
+    private var pendingMappingRecheckRemoteId: String? = null
 
     fun onLocalTreePicked(uri: Uri?) {
         if (uri == null) return
@@ -199,6 +202,7 @@ class ScrapeDirectoriesPanelController(
             val preview = RemoteMappingPreview.create(remote, cfg, items)
             val apply = {
                 upsertRemote(cfg)
+                if (preview.needsConfirmation) pendingMappingRecheckRemoteId = cfg.id
                 if (saveImmediately) saveRemotes()
             }
             if (!preview.needsConfirmation) {
@@ -219,6 +223,10 @@ class ScrapeDirectoriesPanelController(
     private fun saveRemotes() {
         try {
             store.writeRemotesList(remotes)
+            pendingMappingRecheckRemoteId?.let { remoteId ->
+                pendingMappingRecheckRemoteId = null
+                recheckUpdatedMapping(remoteId)
+            }
             Toast.makeText(activity, R.string.settings_saved, Toast.LENGTH_SHORT).show()
             notifyRootsChanged()
         } catch (e: Exception) {
@@ -227,6 +235,38 @@ class ScrapeDirectoriesPanelController(
                 activity.getString(R.string.settings_save_failed, RemoteErrorMessages.userMessage(activity, e)),
                 Toast.LENGTH_LONG,
             ).show()
+        }
+    }
+
+    private fun recheckUpdatedMapping(remoteId: String) {
+        val app = activity.application as MediaVaultApp
+        val taskStore = LibraryTaskStore(activity)
+        val taskId = taskStore.recordStarted(
+            type = LibraryTaskStore.TYPE_SOURCE_RECHECK,
+            title = activity.getString(R.string.task_title_source_recheck_scope),
+            summary = activity.getString(R.string.remote_mapping_recheck_started),
+            remoteScopeCount = 1,
+        )
+        activity.lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching { app.repository.refreshDiagnosticsForRemoteIds(listOf(remoteId)) }
+            }.onSuccess { snapshot ->
+                val health = snapshot.sourceHealth.firstOrNull { it.sourceId == remoteId }
+                val status = if (health?.reachable == true) LibraryTaskStore.STATUS_SUCCESS else LibraryTaskStore.STATUS_PARTIAL
+                taskStore.finish(
+                    id = taskId,
+                    status = status,
+                    summary = activity.getString(R.string.remote_mapping_recheck_done, health?.reachable == true),
+                    issueKind = if (health?.reachable == false) "stale_remote" else null,
+                )
+            }.onFailure { error ->
+                taskStore.finish(
+                    id = taskId,
+                    status = LibraryTaskStore.STATUS_FAILED,
+                    summary = activity.getString(R.string.task_failed_fmt, error.message ?: activity.getString(R.string.action_failed)),
+                )
+            }
+            notifyRootsChanged()
         }
     }
 
