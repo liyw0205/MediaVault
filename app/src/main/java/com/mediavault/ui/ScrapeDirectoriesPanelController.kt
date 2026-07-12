@@ -14,6 +14,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.mediavault.R
 import com.mediavault.data.MediaStore
+import com.mediavault.data.MediaLibrary
+import com.mediavault.data.RemoteMappingPreview
 import com.mediavault.remote.RemoteClients
 import com.mediavault.remote.RemoteConfig
 import com.mediavault.remote.RemoteErrorMessages
@@ -193,8 +195,24 @@ class ScrapeDirectoriesPanelController(
 
     private fun openRemoteEditor(remote: RemoteConfig, saveImmediately: Boolean = false) {
         RemoteFormDialog.show(activity, remote.type, remote) { cfg ->
-            upsertRemote(cfg)
-            if (saveImmediately) saveRemotes()
+            val items = store.readLibraryText()?.let { MediaLibrary.parse(it, store.libraryFile.absolutePath).items }.orEmpty()
+            val preview = RemoteMappingPreview.create(remote, cfg, items)
+            val apply = {
+                upsertRemote(cfg)
+                if (saveImmediately) saveRemotes()
+            }
+            if (!preview.needsConfirmation) {
+                apply()
+                return@show
+            }
+            val samples = preview.samplePaths.joinToString("\n")
+            MvDialog.show(
+                MvDialog.builder(activity)
+                    .setTitle(R.string.remote_mapping_preview_title)
+                    .setMessage(activity.getString(R.string.remote_mapping_preview_message_fmt, preview.affectedCount, samples))
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(R.string.remote_mapping_preview_apply) { _, _ -> apply() },
+            )
         }
     }
 

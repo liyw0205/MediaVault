@@ -514,6 +514,9 @@
     <string name="task_detail_retry_title_fmt">重试：%1$s</string>
     <string name="task_detail_retry_detail_fmt">重放自任务 %1$s；使用全库增量刮削，不删除源文件或已有库记录。</string>
     <string name="task_detail_retry_started">已创建重试任务。</string>
+    <string name="remote_mapping_preview_title">远程映射变更预览</string>
+    <string name="remote_mapping_preview_message_fmt">此配置变更会影响库中 %1$d 条远程媒体记录。应用只会更新远程连接配置，不会删除远程文件、媒体库记录或刮削记录。保存后请执行定向复检。\n\n样本：\n%2$s</string>
+    <string name="remote_mapping_preview_apply">确认更新</string>
     <string name="task_detail_empty_value">无</string>
     <string name="task_detail_issue_none">无</string>
     <string name="task_detail_no_action">该任务没有关联到可直接处理的问题，可先在维护中心重新检查后继续定位。</string>
