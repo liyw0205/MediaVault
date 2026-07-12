@@ -69,4 +69,29 @@ class LibraryTaskStoreTest {
 
         assertEquals(LibraryTaskStatistics(), parsed.statistics)
     }
+
+    @Test
+    fun taskFailure_redactsCredentialsAndClassifiesTimeout() {
+        val message = "timeout https://alice:secret@example.test?token=abc123"
+
+        assertEquals("timeout", LibraryTaskFailure.category(message))
+        assertEquals("timeout https://alice:***@example.test?token=***", LibraryTaskFailure.redact(message))
+    }
+
+    @Test
+    fun fullLibraryFailedScrape_isTheOnlyRetryableTaskWithoutReplayScope() {
+        val retryable = LibraryTaskEntry(
+            id = "retryable",
+            type = LibraryTaskStore.TYPE_SCRAPE,
+            title = "全部增量刮削",
+            status = LibraryTaskStore.STATUS_FAILED,
+            createdAt = "--",
+            updatedAt = "--",
+            summary = "失败",
+        )
+
+        assertEquals(true, LibraryTaskStore.canSafelyRetry(retryable))
+        assertEquals(false, LibraryTaskStore.canSafelyRetry(retryable.copy(remoteScopeCount = 1)))
+        assertEquals(false, LibraryTaskStore.canSafelyRetry(retryable.copy(type = LibraryTaskStore.TYPE_IMPORT_BACKUP)))
+    }
 }

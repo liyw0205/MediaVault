@@ -58,6 +58,8 @@ data class LibraryTaskEntry(
     val localScopeCount: Int = 0,
     val remoteScopeCount: Int = 0,
     val statistics: LibraryTaskStatistics = LibraryTaskStatistics(),
+    val failureCategory: String? = null,
+    val failureSummary: String? = null,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -72,6 +74,8 @@ data class LibraryTaskEntry(
         put("localScopeCount", localScopeCount)
         put("remoteScopeCount", remoteScopeCount)
         put("statistics", statistics.toJson())
+        put("failureCategory", failureCategory ?: "")
+        put("failureSummary", failureSummary ?: "")
     }
 
     companion object {
@@ -88,6 +92,8 @@ data class LibraryTaskEntry(
             localScopeCount = o.optInt("localScopeCount", 0),
             remoteScopeCount = o.optInt("remoteScopeCount", 0),
             statistics = LibraryTaskStatistics.fromJson(o.optJSONObject("statistics")),
+            failureCategory = o.optString("failureCategory", "").takeIf { it.isNotBlank() },
+            failureSummary = o.optString("failureSummary", "").takeIf { it.isNotBlank() },
         )
     }
 }
@@ -171,6 +177,8 @@ class LibraryTaskStore(context: Context) {
         detail: String = "",
         issueKind: String? = null,
         statistics: LibraryTaskStatistics? = null,
+        failureCategory: String? = null,
+        failureSummary: String? = null,
     ) {
         if (id.isBlank()) return
         synchronized(LOCK) {
@@ -184,6 +192,8 @@ class LibraryTaskStore(context: Context) {
                         detail = detail.ifBlank { entry.detail },
                         issueKind = issueKind ?: entry.issueKind,
                         statistics = statistics ?: entry.statistics,
+                        failureCategory = failureCategory ?: entry.failureCategory,
+                        failureSummary = failureSummary?.let(LibraryTaskFailure::redact) ?: entry.failureSummary,
                     )
                 } else {
                     entry
@@ -247,5 +257,11 @@ class LibraryTaskStore(context: Context) {
 
         fun nowText(): String =
             SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+
+        fun canSafelyRetry(task: LibraryTaskEntry): Boolean =
+            task.type == TYPE_SCRAPE &&
+                task.status in setOf(STATUS_FAILED, STATUS_PARTIAL, STATUS_CANCELLED) &&
+                task.localScopeCount == 0 &&
+                task.remoteScopeCount == 0
     }
 }

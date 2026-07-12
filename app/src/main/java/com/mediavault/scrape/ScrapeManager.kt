@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import com.mediavault.R
 import com.mediavault.data.LibraryRepository
+import com.mediavault.data.LibraryTaskFailure
 import com.mediavault.data.LibraryTaskStatistics
 import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.TmdbMatchHeuristics
@@ -207,6 +208,8 @@ class ScrapeManager(
             id = taskId,
             status = LibraryTaskStore.STATUS_FAILED,
             summary = app.getString(R.string.task_failed_fmt, msg),
+            failureCategory = LibraryTaskFailure.category(msg),
+            failureSummary = LibraryTaskFailure.redact(msg),
         )
         _state.value = _state.value.copy(
             phase = ScrapePhase.ERROR,

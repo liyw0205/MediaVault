@@ -509,6 +509,11 @@
     <string name="task_detail_title">任务详情</string>
     <string name="task_detail_message_fmt">任务：%1$s\n类型：%2$s\n状态：%3$s\n创建：%4$s\n更新：%5$s\n范围：本机 %6$d · 远程 %7$d\n\n摘要：%8$s\n详情：%9$s\n关联问题：%10$s</string>
     <string name="task_detail_statistics_fmt">统计：发现 %1$d · 写入 %2$d · 跳过 %3$d · 问题 %4$d\nTMDB 命中 %5$d · 未命中 %6$d · 新封面 %7$d</string>
+    <string name="task_detail_failure_fmt">最近错误：%1$s\n%2$s</string>
+    <string name="task_detail_retry">重试</string>
+    <string name="task_detail_retry_title_fmt">重试：%1$s</string>
+    <string name="task_detail_retry_detail_fmt">重放自任务 %1$s；使用全库增量刮削，不删除源文件或已有库记录。</string>
+    <string name="task_detail_retry_started">已创建重试任务。</string>
     <string name="task_detail_empty_value">无</string>
     <string name="task_detail_issue_none">无</string>
     <string name="task_detail_no_action">该任务没有关联到可直接处理的问题，可先在维护中心重新检查后继续定位。</string>

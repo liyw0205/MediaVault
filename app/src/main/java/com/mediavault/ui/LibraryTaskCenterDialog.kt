@@ -15,6 +15,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.LibraryTaskEntry
 import com.mediavault.data.LibraryTaskStore
@@ -178,6 +179,14 @@ object LibraryTaskCenterDialog {
                     stats.coverAddedCount,
                 ))
             }
+            task.failureSummary?.let { failure ->
+                append("\n\n")
+                append(activity.getString(
+                    R.string.task_detail_failure_fmt,
+                    task.failureCategory ?: activity.getString(R.string.task_detail_empty_value),
+                    failure,
+                ))
+            }
             if (requiresAttention(task) && issueKind == null) {
                 append("\n\n")
                 append(activity.getString(R.string.task_detail_no_action))
@@ -186,6 +195,22 @@ object LibraryTaskCenterDialog {
         val builder = MvDialog.builder(activity)
             .setTitle(R.string.task_detail_title)
             .setMessage(message)
+        if (LibraryTaskStore.canSafelyRetry(task)) {
+            builder.setNeutralButton(R.string.task_detail_retry) { _, _ ->
+                val manager = (activity.application as MediaVaultApp).scrapeManager
+                if (manager.isRunning()) {
+                    Toast.makeText(activity, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
+                } else {
+                    manager.start(
+                        rebuild = false,
+                        taskTitle = activity.getString(R.string.task_detail_retry_title_fmt, task.title),
+                        taskDetail = activity.getString(R.string.task_detail_retry_detail_fmt, task.id),
+                        taskIssueKind = task.issueKind,
+                    )
+                    Toast.makeText(activity, R.string.task_detail_retry_started, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
         if (issueKind == null) {
             builder.setPositiveButton(android.R.string.ok, null)
         } else {
