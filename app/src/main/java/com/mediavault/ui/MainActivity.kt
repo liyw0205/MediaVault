@@ -40,6 +40,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_SEARCH_TAG = "search_tag"
         const val EXTRA_OPEN_MAINTENANCE_KIND = "open_maintenance_kind"
+        const val EXTRA_OPEN_MAINTENANCE_REMOTE_ID = "open_maintenance_remote_id"
+        const val EXTRA_OPEN_MAINTENANCE_LOCAL_ROOT = "open_maintenance_local_root"
         const val EXTRA_REPAIR_REMOTE_IDS = "repair_remote_ids"
         private const val TAG_HOME = "tab_home"
         private const val TAG_SEARCH = "tab_search"
@@ -451,11 +453,17 @@ class MainActivity : AppCompatActivity() {
         drawerLayout.openDrawer(GravityCompat.END)
     }
 
-    fun openLibraryMaintenance(initialIssueKind: String? = null) {
+    fun openLibraryMaintenance(
+        initialIssueKind: String? = null,
+        initialRemoteId: String? = null,
+        initialLocalRoot: String? = null,
+    ) {
         LibraryMaintenanceDialog.show(
             activity = this,
             repository = repository,
             initialIssueKind = initialIssueKind,
+            initialRemoteId = initialRemoteId,
+            initialLocalRoot = initialLocalRoot,
             onChanged = {
                 refreshHome(recommendPathsOnly = false)
                 refreshSearch()
@@ -501,8 +509,12 @@ class MainActivity : AppCompatActivity() {
 
         if (source.hasExtra(EXTRA_OPEN_MAINTENANCE_KIND)) {
             val kind = source.getStringExtra(EXTRA_OPEN_MAINTENANCE_KIND)?.takeIf { it.isNotBlank() }
+            val remoteId = source.getStringExtra(EXTRA_OPEN_MAINTENANCE_REMOTE_ID)?.takeIf { it.isNotBlank() }
+            val localRoot = source.getStringExtra(EXTRA_OPEN_MAINTENANCE_LOCAL_ROOT)?.takeIf { it.isNotBlank() }
             source.removeExtra(EXTRA_OPEN_MAINTENANCE_KIND)
-            openLibraryMaintenance(kind)
+            source.removeExtra(EXTRA_OPEN_MAINTENANCE_REMOTE_ID)
+            source.removeExtra(EXTRA_OPEN_MAINTENANCE_LOCAL_ROOT)
+            openLibraryMaintenance(kind, remoteId, localRoot)
         }
     }
 

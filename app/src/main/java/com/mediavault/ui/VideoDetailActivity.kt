@@ -9,6 +9,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -21,6 +22,7 @@ import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.HistoryStore
 import com.mediavault.data.MediaItem
+import com.mediavault.data.LibrarySourceContext
 import com.mediavault.data.ScrapeEvidence
 import com.mediavault.data.TmdbMatchHeuristics
 import com.mediavault.data.WatchQueueStore
@@ -399,6 +401,12 @@ class VideoDetailActivity : AppCompatActivity() {
             visibility = if (issues.isEmpty()) View.GONE else View.VISIBLE
             setOnClickListener { openMaintenanceIssue(topIssueKind) }
         }
+        findViewById<MaterialButton>(R.id.detailMaintenanceOpenSourceBtn).setOnClickListener {
+            openSourceContext(item)
+        }
+        findViewById<MaterialButton>(R.id.detailMaintenanceRemoveBtn).setOnClickListener {
+            confirmRemoveFromLibrary(item)
+        }
     }
 
     private fun rescrapeDetailItem(item: MediaItem, issueKind: String?) {
@@ -457,6 +465,57 @@ class VideoDetailActivity : AppCompatActivity() {
                 putExtra(MainActivity.EXTRA_OPEN_MAINTENANCE_KIND, it)
             }
         })
+    }
+
+    private fun openSourceContext(item: MediaItem) {
+        val app = application as MediaVaultApp
+        val context = LibrarySourceContext.fromPath(item.path, app.repository.store.readLocalRootUris())
+        if (context == null) {
+            Toast.makeText(this, R.string.detail_maintenance_source_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            when (context.type) {
+                LibrarySourceContext.Type.REMOTE_SOURCE -> {
+                    putExtra(MainActivity.EXTRA_OPEN_MAINTENANCE_REMOTE_ID, context.key)
+                }
+                LibrarySourceContext.Type.LOCAL_ROOT -> {
+                    putExtra(MainActivity.EXTRA_OPEN_MAINTENANCE_LOCAL_ROOT, context.key)
+                }
+            }
+            putExtra(MainActivity.EXTRA_OPEN_MAINTENANCE_KIND, "")
+        })
+    }
+
+    private fun confirmRemoveFromLibrary(item: MediaItem) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.detail_maintenance_remove_title)
+            .setMessage(getString(R.string.detail_maintenance_remove_confirm, item.displayTitle()))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.library_issue_remove) { _, _ ->
+                removeFromLibrary(item)
+            }
+            .show()
+    }
+
+    private fun removeFromLibrary(item: MediaItem) {
+        val repo = (application as MediaVaultApp).repository
+        lifecycleScope.launch {
+            val removed = repo.removeItemByPath(item.path).getOrElse {
+                Toast.makeText(this@VideoDetailActivity, it.message ?: getString(R.string.detail_maintenance_remove_failed), Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            if (!removed) {
+                Toast.makeText(this@VideoDetailActivity, R.string.detail_maintenance_remove_missing, Toast.LENGTH_LONG).show()
+                bind(item.path)
+                return@launch
+            }
+            repo.refreshDiagnostics()
+            setResult(Activity.RESULT_OK)
+            Toast.makeText(this@VideoDetailActivity, R.string.library_issue_removed, Toast.LENGTH_SHORT).show()
+            finish()
+        }
     }
 
     private fun openCredentialRepair(remoteIds: List<String>) {

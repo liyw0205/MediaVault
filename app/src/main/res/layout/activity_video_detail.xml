@@ -115,6 +115,36 @@
                         android:text="@string/detail"
                         android:textSize="12sp" />
                 </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/detailMaintenanceOpenSourceBtn"
+                        style="@style/Widget.MediaVault.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:minWidth="0dp"
+                        android:text="@string/detail_maintenance_open_source"
+                        android:textSize="12sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/detailMaintenanceRemoveBtn"
+                        style="@style/Widget.MediaVault.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minWidth="0dp"
+                        android:text="@string/detail_maintenance_remove"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
 
             <TextView

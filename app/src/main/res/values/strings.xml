@@ -215,6 +215,13 @@
     <string name="detail_maintenance_rescrape">重刮此条</string>
     <string name="detail_maintenance_repair_credential">补凭据</string>
     <string name="detail_maintenance_open_issue">查看问题</string>
+    <string name="detail_maintenance_open_source">打开来源</string>
+    <string name="detail_maintenance_remove">移出库</string>
+    <string name="detail_maintenance_source_unavailable">未找到此条目的已配置媒体来源。</string>
+    <string name="detail_maintenance_remove_title">移出媒体库</string>
+    <string name="detail_maintenance_remove_confirm">将从媒体库移除“%1$s”。不会删除源文件、本机目录或远程配置。</string>
+    <string name="detail_maintenance_remove_missing">该条目已不在媒体库中。</string>
+    <string name="detail_maintenance_remove_failed">移出媒体库失败。</string>
     <string name="tmdb_rematch_title">在 TMDB 重新匹配</string>
     <string name="tmdb_rematch_field_title">标题（必填）</string>
     <string name="tmdb_rematch_field_year">年份（可空）</string>

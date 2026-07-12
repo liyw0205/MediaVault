@@ -50,6 +50,8 @@ object LibraryMaintenanceDialog {
         repository: LibraryRepository,
         onChanged: () -> Unit,
         initialIssueKind: String? = null,
+        initialRemoteId: String? = null,
+        initialLocalRoot: String? = null,
         onCredentialRepairRequested: (List<String>) -> Boolean = { false },
     ) {
         val snapshot = repository.refreshDiagnostics()
@@ -104,8 +106,16 @@ object LibraryMaintenanceDialog {
 
         var allIssues = snapshot.issues
         var selectedKind: String? = initialIssueKind?.takeIf { it.isNotBlank() }
-        var selectedSourceType = SourceTypeFilter.ALL
-        var selectedSourceKey: String? = null
+        var selectedSourceType = when {
+            !initialRemoteId.isNullOrBlank() -> SourceTypeFilter.REMOTE
+            !initialLocalRoot.isNullOrBlank() -> SourceTypeFilter.LOCAL
+            else -> SourceTypeFilter.ALL
+        }
+        var selectedSourceKey: String? = when {
+            !initialRemoteId.isNullOrBlank() -> SOURCE_FILTER_PREFIX + initialRemoteId
+            !initialLocalRoot.isNullOrBlank() -> LOCAL_ROOT_FILTER_PREFIX + initialLocalRoot
+            else -> null
+        }
         var selectedTimeFilter = TimeFilter.ALL
         var pageIndex = 0
         var options: List<FilterOption> = emptyList()
@@ -252,7 +262,14 @@ object LibraryMaintenanceDialog {
             sourceTypeFilter.setSelection(selectedSourceTypeIndex, false)
             selectedSourceType = sourceTypeOptions.getOrNull(selectedSourceTypeIndex)?.type ?: SourceTypeFilter.ALL
 
-            sourceOptions = sourceFilterOptions(activity, repository, allIssues, lookup, selectedSourceType)
+            sourceOptions = sourceFilterOptions(
+                activity,
+                repository,
+                allIssues,
+                lookup,
+                selectedSourceType,
+                selectedSourceKey,
+            )
             sourceFilter.adapter = ArrayAdapter(
                 activity,
                 android.R.layout.simple_spinner_dropdown_item,
@@ -955,6 +972,7 @@ object LibraryMaintenanceDialog {
         issues: List<LibraryIssue>,
         lookup: IssueLookup,
         sourceType: SourceTypeFilter,
+        forcedSourceKey: String?,
     ): List<FilterOption> = buildList {
         val scopedIssues = issues.filter { issue ->
             val isRemote = RemotePath.parse(issue.path) != null
@@ -966,10 +984,10 @@ object LibraryMaintenanceDialog {
         }
         add(FilterOption(null, context.getString(R.string.library_maintenance_filter_source_all, scopedIssues.size)))
         if (sourceType != SourceTypeFilter.REMOTE) {
-            addAll(localRootFilterOptions(context, repository, scopedIssues, lookup))
+            addAll(localRootFilterOptions(context, repository, scopedIssues, lookup, forcedSourceKey))
         }
         if (sourceType != SourceTypeFilter.LOCAL) {
-            addAll(remoteSourceFilterOptions(context, repository, scopedIssues))
+            addAll(remoteSourceFilterOptions(context, repository, scopedIssues, forcedSourceKey))
         }
     }
 
@@ -978,18 +996,19 @@ object LibraryMaintenanceDialog {
         repository: LibraryRepository,
         issues: List<LibraryIssue>,
         lookup: IssueLookup,
+        forcedSourceKey: String?,
     ): List<FilterOption> {
         val issueCounts = issues
             .mapNotNull { lookup.localRootForPath(it.path) }
             .groupingBy { it }
             .eachCount()
-        if (issueCounts.isEmpty()) return emptyList()
         val mediaCounts = repository.library.value.items
             .mapNotNull { lookup.localRootForPath(it.path) }
             .groupingBy { it }
             .eachCount()
         return lookup.localRoots.mapNotNull { root ->
-            val issueCount = issueCounts[root] ?: return@mapNotNull null
+            val issueCount = issueCounts[root] ?: 0
+            if (issueCount == 0 && forcedSourceKey != LOCAL_ROOT_FILTER_PREFIX + root) return@mapNotNull null
             FilterOption(
                 kind = LOCAL_ROOT_FILTER_PREFIX + root,
                 label = context.getString(
@@ -1006,19 +1025,20 @@ object LibraryMaintenanceDialog {
         context: Context,
         repository: LibraryRepository,
         issues: List<LibraryIssue>,
+        forcedSourceKey: String?,
     ): List<FilterOption> {
         val issueCounts = issues
             .mapNotNull { RemotePath.parse(it.path)?.configId }
             .groupingBy { it }
             .eachCount()
-        if (issueCounts.isEmpty()) return emptyList()
         val mediaCounts = repository.library.value.items
             .mapNotNull { RemotePath.parse(it.path)?.configId }
             .groupingBy { it }
             .eachCount()
         return repository.store.readRemotesList()
             .mapNotNull { cfg ->
-                val issueCount = issueCounts[cfg.id] ?: return@mapNotNull null
+                val issueCount = issueCounts[cfg.id] ?: 0
+                if (issueCount == 0 && forcedSourceKey != SOURCE_FILTER_PREFIX + cfg.id) return@mapNotNull null
                 val mediaCount = mediaCounts[cfg.id] ?: 0
                 val name = cfg.name.ifBlank { cfg.id }
                 FilterOption(
