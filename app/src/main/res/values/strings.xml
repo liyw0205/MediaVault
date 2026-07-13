@@ -515,6 +515,10 @@
     <string name="task_detail_retry_detail_fmt">重放自任务 %1$s；严格沿用原任务范围和增量/重建意图，不删除源文件。</string>
     <string name="task_detail_retry_started">已创建重试任务。</string>
     <string name="task_detail_retry_scope_unavailable">此旧任务没有保存可验证的原始范围，不能安全重试。请从刮削页重新选择范围。</string>
+    <string name="task_detail_retry_blocked_fmt">无法按原范围重试：%1$s。请先恢复对应媒体目录或远程源。</string>
+    <string name="task_detail_retry_missing_local_fmt">缺少本机目录 %1$d 个</string>
+    <string name="task_detail_retry_missing_remote_fmt">缺少远程源 %1$d 个</string>
+    <string name="task_detail_retry_no_sources">当前没有已配置的媒体源</string>
     <string name="remote_mapping_preview_title">远程映射变更预览</string>
     <string name="remote_mapping_preview_message_fmt">此配置变更会影响库中 %1$d 条远程媒体记录。应用只会更新远程连接配置，不会删除远程文件、媒体库记录或刮削记录。保存后请执行定向复检。\n\n样本：\n%2$s</string>
     <string name="remote_mapping_preview_apply">确认更新</string>

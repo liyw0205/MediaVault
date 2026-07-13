@@ -18,6 +18,7 @@ import com.google.android.material.button.MaterialButton
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.LibraryTaskEntry
+import com.mediavault.data.LibraryTaskReplayValidation
 import com.mediavault.data.LibraryTaskStore
 
 object LibraryTaskCenterDialog {
@@ -208,6 +209,35 @@ object LibraryTaskCenterDialog {
                 if (manager.isRunning()) {
                     Toast.makeText(activity, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
                 } else {
+                    val validation = LibraryTaskReplayValidation.validate(
+                        scope = replay,
+                        configuredLocalRootUris = manager.repository.store.readLocalRootUris(),
+                        configuredRemoteIds = manager.repository.store.readRemotesList().map { it.id },
+                    )
+                    if (!validation.canExecute) {
+                        val detail = buildList {
+                            if (validation.missingLocalRootUris.isNotEmpty()) {
+                                add(activity.getString(
+                                    R.string.task_detail_retry_missing_local_fmt,
+                                    validation.missingLocalRootUris.size,
+                                ))
+                            }
+                            if (validation.missingRemoteIds.isNotEmpty()) {
+                                add(activity.getString(
+                                    R.string.task_detail_retry_missing_remote_fmt,
+                                    validation.missingRemoteIds.size,
+                                ))
+                            }
+                        }.joinToString("；").ifBlank {
+                            activity.getString(R.string.task_detail_retry_no_sources)
+                        }
+                        Toast.makeText(
+                            activity,
+                            activity.getString(R.string.task_detail_retry_blocked_fmt, detail),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                        return@setNeutralButton
+                    }
                     manager.start(
                         rebuild = replay.rebuild,
                         localRootUris = replay.localRootUris.takeUnless { replay.fullLibrary },
