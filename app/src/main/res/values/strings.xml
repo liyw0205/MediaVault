@@ -559,6 +559,8 @@
     <string name="remote_source_rescrape">重刮此源</string>
     <string name="remote_source_no_issues">该远程源暂无待处理问题。</string>
     <string name="remote_source_rescrape_started_fmt">已开始重刮远程源：%1$s</string>
+    <string name="remote_source_rescrape_blocked_credential">请先补充远程凭据，再重刮此源。</string>
+    <string name="remote_source_rescrape_blocked_no_media">该远程源当前没有已入库媒体，请从刮削页执行增量刮削。</string>
     <string name="remote_source_media_title">源内媒体</string>
     <string name="remote_source_media_summary_fmt">%1$s · 媒体 %2$d 条 · 有问题 %3$d 条 · 待处理 %4$d 项</string>
     <string name="remote_source_media_issues_fmt">待处理 %1$d 项：%2$s</string>

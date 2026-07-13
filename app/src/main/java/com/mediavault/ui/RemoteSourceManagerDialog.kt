@@ -19,6 +19,7 @@ import com.mediavault.data.LibraryRepository
 import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.MediaItem
 import com.mediavault.data.RemoteCapability
+import com.mediavault.data.RemoteSourceActionPolicy
 import com.mediavault.data.SourceHealth
 import com.mediavault.remote.RemoteConfig
 import com.mediavault.remote.RemotePath
@@ -298,6 +299,12 @@ object RemoteSourceManagerDialog {
 
         override fun onBindViewHolder(holder: SourceVH, position: Int) {
             val source = sources[position]
+            val actions = RemoteSourceActionPolicy.evaluate(
+                credentialMissing = source.config.credentialMissing,
+                mediaCount = source.mediaCount,
+                issueCount = source.issueCount,
+                reachable = source.health?.reachable,
+            )
             holder.name.text = source.name
             holder.meta.text = activity.getString(
                 R.string.remote_source_status_meta_fmt,
@@ -324,13 +331,27 @@ object RemoteSourceManagerDialog {
                 visibility = if (error.isBlank()) View.GONE else View.VISIBLE
                 text = activity.getString(R.string.remote_source_status_error_fmt, error)
             }
-            holder.openIssues.isEnabled = source.issueCount > 0
+            holder.openIssues.isEnabled = actions.canOpenIssues
             holder.openIssues.setOnClickListener { onOpenIssues(source) }
-            holder.openMedia.isEnabled = source.mediaCount > 0
+            holder.openMedia.isEnabled = actions.canOpenMedia
             holder.openMedia.setOnClickListener { onOpenMedia(source) }
+            holder.recheck.isEnabled = actions.canRecheck
             holder.recheck.setOnClickListener { onRecheck(source) }
-            holder.rescrape.isEnabled = !source.config.credentialMissing
-            holder.rescrape.setOnClickListener { onRescrape(source) }
+            holder.rescrape.isEnabled = actions.canRescrape
+            holder.rescrape.setOnClickListener {
+                if (actions.canRescrape) {
+                    onRescrape(source)
+                } else {
+                    val message = when (actions.rescrapeBlockReason) {
+                        RemoteSourceActionPolicy.RescrapeBlockReason.CREDENTIAL_MISSING ->
+                            R.string.remote_source_rescrape_blocked_credential
+                        RemoteSourceActionPolicy.RescrapeBlockReason.NO_MEDIA ->
+                            R.string.remote_source_rescrape_blocked_no_media
+                        null -> R.string.action_failed
+                    }
+                    Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+                }
+            }
             holder.credential.visibility = if (source.config.credentialMissing) View.VISIBLE else View.GONE
             holder.credential.setOnClickListener { onRepairCredential(source) }
         }
