@@ -488,7 +488,9 @@
     <string name="task_center_empty">暂无任务记录。</string>
     <string name="task_center_empty_filtered">当前筛选下暂无任务记录。</string>
     <string name="task_center_clear_finished">清空已完成</string>
+    <string name="task_center_clear_success">仅清理成功任务</string>
     <string name="task_center_cleared_fmt">已清空 %1$d 条任务记录</string>
+    <string name="task_center_cleared_success_fmt">已清理 %1$d 条成功任务，失败和取消记录已保留</string>
     <string name="task_center_filter_all">全部</string>
     <string name="task_center_filter_running">执行中</string>
     <string name="task_center_filter_attention">需处理</string>

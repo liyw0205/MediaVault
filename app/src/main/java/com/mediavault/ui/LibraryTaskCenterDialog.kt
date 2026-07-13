@@ -18,6 +18,7 @@ import com.google.android.material.button.MaterialButton
 import com.mediavault.MediaVaultApp
 import com.mediavault.R
 import com.mediavault.data.LibraryTaskEntry
+import com.mediavault.data.LibraryTaskHistoryCleanupPolicy
 import com.mediavault.data.LibraryTaskReplayValidation
 import com.mediavault.data.LibraryTaskStore
 
@@ -31,6 +32,7 @@ object LibraryTaskCenterDialog {
         val summary = root.findViewById<TextView>(R.id.taskCenterSummary)
         val filter = root.findViewById<Spinner>(R.id.taskCenterFilter)
         val empty = root.findViewById<TextView>(R.id.taskCenterEmpty)
+        val clearSuccess = root.findViewById<MaterialButton>(R.id.taskCenterClearSuccess)
         val clear = root.findViewById<MaterialButton>(R.id.taskCenterClearFinished)
         val recycler = root.findViewById<RecyclerView>(R.id.taskCenterRecycler)
         var dialog: AlertDialog? = null
@@ -89,6 +91,7 @@ object LibraryTaskCenterDialog {
             empty.isVisible = visibleTasks.isEmpty()
             recycler.isVisible = visibleTasks.isNotEmpty()
             clear.isEnabled = tasks.any { it.status != LibraryTaskStore.STATUS_RUNNING }
+            clearSuccess.isEnabled = tasks.any { it.status == LibraryTaskStore.STATUS_SUCCESS }
             adapter.submit(visibleTasks)
         }
 
@@ -99,6 +102,17 @@ object LibraryTaskCenterDialog {
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+
+        clearSuccess.setOnClickListener {
+            val result = store.clearHistory(LibraryTaskHistoryCleanupPolicy.SUCCESS_ONLY)
+            Toast.makeText(
+                activity,
+                activity.getString(R.string.task_center_cleared_success_fmt, result.removedCount),
+                Toast.LENGTH_SHORT,
+            ).show()
+            render()
+            onChanged()
         }
 
         clear.setOnClickListener {
@@ -280,7 +294,7 @@ object LibraryTaskCenterDialog {
                     task.status == LibraryTaskStore.STATUS_FAILED ||
                     task.status == LibraryTaskStore.STATUS_CANCELLED
                 FAILED -> task.status == LibraryTaskStore.STATUS_FAILED
-                ACTIONABLE -> task.issueKind?.isNotBlank() == true
+                ACTIONABLE -> task.issueKind?.isNotBlank() == true || LibraryTaskStore.canSafelyRetry(task)
             }
     }
 

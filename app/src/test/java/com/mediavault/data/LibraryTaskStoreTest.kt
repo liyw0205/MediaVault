@@ -9,6 +9,59 @@ import org.json.JSONObject
 
 class LibraryTaskStoreTest {
     @Test
+    fun cleanupHistory_successOnly_removesSuccessAndKeepsRunningAndOtherHistory() {
+        val tasks = listOf(
+            task("running", LibraryTaskStore.STATUS_RUNNING),
+            task("success", LibraryTaskStore.STATUS_SUCCESS),
+            task("partial", LibraryTaskStore.STATUS_PARTIAL),
+            task("failed", LibraryTaskStore.STATUS_FAILED),
+            task("cancelled", LibraryTaskStore.STATUS_CANCELLED),
+        )
+
+        val result = LibraryTaskStore.cleanupHistory(
+            tasks,
+            LibraryTaskHistoryCleanupPolicy.SUCCESS_ONLY,
+        )
+
+        assertEquals(listOf("running", "partial", "failed", "cancelled"), result.entries.map { it.id })
+        assertEquals(1, result.removedCount)
+        assertEquals(4, result.keptCount)
+    }
+
+    @Test
+    fun cleanupHistory_allFinished_removesEveryEndedTaskButNeverRunning() {
+        val tasks = listOf(
+            task("running-1", LibraryTaskStore.STATUS_RUNNING),
+            task("success", LibraryTaskStore.STATUS_SUCCESS),
+            task("partial", LibraryTaskStore.STATUS_PARTIAL),
+            task("failed", LibraryTaskStore.STATUS_FAILED),
+            task("cancelled", LibraryTaskStore.STATUS_CANCELLED),
+            task("running-2", LibraryTaskStore.STATUS_RUNNING),
+        )
+
+        val result = LibraryTaskStore.cleanupHistory(
+            tasks,
+            LibraryTaskHistoryCleanupPolicy.ALL_FINISHED,
+        )
+
+        assertEquals(listOf("running-1", "running-2"), result.entries.map { it.id })
+        assertEquals(4, result.removedCount)
+        assertEquals(2, result.keptCount)
+    }
+
+    @Test
+    fun cleanupHistory_emptyInput_returnsZeroStatistics() {
+        val result = LibraryTaskStore.cleanupHistory(
+            emptyList(),
+            LibraryTaskHistoryCleanupPolicy.ALL_FINISHED,
+        )
+
+        assertTrue(result.entries.isEmpty())
+        assertEquals(0, result.removedCount)
+        assertEquals(0, result.keptCount)
+    }
+
+    @Test
     fun taskEntry_roundTripsJsonFields() {
         val entry = LibraryTaskEntry(
             id = "task-1",
@@ -210,4 +263,14 @@ class LibraryTaskStoreTest {
         assertTrue(LibraryTaskStore.canSafelyRetry(task))
         assertTrue(task.replayScope?.rebuild == true)
     }
+
+    private fun task(id: String, status: String): LibraryTaskEntry = LibraryTaskEntry(
+        id = id,
+        type = LibraryTaskStore.TYPE_SCRAPE,
+        title = id,
+        status = status,
+        createdAt = "--",
+        updatedAt = "--",
+        summary = "",
+    )
 }

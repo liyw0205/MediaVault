@@ -146,6 +146,17 @@ data class LibraryTaskEntry(
     }
 }
 
+enum class LibraryTaskHistoryCleanupPolicy {
+    SUCCESS_ONLY,
+    ALL_FINISHED,
+}
+
+data class LibraryTaskHistoryCleanupResult(
+    val entries: List<LibraryTaskEntry>,
+    val removedCount: Int,
+    val keptCount: Int,
+)
+
 class LibraryTaskStore(context: Context) {
     private val file: File = File(context.applicationContext.filesDir, "mediavault/library-tasks.json")
 
@@ -255,12 +266,16 @@ class LibraryTaskStore(context: Context) {
         }
     }
 
-    fun clearFinished(): Int = synchronized(LOCK) {
-        val entries = readUnlocked()
-        val kept = entries.filter { it.status == STATUS_RUNNING }
-        writeUnlocked(kept)
-        entries.size - kept.size
+    fun clearHistory(
+        policy: LibraryTaskHistoryCleanupPolicy,
+    ): LibraryTaskHistoryCleanupResult = synchronized(LOCK) {
+        val result = cleanupHistory(readUnlocked(), policy)
+        writeUnlocked(result.entries)
+        result
     }
+
+    fun clearFinished(): Int =
+        clearHistory(LibraryTaskHistoryCleanupPolicy.ALL_FINISHED).removedCount
 
     private fun readUnlocked(): List<LibraryTaskEntry> = runCatching {
         if (!file.isFile) return emptyList()
@@ -314,5 +329,26 @@ class LibraryTaskStore(context: Context) {
             task.type == TYPE_SCRAPE &&
                 task.status in setOf(STATUS_FAILED, STATUS_PARTIAL, STATUS_CANCELLED) &&
                 task.replayScope?.isReplayable() == true
+
+        fun cleanupHistory(
+            entries: List<LibraryTaskEntry>,
+            policy: LibraryTaskHistoryCleanupPolicy,
+        ): LibraryTaskHistoryCleanupResult {
+            val kept = entries.filterNot { task ->
+                if (task.status == STATUS_RUNNING) {
+                    false
+                } else {
+                    when (policy) {
+                        LibraryTaskHistoryCleanupPolicy.SUCCESS_ONLY -> task.status == STATUS_SUCCESS
+                        LibraryTaskHistoryCleanupPolicy.ALL_FINISHED -> true
+                    }
+                }
+            }
+            return LibraryTaskHistoryCleanupResult(
+                entries = kept,
+                removedCount = entries.size - kept.size,
+                keptCount = kept.size,
+            )
+        }
     }
 }
