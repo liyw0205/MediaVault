@@ -6,6 +6,7 @@ import androidx.core.content.ContextCompat
 import com.mediavault.R
 import com.mediavault.data.LibraryRepository
 import com.mediavault.data.LibraryTaskFailure
+import com.mediavault.data.LibraryTaskReplayScope
 import com.mediavault.data.LibraryTaskStatistics
 import com.mediavault.data.LibraryTaskStore
 import com.mediavault.data.TmdbMatchHeuristics
@@ -57,6 +58,13 @@ class ScrapeManager(
         taskIssueKind: String? = null,
     ) {
         if (isRunning()) return
+        val fullLibrary = localRootUris.isNullOrEmpty() && remoteIds.isNullOrEmpty()
+        val replayScope = LibraryTaskReplayScope(
+            fullLibrary = fullLibrary,
+            localRootUris = localRootUris.orEmpty().distinct(),
+            remoteIds = remoteIds.orEmpty().distinct(),
+            rebuild = rebuild,
+        )
         val (localScopeCount, remoteScopeCount) = taskScopeCounts(localRootUris, remoteIds)
         val taskId = LibraryTaskStore(app).recordStarted(
             type = LibraryTaskStore.TYPE_SCRAPE,
@@ -66,6 +74,7 @@ class ScrapeManager(
             issueKind = taskIssueKind,
             localScopeCount = localScopeCount,
             remoteScopeCount = remoteScopeCount,
+            replayScope = replayScope,
         )
         writeJob(JSONObject().apply {
             put("running", true)

@@ -45,6 +45,51 @@ data class LibraryTaskStatistics(
     }
 }
 
+data class LibraryTaskReplayScope(
+    val version: Int = CURRENT_VERSION,
+    val fullLibrary: Boolean,
+    val localRootUris: List<String>,
+    val remoteIds: List<String>,
+    val rebuild: Boolean,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("version", version)
+        put("fullLibrary", fullLibrary)
+        put("localRootUris", JSONArray(localRootUris))
+        put("remoteIds", JSONArray(remoteIds))
+        put("rebuild", rebuild)
+    }
+
+    fun isReplayable(): Boolean =
+        version == CURRENT_VERSION &&
+            (fullLibrary || localRootUris.isNotEmpty() || remoteIds.isNotEmpty()) &&
+            !(fullLibrary && (localRootUris.isNotEmpty() || remoteIds.isNotEmpty())) &&
+            localRootUris.all { it.isNotBlank() } &&
+            remoteIds.all { it.isNotBlank() }
+
+    companion object {
+        const val CURRENT_VERSION = 1
+
+        fun fromJson(value: JSONObject?): LibraryTaskReplayScope? {
+            if (value == null) return null
+            return LibraryTaskReplayScope(
+                version = value.optInt("version", 0),
+                fullLibrary = value.optBoolean("fullLibrary", false),
+                localRootUris = value.optJSONArray("localRootUris").toStringList(),
+                remoteIds = value.optJSONArray("remoteIds").toStringList(),
+                rebuild = value.optBoolean("rebuild", false),
+            )
+        }
+
+        private fun JSONArray?.toStringList(): List<String> {
+            if (this == null) return emptyList()
+            return (0 until length()).mapNotNull { index ->
+                optString(index, "").takeIf { it.isNotBlank() }
+            }
+        }
+    }
+}
+
 data class LibraryTaskEntry(
     val id: String,
     val type: String,
@@ -60,6 +105,7 @@ data class LibraryTaskEntry(
     val statistics: LibraryTaskStatistics = LibraryTaskStatistics(),
     val failureCategory: String? = null,
     val failureSummary: String? = null,
+    val replayScope: LibraryTaskReplayScope? = null,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -76,6 +122,7 @@ data class LibraryTaskEntry(
         put("statistics", statistics.toJson())
         put("failureCategory", failureCategory ?: "")
         put("failureSummary", failureSummary ?: "")
+        replayScope?.let { put("replayScope", it.toJson()) }
     }
 
     companion object {
@@ -94,6 +141,7 @@ data class LibraryTaskEntry(
             statistics = LibraryTaskStatistics.fromJson(o.optJSONObject("statistics")),
             failureCategory = o.optString("failureCategory", "").takeIf { it.isNotBlank() },
             failureSummary = o.optString("failureSummary", "").takeIf { it.isNotBlank() },
+            replayScope = LibraryTaskReplayScope.fromJson(o.optJSONObject("replayScope")),
         )
     }
 }
@@ -116,6 +164,7 @@ class LibraryTaskStore(context: Context) {
         localScopeCount: Int = 0,
         remoteScopeCount: Int = 0,
         statistics: LibraryTaskStatistics = LibraryTaskStatistics(),
+        replayScope: LibraryTaskReplayScope? = null,
     ): String = synchronized(LOCK) {
         val now = nowText()
         val entries = readUnlocked()
@@ -133,6 +182,7 @@ class LibraryTaskStore(context: Context) {
             localScopeCount = localScopeCount,
             remoteScopeCount = remoteScopeCount,
             statistics = statistics,
+            replayScope = replayScope,
         )
         writeUnlocked(listOf(entry) + entries.filterNot { it.id == id })
         id
@@ -148,6 +198,7 @@ class LibraryTaskStore(context: Context) {
         localScopeCount: Int = 0,
         remoteScopeCount: Int = 0,
         statistics: LibraryTaskStatistics = LibraryTaskStatistics(),
+        replayScope: LibraryTaskReplayScope? = null,
     ): String = synchronized(LOCK) {
         val now = nowText()
         val entries = readUnlocked()
@@ -165,6 +216,7 @@ class LibraryTaskStore(context: Context) {
             localScopeCount = localScopeCount,
             remoteScopeCount = remoteScopeCount,
             statistics = statistics,
+            replayScope = replayScope,
         )
         writeUnlocked(listOf(entry) + entries.filterNot { it.id == id })
         id
@@ -261,7 +313,6 @@ class LibraryTaskStore(context: Context) {
         fun canSafelyRetry(task: LibraryTaskEntry): Boolean =
             task.type == TYPE_SCRAPE &&
                 task.status in setOf(STATUS_FAILED, STATUS_PARTIAL, STATUS_CANCELLED) &&
-                task.localScopeCount == 0 &&
-                task.remoteScopeCount == 0
+                task.replayScope?.isReplayable() == true
     }
 }

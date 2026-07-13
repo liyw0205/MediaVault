@@ -189,7 +189,13 @@ object LibraryTaskCenterDialog {
             }
             if (requiresAttention(task) && issueKind == null) {
                 append("\n\n")
-                append(activity.getString(R.string.task_detail_no_action))
+                append(activity.getString(
+                    if (task.type == LibraryTaskStore.TYPE_SCRAPE && task.replayScope == null) {
+                        R.string.task_detail_retry_scope_unavailable
+                    } else {
+                        R.string.task_detail_no_action
+                    },
+                ))
             }
         }
         val builder = MvDialog.builder(activity)
@@ -198,11 +204,14 @@ object LibraryTaskCenterDialog {
         if (LibraryTaskStore.canSafelyRetry(task)) {
             builder.setNeutralButton(R.string.task_detail_retry) { _, _ ->
                 val manager = (activity.application as MediaVaultApp).scrapeManager
+                val replay = task.replayScope ?: return@setNeutralButton
                 if (manager.isRunning()) {
                     Toast.makeText(activity, R.string.scrape_already_running, Toast.LENGTH_SHORT).show()
                 } else {
                     manager.start(
-                        rebuild = false,
+                        rebuild = replay.rebuild,
+                        localRootUris = replay.localRootUris.takeUnless { replay.fullLibrary },
+                        remoteIds = replay.remoteIds.takeUnless { replay.fullLibrary },
                         taskTitle = activity.getString(R.string.task_detail_retry_title_fmt, task.title),
                         taskDetail = activity.getString(R.string.task_detail_retry_detail_fmt, task.id),
                         taskIssueKind = task.issueKind,
