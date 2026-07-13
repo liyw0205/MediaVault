@@ -210,10 +210,23 @@ class ScrapeDirectoriesPanelController(
                 return@show
             }
             val samples = preview.samplePaths.joinToString("\n")
+            val changes = preview.changes.joinToString("、") { change ->
+                activity.getString(when (change) {
+                    RemoteMappingPreview.ChangeField.PROTOCOL -> R.string.remote_mapping_change_protocol
+                    RemoteMappingPreview.ChangeField.HOST -> R.string.remote_mapping_change_host
+                    RemoteMappingPreview.ChangeField.PORT -> R.string.remote_mapping_change_port
+                    RemoteMappingPreview.ChangeField.BASE_PATH -> R.string.remote_mapping_change_base_path
+                })
+            }
             MvDialog.show(
                 MvDialog.builder(activity)
                     .setTitle(R.string.remote_mapping_preview_title)
-                    .setMessage(activity.getString(R.string.remote_mapping_preview_message_fmt, preview.affectedCount, samples))
+                    .setMessage(activity.getString(
+                        R.string.remote_mapping_preview_message_fmt,
+                        changes,
+                        preview.affectedCount,
+                        samples.ifBlank { activity.getString(R.string.remote_mapping_preview_no_samples) },
+                    ))
                     .setNegativeButton(android.R.string.cancel, null)
                     .setPositiveButton(R.string.remote_mapping_preview_apply) { _, _ -> apply() },
             )

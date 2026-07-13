@@ -520,8 +520,13 @@
     <string name="task_detail_retry_missing_remote_fmt">缺少远程源 %1$d 个</string>
     <string name="task_detail_retry_no_sources">当前没有已配置的媒体源</string>
     <string name="remote_mapping_preview_title">远程映射变更预览</string>
-    <string name="remote_mapping_preview_message_fmt">此配置变更会影响库中 %1$d 条远程媒体记录。应用只会更新远程连接配置，不会删除远程文件、媒体库记录或刮削记录。保存后请执行定向复检。\n\n样本：\n%2$s</string>
+    <string name="remote_mapping_preview_message_fmt">变更字段：%1$s\n关联媒体：%2$d 条\n\n应用只更新远程连接配置，不重写或删除媒体库路径、刮削记录和远程文件；保存后会定向复检。\n\n关联样本：\n%3$s</string>
     <string name="remote_mapping_preview_apply">确认更新</string>
+    <string name="remote_mapping_preview_no_samples">无关联媒体记录</string>
+    <string name="remote_mapping_change_protocol">协议</string>
+    <string name="remote_mapping_change_host">主机</string>
+    <string name="remote_mapping_change_port">端口</string>
+    <string name="remote_mapping_change_base_path">基础路径</string>
     <string name="remote_mapping_recheck_started">映射已更新，正在定向复检远程源。</string>
     <string name="remote_mapping_recheck_done">映射复检完成：远程源%1$s。</string>
     <string name="task_detail_empty_value">无</string>
