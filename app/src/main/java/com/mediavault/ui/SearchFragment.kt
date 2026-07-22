@@ -39,6 +39,7 @@ class SearchFragment : Fragment() {
     private var source: SearchOptions.Source = SearchOptions.Source.All
     private var typeFilter: SearchOptions.Type = SearchOptions.Type.All
     private var watchState: SearchOptions.WatchState = SearchOptions.WatchState.All
+    private var filtersExpanded: Boolean = true
     private val progressStore by lazy { PlaybackProgressStore(requireContext()) }
     private val historyStore by lazy { HistoryStore(requireContext()) }
     private val queueStore by lazy { WatchQueueStore(requireContext()) }
@@ -120,7 +121,12 @@ class SearchFragment : Fragment() {
         watchBtn.setOnClickListener { showWatchMenu(view) }
         sourceBtn.setOnClickListener { showSourceMenu(view) }
         typeBtn.setOnClickListener { showTypeMenu(view) }
+        view.findViewById<MaterialButton>(R.id.searchFiltersToggle)?.setOnClickListener {
+            filtersExpanded = !filtersExpanded
+            applyFiltersCollapseState(view)
+        }
         refreshFilterLabels(view)
+        applyFiltersCollapseState(view)
 
         // 恢复 query 优先于 ARG_QUERY；新建时用 ARG_QUERY
         val restoredQuery = savedInstanceState?.getString(STATE_QUERY)
@@ -151,6 +157,8 @@ class SearchFragment : Fragment() {
             currentQuery = ""
             lastQueryForTags = ""
             lastHits = emptyList()
+            filtersExpanded = true
+            applyFiltersCollapseState(view)
         } else {
             runSearch(view, query)
         }
@@ -158,6 +166,7 @@ class SearchFragment : Fragment() {
 
     private fun runSearch(view: View, query: String) {
         searchJob?.cancel()
+        val prevQuery = currentQuery
         currentQuery = query
         val act = activity as? MainActivity ?: return
         val all = act.repository.library.value.items
@@ -177,9 +186,16 @@ class SearchFragment : Fragment() {
             resizeTagScroller(view, tagGroup)
             lastQueryForTags = ""
             lastHits = emptyList()
+            filtersExpanded = true
+            applyFiltersCollapseState(view)
             return
         }
 
+        // 仅在关键词变化时自动折叠；改排序/来源/类型不强制收起
+        if (query != prevQuery) {
+            filtersExpanded = false
+        }
+        applyFiltersCollapseState(view)
         progress.visibility = View.VISIBLE
         grid.visibility = View.VISIBLE
         listPager.resetPage()
@@ -388,6 +404,24 @@ class SearchFragment : Fragment() {
         view.findViewById<MaterialButton>(R.id.searchWatchBtn).text = "状态 · $watchLabel"
         view.findViewById<MaterialButton>(R.id.searchSourceBtn).text = "来源 · $sourceLabel"
         view.findViewById<MaterialButton>(R.id.searchTypeBtn).text = "类型 · $typeLabel"
+        applyFiltersCollapseState(view)
+    }
+
+    private fun applyFiltersCollapseState(view: View) {
+        val row = view.findViewById<View>(R.id.searchFiltersRow) ?: return
+        val toggle = view.findViewById<MaterialButton>(R.id.searchFiltersToggle)
+        val hasQuery = currentQuery.isNotBlank()
+        // 无关键词时展开筛选；有关键词后默认折叠
+        val showFilters = !hasQuery || filtersExpanded
+        row.isVisible = showFilters
+        if (toggle != null) {
+            toggle.isVisible = hasQuery
+            toggle.text = if (filtersExpanded) {
+                getString(R.string.search_filters_collapse)
+            } else {
+                getString(R.string.search_filters_expand)
+            }
+        }
     }
 
     private fun bindTagChips(view: View, tagGroup: ChipGroup, tags: List<String>) {

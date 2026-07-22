@@ -7,41 +7,40 @@
     android:background="@color/mv_bg"
     android:orientation="vertical">
 
-    <ScrollView
+    <!-- 剧集/标签/类型置顶一行 + 翻页，矮高度 -->
+    <LinearLayout
         android:id="@+id/fusionMetaPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/mv_surface"
-        android:fillViewport="false"
-        android:maxHeight="@dimen/mv_fusion_meta_band_max"
-        android:overScrollMode="never"
-        android:scrollbars="none"
-        android:paddingHorizontal="8dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="6dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp">
 
-        <LinearLayout
-            android:id="@+id/fusionTagInfoPanel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/collectionsTabLayout"
+            style="@style/Widget.MediaVault.TabLayout"
+            android:layout_width="0dp"
+            android:layout_height="32dp"
+            android:layout_weight="1"
+            app:tabGravity="fill"
+            app:tabMode="fixed"
+            app:tabMinWidth="48dp"
+            app:tabPaddingEnd="4dp"
+            app:tabPaddingStart="4dp"
+            app:tabTextAppearance="@style/TextAppearance.MediaVault.Land.Tab" />
 
-            <com.google.android.material.tabs.TabLayout
-                android:id="@+id/collectionsTabLayout"
-                style="@style/Widget.MediaVault.TabLayout"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                app:tabGravity="fill"
-                app:tabMode="fixed"
-                app:tabMinWidth="52dp"
-                app:tabPaddingEnd="6dp"
-                app:tabPaddingStart="6dp" />
+        <include layout="@layout/include_list_pager_compact_land" />
+    </LinearLayout>
 
-            <include layout="@layout/include_list_pager_compact_land" />
-        </LinearLayout>
-    </ScrollView>
+    <!-- 隐藏兼容：旧代码若仍找 fusionTagInfoPanel -->
+    <LinearLayout
+        android:id="@+id/fusionTagInfoPanel"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
 
     <FrameLayout
         android:id="@+id/fusionMediaPanel"

@@ -226,28 +226,73 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.fusionNavRailWrap)?.isVisible = fusion
     }
 
-    private fun applyTabChrome(tag: String, title: String) {
+    private fun applyTabChrome(tag: String, @Suppress("UNUSED_PARAMETER") title: String) {
         currentTabTag = tag
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
-        toolbar.title = title
         toolbar.navigationIcon = null
         toolbar.setNavigationOnClickListener(null)
         toolbar.menu.clear()
-        val menuRes = when (tag) {
-            TAG_HOME -> R.menu.main_top_home
-            TAG_SCRAPE -> R.menu.main_top_scrape
-            else -> R.menu.main_top_other
-        }
-        toolbar.inflateMenu(menuRes)
-        if (tag == TAG_SCRAPE) {
-            if (HomeUiPrefs.useTvFusionUi(this)) {
-                toolbar.menu.removeItem(R.id.action_scrape_drawer)
-                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
-            } else {
-                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.END)
-            }
-        } else {
+        toolbar.setOnClickListener(null)
+
+        if (tag != TAG_SCRAPE) {
+            // 主页/搜索/合集：去掉顶栏，把高度让给内容（横竖屏一致）
+            toolbar.isVisible = false
             drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
+            return
+        }
+
+        // 刮削页：不显示「刮削」标题；原主页「重读」放到标题位（左侧），可点
+        toolbar.isVisible = true
+        toolbar.title = getString(R.string.reload)
+        toolbar.inflateMenu(R.menu.main_top_scrape)
+        if (HomeUiPrefs.useTvFusionUi(this)) {
+            // 横屏设置在第三栏，无需抽屉入口
+            toolbar.menu.removeItem(R.id.action_scrape_drawer)
+            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END)
+        } else {
+            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.END)
+        }
+        bindScrapeTitleAsReload(toolbar)
+    }
+
+    /** 把工具栏左侧标题「重读」做成点击入口（替代原主页菜单项）。 */
+    private fun bindScrapeTitleAsReload(toolbar: MaterialToolbar) {
+        val reloadLabel = getString(R.string.reload)
+        toolbar.title = reloadLabel
+        toolbar.post {
+            if (currentTabTag != TAG_SCRAPE) return@post
+            for (i in 0 until toolbar.childCount) {
+                val child = toolbar.getChildAt(i)
+                if (child is android.widget.TextView &&
+                    child.text?.toString() == reloadLabel
+                ) {
+                    child.isClickable = true
+                    child.isFocusable = true
+                    child.setOnClickListener { performLibraryReload() }
+                    return@post
+                }
+            }
+            toolbar.setOnClickListener { performLibraryReload() }
+        }
+    }
+
+    private fun performLibraryReload() {
+        HomeRecommendState.clearPersist(this)
+        HomeRecommendState.resetAutoSeedFlag(this)
+        homeFragment()?.pendingRecommendRebuild = true
+        lifecycleScope.launch {
+            repository.reload()
+                .onSuccess { n ->
+                    Toast.makeText(this@MainActivity, getString(R.string.items_count, n), Toast.LENGTH_SHORT).show()
+                    refreshHome(recommendPathsOnly = false)
+                }
+                .onFailure { e ->
+                    Toast.makeText(
+                        this@MainActivity,
+                        e.message ?: getString(R.string.reload_failed),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
         }
     }
 
@@ -287,8 +332,8 @@ class MainActivity : AppCompatActivity() {
         drawerLayout.setScrimColor(getColor(R.color.mv_player_scrim_mid))
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
-        toolbar.title = getString(R.string.app_name)
-        toolbar.inflateMenu(R.menu.main_top_home)
+        toolbar.title = ""
+        toolbar.menu.clear()
         toolbar.setOnMenuItemClickListener { onTopMenu(it) }
     }
 
@@ -1052,19 +1097,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onTopMenu(item: MenuItem): Boolean = when (item.itemId) {
         R.id.action_reload -> {
-            HomeRecommendState.clearPersist(this)
-            HomeRecommendState.resetAutoSeedFlag(this)
-            homeFragment()?.pendingRecommendRebuild = true
-            lifecycleScope.launch {
-                repository.reload()
-                    .onSuccess { n ->
-                        Toast.makeText(this@MainActivity, getString(R.string.items_count, n), Toast.LENGTH_SHORT).show()
-                        refreshHome(recommendPathsOnly = false)
-                    }
-                    .onFailure { e ->
-                        Toast.makeText(this@MainActivity, e.message ?: getString(R.string.reload_failed), Toast.LENGTH_LONG).show()
-                    }
-            }
+            performLibraryReload()
             true
         }
         R.id.action_scrape_drawer -> {

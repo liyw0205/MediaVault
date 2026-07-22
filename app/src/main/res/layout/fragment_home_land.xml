@@ -21,9 +21,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="8dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp">
+            android:paddingHorizontal="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp">
 
             <LinearLayout
                 android:id="@+id/summaryRow"
@@ -230,7 +230,7 @@
                         android:id="@+id/homeFilterChips"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        app:chipSpacingHorizontal="4dp"
+                        app:chipSpacingHorizontal="3dp"
                         app:singleLine="true"
                         app:singleSelection="true" />
                 </HorizontalScrollView>
@@ -239,7 +239,7 @@
                     android:id="@+id/homePager"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="4dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -252,7 +252,7 @@
                         android:focusableInTouchMode="true"
                         android:minHeight="@dimen/mv_fusion_btn_min_height"
                         android:minWidth="0dp"
-                        android:paddingHorizontal="8dp"
+                        android:paddingHorizontal="6dp"
                         android:text="@string/prev_page"
                         android:textSize="@dimen/mv_fusion_pager_btn_text" />
 
@@ -261,20 +261,20 @@
                         style="@style/Widget.MediaVault.Button"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
+                        android:layout_marginStart="2dp"
                         android:focusable="true"
                         android:focusableInTouchMode="true"
                         android:minHeight="@dimen/mv_fusion_btn_min_height"
                         android:minWidth="0dp"
-                        android:paddingHorizontal="8dp"
+                        android:paddingHorizontal="6dp"
                         android:text="@string/next_page"
                         android:textSize="@dimen/mv_fusion_pager_btn_text" />
 
                     <TextView
                         android:id="@+id/pageInfo"
-                        android:layout_width="76dp"
+                        android:layout_width="72dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="4dp"
+                        android:layout_marginHorizontal="2dp"
                         android:clickable="true"
                         android:ellipsize="end"
                         android:focusable="true"
@@ -283,7 +283,7 @@
                         android:maxLines="1"
                         android:minHeight="@dimen/mv_fusion_btn_min_height"
                         android:textColor="@color/mv_primary"
-                        android:textSize="12sp" />
+                        android:textSize="11sp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/homePagerActionBtn"
@@ -294,7 +294,7 @@
                         android:focusableInTouchMode="true"
                         android:minHeight="@dimen/mv_fusion_btn_min_height"
                         android:minWidth="0dp"
-                        android:paddingHorizontal="8dp"
+                        android:paddingHorizontal="6dp"
                         android:text="@string/refresh_recommend"
                         android:textColor="@color/mv_bg"
                         android:textSize="@dimen/mv_fusion_pager_btn_text" />

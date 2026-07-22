@@ -69,7 +69,37 @@
             android:indeterminate="true"
             android:visibility="gone" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/searchCount"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/mv_muted"
+                android:textSize="11sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/searchFiltersToggle"
+                style="@style/Widget.MediaVault.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:paddingHorizontal="8dp"
+                android:text="@string/search_filters_expand"
+                android:textSize="11sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
         <HorizontalScrollView
+            android:id="@+id/searchFiltersRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
@@ -126,14 +156,6 @@
                     android:textSize="12sp" />
             </LinearLayout>
         </HorizontalScrollView>
-
-        <TextView
-            android:id="@+id/searchCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/mv_muted"
-            android:textSize="11sp" />
 
         <ScrollView
             android:id="@+id/searchTagsScroll"

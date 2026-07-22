@@ -519,7 +519,7 @@ class HomeFragment : Fragment() {
     private fun rebuildFilterChips(view: View, items: List<MediaItem>) {
         val group = view.findViewById<ChipGroup>(R.id.homeFilterChips)
         val fusion = HomeUiPrefs.useTvFusionUi(requireContext())
-        FusionTagLayoutHelper.applyFusionChipGroup(group, fusion)
+        FusionTagLayoutHelper.applyFusionChipGroup(group, fusion, singleLine = true)
         group.isSingleSelection = true
         group.removeAllViews()
         val ctx = requireContext()
