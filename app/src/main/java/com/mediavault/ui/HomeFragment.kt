@@ -36,6 +36,8 @@ class HomeFragment : Fragment() {
     private var homeFilter = "recommend"
     private var page = 1
     private var lastChipRootsKey: String? = null
+    /** 横屏工作台：默认折叠，可展开；竖屏始终展开 */
+    private var workbenchExpanded = false
     /** 工具栏「重读」后为 true，在推荐 Tab 下重建持久化列表 */
     var pendingRecommendRebuild = false
 
@@ -125,7 +127,10 @@ class HomeFragment : Fragment() {
     }
 
     fun onFusionUiChanged() {
-        view?.let { FusionLandscapeShell.applyFragmentRoot(it, FusionUiMetrics.SidebarKind.Home) }
+        view?.let {
+            FusionLandscapeShell.applyFragmentRoot(it, FusionUiMetrics.SidebarKind.Home)
+            applyWorkbenchCollapseState(it)
+        }
         view?.findViewById<RecyclerView>(R.id.gridRecycler)?.let { applyHomeGrid(it) }
         if (::adapter.isInitialized) adapter.notifyDataSetChanged()
     }
@@ -251,8 +256,15 @@ class HomeFragment : Fragment() {
         val badSources = snapshot.sourceHealth.count { it.reachable == false }
         val uncheckedSources = snapshot.sourceHealth.count { it.reachable == null }
 
-        view.findViewById<TextView>(R.id.homeWorkbenchSummary).text =
-            getString(R.string.home_workbench_summary_fmt, items.size, localCount, remoteCount, snapshot.totalIssues)
+        val summaryText = getString(
+            R.string.home_workbench_summary_fmt,
+            items.size,
+            localCount,
+            remoteCount,
+            snapshot.totalIssues,
+        )
+        view.findViewById<TextView>(R.id.homeWorkbenchSummary).text = summaryText
+        view.findViewById<TextView>(R.id.homeWorkbenchCollapsedHint)?.text = summaryText
         view.findViewById<TextView>(R.id.homeWorkbenchSources).text =
             getString(
                 R.string.home_workbench_sources_fmt,
@@ -267,8 +279,35 @@ class HomeFragment : Fragment() {
         view.findViewById<MaterialButton>(R.id.homeWorkbenchOpenTasks).setOnClickListener {
             act.openTaskCenter()
         }
+        view.findViewById<MaterialButton>(R.id.homeWorkbenchToggle)?.setOnClickListener {
+            workbenchExpanded = !workbenchExpanded
+            applyWorkbenchCollapseState(view)
+        }
         bindLatestTask(view)
         bindPendingIssues(view, snapshot)
+        applyWorkbenchCollapseState(view)
+    }
+
+    /** 横屏：默认折叠工作台正文，只留标题行 + 摘要提示；可点展开。竖屏无 body 控件则跳过。 */
+    private fun applyWorkbenchCollapseState(view: View) {
+        val body = view.findViewById<View>(R.id.homeWorkbenchBody) ?: return
+        val fusion = HomeUiPrefs.useTvFusionUi(requireContext())
+        val toggle = view.findViewById<MaterialButton>(R.id.homeWorkbenchToggle)
+        val hint = view.findViewById<TextView>(R.id.homeWorkbenchCollapsedHint)
+        if (!fusion) {
+            body.isVisible = true
+            toggle?.isVisible = false
+            hint?.isVisible = false
+            return
+        }
+        toggle?.isVisible = true
+        body.isVisible = workbenchExpanded
+        hint?.isVisible = !workbenchExpanded
+        toggle?.text = if (workbenchExpanded) {
+            getString(R.string.home_workbench_collapse)
+        } else {
+            getString(R.string.home_workbench_expand)
+        }
     }
 
     private fun bindLatestTask(view: View) {

@@ -133,6 +133,8 @@
     <string name="home_recent_empty">扫描或刮削后会显示最近更新的视频。</string>
     <string name="home_section_count_title_fmt">%1$s %2$d</string>
     <string name="home_workbench_title">媒体库工作台</string>
+    <string name="home_workbench_expand">展开 ▾</string>
+    <string name="home_workbench_collapse">收起 ▴</string>
     <string name="home_workbench_summary_fmt">库 %1$d 条 · 本机 %2$d · 远程 %3$d · 待处理 %4$d</string>
     <string name="home_workbench_summary_placeholder">库 0 条 · 本机 0 · 远程 0 · 待处理 0</string>
     <string name="home_workbench_sources_fmt">源 %1$d 个 · 异常 %2$d · 未检查 %3$d · 上次检查 %4$s</string>
