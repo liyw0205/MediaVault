@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import android.view.inputmethod.EditorInfo
 import android.widget.ProgressBar
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -443,21 +442,42 @@ class SearchFragment : Fragment() {
     }
 
     private fun resizeTagScroller(view: View, tagGroup: ChipGroup) {
-        val scroll = view.findViewById<ScrollView>(R.id.searchTagsScroll) ?: return
-        scroll.visibility = if (tagGroup.childCount == 0) View.GONE else View.VISIBLE
-        if (tagGroup.childCount == 0) return
-        val gridVisible = view.findViewById<RecyclerView>(R.id.searchRecycler)?.isVisible == true
+        // 竖屏/横屏统一用 searchTagsScroll；横屏缺该 id 时标签会无限撑高且无法滑
+        val scroll = view.findViewById<View>(R.id.searchTagsScroll) ?: return
+        if (tagGroup.childCount == 0) {
+            scroll.visibility = View.GONE
+            return
+        }
+        scroll.visibility = View.VISIBLE
+        tagGroup.isSingleLine = false
         scroll.post {
+            val width = (scroll.width.takeIf { it > 0 } ?: view.width)
+                .coerceAtLeast(1)
+            val contentW = (width - scroll.paddingLeft - scroll.paddingRight).coerceAtLeast(1)
+            val wSpec = View.MeasureSpec.makeMeasureSpec(contentW, View.MeasureSpec.EXACTLY)
+            val hSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            tagGroup.measure(wSpec, hSpec)
+
             val rootHeight = view.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
-            val maxHeight = (rootHeight * if (gridVisible) 0.22f else 0.58f).toInt()
-                .coerceAtLeast(if (gridVisible) 96.dp() else 220.dp())
+            val gridVisible = view.findViewById<RecyclerView>(R.id.searchRecycler)?.isVisible == true
+            // 有结果时给标签区有限高度并允许内部滚动；无结果时放宽，方便浏览标签
+            val maxHeight = (rootHeight * if (gridVisible) 0.28f else 0.48f).toInt()
+                .coerceAtLeast(if (gridVisible) 120.dp() else 200.dp())
             val contentHeight = tagGroup.measuredHeight + scroll.paddingTop + scroll.paddingBottom
-            val target = contentHeight.coerceAtMost(maxHeight).coerceAtLeast(0)
-            val lp = scroll.layoutParams
-            if (target > 0 && lp.height != target) {
-                lp.height = target
+            val lp = scroll.layoutParams ?: return@post
+            if (contentHeight > maxHeight) {
+                if (lp.height != maxHeight) {
+                    lp.height = maxHeight
+                    scroll.layoutParams = lp
+                }
+            } else if (lp.height != ViewGroup.LayoutParams.WRAP_CONTENT) {
+                lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
                 scroll.layoutParams = lp
             }
+            // 内容超出时才能真正滚动
+            scroll.isVerticalScrollBarEnabled = contentHeight > maxHeight
+            (scroll as? android.widget.ScrollView)?.isSmoothScrollingEnabled = true
+            (scroll as? androidx.core.widget.NestedScrollView)?.isNestedScrollingEnabled = true
         }
     }
 

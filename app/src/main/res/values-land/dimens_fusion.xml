@@ -12,7 +12,8 @@
     <!-- 页内子类/翻页按钮更矮，给视频网格纵向空间 -->
     <dimen name="mv_fusion_btn_min_height">32dp</dimen>
     <dimen name="mv_fusion_pager_btn_text">10sp</dimen>
-    <dimen name="mv_fusion_meta_band_max">96dp</dimen>
+    <!-- 工作台+统计+筛选；限高后靠 NestedScroll 滑看全 -->
+    <dimen name="mv_fusion_meta_band_max">168dp</dimen>
     <dimen name="mv_fusion_stat_num_text">12sp</dimen>
     <dimen name="mv_fusion_stat_label_text">9sp</dimen>
     <dimen name="home_shelf_card_width">132dp</dimen>

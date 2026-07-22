@@ -4,7 +4,7 @@ import android.content.Context
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 
-/** 横屏融合态下标签/筛选 Chip 更紧凑，便于多行展示。 */
+/** 融合态下标签/筛选 Chip 更紧凑；是否单行由调用方显式指定。 */
 object FusionTagLayoutHelper {
 
     fun applyFusionChipGroup(group: ChipGroup, fusion: Boolean, singleLine: Boolean = false) {
@@ -12,10 +12,8 @@ object FusionTagLayoutHelper {
         val v = if (fusion) 1.dp(group.context) else 4.dp(group.context)
         group.setChipSpacingHorizontal(h)
         group.setChipSpacingVertical(v)
-        group.isSingleLine = singleLine || !fusion
-        if (singleLine) {
-            group.isSingleLine = true
-        }
+        // 以前写成 singleLine || !fusion，竖屏永远单行 → 标签不会向下换行
+        group.isSingleLine = singleLine
     }
 
     fun styleTagChip(chip: Chip, fusion: Boolean) {

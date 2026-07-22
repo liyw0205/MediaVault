@@ -7,15 +7,17 @@
     android:background="@color/mv_bg"
     android:orientation="vertical">
 
-    <ScrollView
+    <!-- 工作台+筛选超出 max 时必须能滑；原先 scrollbars=none + overScroll never 体感像「滑不了」 -->
+    <androidx.core.widget.NestedScrollView
         android:id="@+id/fusionMetaPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/mv_surface"
+        android:fadeScrollbars="false"
         android:fillViewport="false"
         android:maxHeight="@dimen/mv_fusion_meta_band_max"
-        android:overScrollMode="never"
-        android:scrollbars="none">
+        android:overScrollMode="ifContentScrolls"
+        android:scrollbars="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -311,7 +313,7 @@
                 android:textSize="10sp"
                 android:visibility="gone" />
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
     <ScrollView
         android:id="@+id/fusionMediaPanel"

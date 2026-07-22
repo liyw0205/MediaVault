@@ -190,13 +190,24 @@
             android:layout_marginTop="2dp"
             android:orientation="vertical">
 
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/matchedTags"
+            <!-- 与竖屏同 id，供 resizeTagScroller 限高 + 纵向滑动 -->
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/searchTagsScroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:chipSpacingHorizontal="3dp"
-                app:chipSpacingVertical="2dp"
-                app:singleLine="false" />
+                android:fadeScrollbars="false"
+                android:fillViewport="false"
+                android:overScrollMode="ifContentScrolls"
+                android:scrollbars="vertical">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/matchedTags"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:chipSpacingHorizontal="3dp"
+                    app:chipSpacingVertical="2dp"
+                    app:singleLine="false" />
+            </androidx.core.widget.NestedScrollView>
         </LinearLayout>
     </LinearLayout>
 

@@ -157,13 +157,15 @@
             </LinearLayout>
         </HorizontalScrollView>
 
-        <ScrollView
+        <androidx.core.widget.NestedScrollView
             android:id="@+id/searchTagsScroll"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:fadeScrollbars="false"
-            android:overScrollMode="ifContentScrolls">
+            android:fillViewport="false"
+            android:overScrollMode="ifContentScrolls"
+            android:scrollbars="vertical">
 
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/matchedTags"
@@ -172,7 +174,7 @@
                 app:chipSpacingHorizontal="4dp"
                 app:chipSpacingVertical="4dp"
                 app:singleLine="false" />
-        </ScrollView>
+        </androidx.core.widget.NestedScrollView>
 
         <include layout="@layout/include_list_pager" />
     </LinearLayout>
