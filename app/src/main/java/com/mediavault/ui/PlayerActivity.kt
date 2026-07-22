@@ -76,7 +76,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_player)
+        setContentView(FusionFragmentLayouts.player(this))
 
         val startPath = intent.getStringExtra(EXTRA_PATH) ?: intent.getStringExtra(EXTRA_URI_LEGACY)
         val title = intent.getStringExtra(EXTRA_TITLE) ?: ""
@@ -168,6 +168,7 @@ class PlayerActivity : AppCompatActivity() {
 
         bindControls(title.ifBlank { episode?.title ?: "" })
         updateNavButtons()
+        FusionFocusHelper.applyFusionToolbarFocus(window.decorView)
         progressHandler.postDelayed(progressTick, 10_000)
     }
 
@@ -284,13 +285,14 @@ class PlayerActivity : AppCompatActivity() {
             val mark = if (i == playlistIndex) "▶ " else ""
             "$mark${ep.title}"
         }).toTypedArray()
-        MvDialog.builder(this)
-            .setTitle(R.string.player_playlist)
-            .setItems(labels) { _, which ->
-                if (which == 0) showAutoplayMenu()
-                else playIndex(which - 1)
-            }
-            .show()
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.player_playlist)
+                .setItems(labels) { _, which ->
+                    if (which == 0) showAutoplayMenu()
+                    else playIndex(which - 1)
+                },
+        )
     }
 
     private fun showAutoplayMenu() {
@@ -305,12 +307,13 @@ class PlayerActivity : AppCompatActivity() {
             val mark = if (m == current) "● " else "○ "
             "$mark${autoplayModeLabel(m)}"
         }.toTypedArray()
-        MvDialog.builder(this)
-            .setTitle(R.string.player_autoplay_title)
-            .setItems(labels) { _, which ->
-                PlaybackPrefs.setAutoplayMode(this, modes[which])
-            }
-            .show()
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.player_autoplay_title)
+                .setItems(labels) { _, which ->
+                    PlaybackPrefs.setAutoplayMode(this, modes[which])
+                },
+        )
     }
 
     private fun autoplayModeLabel(mode: PlaybackPrefs.AutoplayMode): String = when (mode) {
@@ -418,10 +421,11 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
 
-        MvDialog.builder(this)
-            .setTitle(R.string.subtitle_pick)
-            .setItems(options.toTypedArray()) { _, which -> actions[which]() }
-            .show()
+        MvDialog.show(
+            MvDialog.builder(this)
+                .setTitle(R.string.subtitle_pick)
+                .setItems(options.toTypedArray()) { _, which -> actions[which]() },
+        )
     }
 
     /**

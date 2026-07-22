@@ -16,6 +16,8 @@
         <item name="materialButtonStyle">@style/Widget.MediaVault.Button</item>
         <item name="textInputStyle">@style/Widget.MediaVault.TextInput</item>
         <item name="editTextStyle">@style/Widget.MediaVault.EditText</item>
+        <item name="radioButtonStyle">@style/Widget.MediaVault.RadioButton</item>
+        <item name="actionMenuTextColor">@color/mv_primary</item>
     </style>
 
     <style name="ThemeOverlay.MediaVault.AlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
@@ -29,6 +31,9 @@
         <item name="buttonBarPositiveButtonStyle">@style/Widget.MediaVault.DialogButton</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.MediaVault.DialogButton</item>
         <item name="buttonBarNeutralButtonStyle">@style/Widget.MediaVault.DialogButton</item>
+        <item name="android:listPreferredItemHeightSmall">48dp</item>
+        <item name="textColorAlertDialogListItem">@color/mv_text</item>
+        <item name="android:textColor">@color/mv_text</item>
     </style>
 
     <style name="TextAppearance.MediaVault.DialogTitle" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
@@ -42,15 +47,21 @@
         <item name="android:textColor">@color/mv_primary</item>
     </style>
 
+    <style name="Widget.MediaVault.Button.TextButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/mv_primary</item>
+    </style>
+
     <style name="Widget.MediaVault.Button" parent="Widget.MaterialComponents.Button.OutlinedButton">
         <item name="strokeColor">@color/mv_line</item>
         <item name="android:textColor">@color/mv_text</item>
     </style>
     <!-- 设置页并排小按钮：去掉 Material 默认 inset，避免高度不一致 -->
     <style name="Widget.MediaVault.Button.SettingsTile" parent="Widget.MediaVault.Button">
-        <item name="android:minHeight">0dp</item>
-        <item name="android:paddingTop">8dp</item>
-        <item name="android:paddingBottom">8dp</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:paddingTop">7dp</item>
+        <item name="android:paddingBottom">7dp</item>
         <item name="android:textSize">14sp</item>
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
@@ -102,5 +113,18 @@
         <item name="android:textColor">@color/mv_text</item>
         <item name="android:paddingTop">6dp</item>
         <item name="android:paddingBottom">6dp</item>
+    </style>
+
+    <style name="Widget.MediaVault.RadioButton" parent="Widget.AppCompat.CompoundButton.RadioButton">
+        <item name="android:textColor">@color/mv_radio_text</item>
+        <item name="buttonTint">@color/mv_primary</item>
+    </style>
+
+    <style name="Widget.MediaVault.TabLayout" parent="Widget.Design.TabLayout">
+        <item name="tabTextColor">@color/mv_tab_text</item>
+        <item name="tabSelectedTextColor">@color/mv_primary</item>
+        <item name="tabIndicatorColor">@color/mv_primary</item>
+        <item name="tabBackground">@color/mv_surface</item>
+        <item name="android:background">@color/mv_surface</item>
     </style>
 </resources>

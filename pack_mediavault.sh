@@ -83,4 +83,4 @@ VN=$(grep versionName "$ROOT/app/build.gradle.kts" | head -1 | sed 's/.*"\(.*\)"
 DEST="$(dirname "$ROOT")/MediaVault_${VN}_debug.apk"
 cp -f "$OUT" "$DEST"
 ls -lh "$OUT" "$DEST"
-aapt dump badging "$OUT" 2>/dev/null | head -3
+aapt dump badging "$OUT" 2>/dev/null | head -3 || true

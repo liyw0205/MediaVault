@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/homeFusionRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/mv_bg"
+    android:orientation="vertical">
+
+    <!-- 子类（推荐/历史/全部…）置顶一行 + 翻页；统计压成一行，少占视频区高度 -->
+    <LinearLayout
+        android:id="@+id/fusionMetaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/mv_surface"
+        android:orientation="vertical"
+        android:paddingHorizontal="6dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp">
+
+        <LinearLayout
+            android:id="@+id/fusionTagInfoPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <HorizontalScrollView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fillViewport="false"
+                android:overScrollMode="never"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/homeFilterChips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:chipSpacingHorizontal="3dp"
+                    app:singleLine="true"
+                    app:singleSelection="true" />
+            </HorizontalScrollView>
+
+            <LinearLayout
+                android:id="@+id/homePager"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/prevPageBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="6dp"
+                    android:text="@string/prev_page"
+                    android:textSize="@dimen/mv_fusion_pager_btn_text" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/nextPageBtn"
+                    style="@style/Widget.MediaVault.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="6dp"
+                    android:text="@string/next_page"
+                    android:textSize="@dimen/mv_fusion_pager_btn_text" />
+
+                <TextView
+                    android:id="@+id/pageInfo"
+                    android:layout_width="72dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="2dp"
+                    android:clickable="true"
+                    android:ellipsize="end"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:textColor="@color/mv_primary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/homePagerActionBtn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/mv_green"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:minHeight="@dimen/mv_fusion_btn_min_height"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="6dp"
+                    android:text="@string/refresh_recommend"
+                    android:textColor="@color/mv_bg"
+                    android:textSize="@dimen/mv_fusion_pager_btn_text" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/summaryRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingTop="1dp"
+            android:weightSum="4">
+
+            <LinearLayout
+                style="@style/HomeStatCellLand"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingVertical="0dp">
+                <TextView
+                    style="@style/HomeStatLabelLand"
+                    android:layout_marginEnd="2dp"
+                    android:text="@string/stat_collections" />
+                <TextView
+                    android:id="@+id/statCollections"
+                    style="@style/HomeStatNumLand"
+                    android:text="0" />
+            </LinearLayout>
+            <LinearLayout
+                style="@style/HomeStatCellLand"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingVertical="0dp">
+                <TextView
+                    style="@style/HomeStatLabelLand"
+                    android:layout_marginEnd="2dp"
+                    android:text="@string/stat_items" />
+                <TextView
+                    android:id="@+id/statItems"
+                    style="@style/HomeStatNumLand"
+                    android:text="0" />
+            </LinearLayout>
+            <LinearLayout
+                style="@style/HomeStatCellLand"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingVertical="0dp">
+                <TextView
+                    style="@style/HomeStatLabelLand"
+                    android:layout_marginEnd="2dp"
+                    android:text="@string/stat_roots" />
+                <TextView
+                    android:id="@+id/statRoots"
+                    style="@style/HomeStatNumLand"
+                    android:text="0" />
+            </LinearLayout>
+            <LinearLayout
+                style="@style/HomeStatCellLand"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingVertical="0dp">
+                <TextView
+                    style="@style/HomeStatLabelLand"
+                    android:layout_marginEnd="2dp"
+                    android:text="@string/stat_updated" />
+                <TextView
+                    android:id="@+id/statTime"
+                    style="@style/HomeStatNumLand"
+                    android:text="--" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/mv_muted"
+            android:textSize="10sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/fusionMediaPanel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="120dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/gridRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:descendantFocusability="afterDescendants"
+            android:padding="@dimen/mv_fusion_content_pad" />
+
+        <TextView
+            android:id="@+id/emptyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:padding="32dp"
+            android:text="@string/no_items"
+            android:textColor="@color/mv_muted"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

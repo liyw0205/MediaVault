@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/searchFusionRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/mv_bg"
     android:orientation="vertical">
 
     <LinearLayout
+        android:id="@+id/fusionMetaPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/mv_surface"
         android:orientation="vertical"
-        android:paddingHorizontal="10dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="6dp">
+        android:paddingHorizontal="6dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp">
 
+        <!-- 搜索框置顶 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -25,7 +28,9 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="@string/search_hint">
+                android:hint="@string/search_hint"
+                app:boxCollapsedPaddingTop="0dp"
+                app:hintEnabled="true">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/searchInput"
@@ -33,8 +38,11 @@
                     android:layout_height="wrap_content"
                     android:imeOptions="actionSearch"
                     android:inputType="text"
-                    android:minHeight="40dp"
-                    android:textColor="@color/mv_text" />
+                    android:minHeight="36dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
+                    android:textColor="@color/mv_text"
+                    android:textSize="13sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
@@ -42,22 +50,28 @@
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="4dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="@dimen/mv_fusion_btn_min_height"
                 android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:text="@string/search_go"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/clearSearchBtn"
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="4dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="@dimen/mv_fusion_btn_min_height"
                 android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:text="@string/clear_search"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <ProgressBar
@@ -65,14 +79,15 @@
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="2dp"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:indeterminate="true"
             android:visibility="gone" />
 
+        <!-- 结果计数 + 筛选展开/折叠 + 翻页：同一行 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -91,18 +106,25 @@
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="@dimen/mv_fusion_btn_min_height"
                 android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:text="@string/search_filters_expand"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:visibility="gone" />
+
+            <include layout="@layout/include_list_pager_compact_land" />
         </LinearLayout>
 
+        <!-- 排序 / 来源 / 类型：搜索后默认折叠，可展开 -->
         <LinearLayout
             android:id="@+id/searchFiltersRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="2dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -111,59 +133,73 @@
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="@dimen/mv_fusion_btn_min_height"
                 android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:text="@string/search_sort_default_label"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/searchSourceBtn"
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="4dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="@dimen/mv_fusion_btn_min_height"
                 android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:text="@string/search_source_default_label"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/searchTypeBtn"
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="4dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="@dimen/mv_fusion_btn_min_height"
                 android:minWidth="0dp"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:text="@string/search_type_default_label"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
-        <ScrollView
-            android:id="@+id/searchTagsScroll"
+        <LinearLayout
+            android:id="@+id/fusionTagInfoPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:fadeScrollbars="false"
-            android:overScrollMode="ifContentScrolls">
+            android:layout_marginTop="2dp"
+            android:orientation="vertical">
 
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/matchedTags"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:chipSpacingHorizontal="4dp"
-                app:chipSpacingVertical="4dp"
+                app:chipSpacingHorizontal="3dp"
+                app:chipSpacingVertical="2dp"
                 app:singleLine="false" />
-        </ScrollView>
-
-        <include layout="@layout/include_list_pager" />
+        </LinearLayout>
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/searchRecycler"
+    <FrameLayout
+        android:id="@+id/fusionMediaPanel"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipToPadding="false"
-        android:padding="6dp" />
+        android:minHeight="120dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/searchRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:descendantFocusability="afterDescendants"
+            android:padding="@dimen/mv_fusion_content_pad" />
+    </FrameLayout>
 </LinearLayout>

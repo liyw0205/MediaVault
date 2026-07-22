@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="mv_fusion_nav_rail">88dp</dimen>
+    <dimen name="mv_fusion_sidebar_primary">272dp</dimen>
+    <dimen name="mv_fusion_sidebar_search">272dp</dimen>
+    <dimen name="mv_fusion_sidebar_collections">248dp</dimen>
+    <dimen name="mv_fusion_sidebar_scrape">260dp</dimen>
+    <dimen name="mv_fusion_scrape_settings_col">268dp</dimen>
+    <dimen name="mv_fusion_content_pad">8dp</dimen>
+    <dimen name="mv_fusion_grid_gap">5dp</dimen>
+    <item name="mv_fusion_card_cover_ratio" format="float" type="dimen">0.56</item>
+    <!-- 页内子类/翻页按钮更矮，给视频网格纵向空间 -->
+    <dimen name="mv_fusion_btn_min_height">32dp</dimen>
+    <dimen name="mv_fusion_pager_btn_text">10sp</dimen>
+    <dimen name="mv_fusion_meta_band_max">96dp</dimen>
+    <dimen name="mv_fusion_stat_num_text">12sp</dimen>
+    <dimen name="mv_fusion_stat_label_text">9sp</dimen>
+    <dimen name="home_shelf_card_width">132dp</dimen>
+    <dimen name="home_shelf_height">150dp</dimen>
+</resources>

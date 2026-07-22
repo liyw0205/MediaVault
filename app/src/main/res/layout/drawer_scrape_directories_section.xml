@@ -51,16 +51,22 @@
             android:id="@+id/drawerAddWebDavBtn"
             style="@style/Widget.MediaVault.Button.SettingsTile"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="wrap_content"
             android:layout_marginEnd="4dp"
             android:layout_weight="1"
+            android:letterSpacing="0"
+            android:minWidth="0dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:textAllCaps="false"
+            android:textSize="12sp"
             android:text="@string/add_webdav_tile" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/drawerAddFtpBtn"
             style="@style/Widget.MediaVault.Button.SettingsTile"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="wrap_content"
             android:layout_marginEnd="4dp"
             android:layout_weight="1"
             android:text="@string/add_ftp_tile" />
@@ -69,7 +75,7 @@
             android:id="@+id/drawerAddSmbBtn"
             style="@style/Widget.MediaVault.Button.SettingsTile"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/add_smb_tile" />
     </LinearLayout>

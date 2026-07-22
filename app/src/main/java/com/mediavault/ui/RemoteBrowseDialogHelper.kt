@@ -72,7 +72,7 @@ class RemoteBrowseDialogHelper(
             .setView(view)
             .setNegativeButton(android.R.string.cancel, null)
 
-        val dialog: AlertDialog = MvDialog.showStyled(builder, inputRoot = null)
+        val dialog: AlertDialog = MvDialog.showStyled(builder, inputRoot = view)
 
         fun refreshUpEnabled() {
             upBtn.isEnabled = browseRelPath.isNotEmpty()

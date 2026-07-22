@@ -68,15 +68,36 @@ object ScrapeDrawerBinder {
 
     private var directoriesPanel: ScrapeDirectoriesPanelController? = null
     private var onRootsCallback: (() -> Unit)? = null
+    private var boundRepository: LibraryRepository? = null
+    private var pickLocalTreeCallback: (() -> Unit)? = null
 
-    fun bind(
+    fun onLocalTreePicked(uri: android.net.Uri?) {
+        directoriesPanel?.onLocalTreePicked(uri)
+    }
+
+    fun rebindViews(
         activity: AppCompatActivity,
         drawer: DrawerLayout,
         panelRoot: View,
+    ) {
+        val repo = boundRepository ?: return
+        val cb = onRootsCallback ?: return
+        val pick = pickLocalTreeCallback ?: return
+        bind(activity, panelRoot, repo, cb, pick, drawer = drawer)
+    }
+
+    fun bind(
+        activity: AppCompatActivity,
+        panelRoot: View,
         repository: LibraryRepository,
         onRootsMayHaveChanged: () -> Unit,
+        pickLocalTree: () -> Unit,
+        drawer: DrawerLayout? = null,
+        includeDirectories: Boolean = true,
     ) {
         onRootsCallback = onRootsMayHaveChanged
+        boundRepository = repository
+        pickLocalTreeCallback = pickLocalTree
         val modeLocal = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeLocal)
         val modeOnline = panelRoot.findViewById<RadioButton>(R.id.drawerScrapeModeOnline)
         val tmdbKeyLayout = panelRoot.findViewById<TextInputLayout>(R.id.drawerTmdbKeyLayout)
@@ -100,6 +121,9 @@ object ScrapeDrawerBinder {
         val subtitleLangGroup = panelRoot.findViewById<RadioGroup>(R.id.drawerSubtitleLangGroup)
         val dataBtn = panelRoot.findViewById<MaterialButton>(R.id.drawerOpenDataBtn)
         val dirsSection = panelRoot.findViewById<View>(R.id.drawerDirsSection)
+        if (!includeDirectories) {
+            dirsSection?.visibility = View.GONE
+        }
 
         fun updateCacheLabels(totalStep: Int, perStep: Int) {
             val totalMb = totalCacheMbSteps[(totalStep - 1).coerceIn(0, totalCacheMbSteps.lastIndex)]
@@ -206,21 +230,27 @@ object ScrapeDrawerBinder {
             Toast.makeText(activity, R.string.settings_saved, Toast.LENGTH_SHORT).show()
         }
 
-        directoriesPanel = ScrapeDirectoriesPanelController(activity, dirsSection, onRootsMayHaveChanged).also { it.bind() }
+        if (includeDirectories) {
+            if (directoriesPanel == null) {
+                directoriesPanel = ScrapeDirectoriesPanelController(
+                    activity,
+                    dirsSection,
+                    onRootsMayHaveChanged,
+                    pickLocalTree,
+                ).also { it.bind() }
+            } else {
+                directoriesPanel?.rebindPanelRoot(dirsSection)
+            }
+        }
 
         dataBtn.setOnClickListener {
-            drawer.closeDrawer(GravityCompat.END, false)
+            drawer?.closeDrawer(GravityCompat.END, false)
             DataStorageDialog.show(activity, repository) { onRootsMayHaveChanged() }
         }
     }
 
     fun reloadDirectories(activity: AppCompatActivity, panelRoot: View) {
-        val dirsSection = panelRoot.findViewById<View>(R.id.drawerDirsSection)
-        val cb = onRootsCallback ?: {}
         directoriesPanel?.reload()
-            ?: run {
-                directoriesPanel = ScrapeDirectoriesPanelController(activity, dirsSection, cb).also { it.bind() }
-            }
     }
 
     fun reloadOptions(activity: AppCompatActivity, panelRoot: View) {

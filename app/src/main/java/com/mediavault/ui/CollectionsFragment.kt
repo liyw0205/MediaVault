@@ -4,9 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayout
@@ -32,7 +34,7 @@ class CollectionsFragment : Fragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
-        inflater.inflate(R.layout.fragment_collections, container, false)
+        inflater.inflate(FusionFragmentLayouts.collections(requireContext()), container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         listPager = ListPagerBar(view)
@@ -41,7 +43,7 @@ class CollectionsFragment : Fragment() {
         listPager.setOnPageChanged { applyPagedList(view) }
 
         val list = view.findViewById<RecyclerView>(R.id.collectionsRecycler)
-        list.layoutManager = LinearLayoutManager(requireContext())
+        applyCollectionListLayout(list)
         list.setHasFixedSize(true)
         list.setItemViewCacheSize(12)
         adapter = CollectionAdapter(viewLifecycleOwner.lifecycleScope) { g ->
@@ -60,6 +62,7 @@ class CollectionsFragment : Fragment() {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 tabMode = tab.position
                 listPager.resetPage()
+                view.findViewById<RecyclerView>(R.id.collectionsRecycler)?.let { applyCollectionListLayout(it) }
                 refreshList(view)
             }
             override fun onTabUnselected(tab: TabLayout.Tab) {}
@@ -71,6 +74,37 @@ class CollectionsFragment : Fragment() {
             act.repository.library.collectLatest { lib ->
                 refreshList(view, lib.items)
             }
+        }
+        FusionFocusHelper.applyFusionToolbarFocus(view)
+        if (HomeUiPrefs.useTvFusionUi(requireContext())) {
+            FusionLandscapeShell.applyFragmentRoot(view, FusionUiMetrics.SidebarKind.Collections)
+        }
+    }
+
+    fun onFusionUiChanged() {
+        view?.let { FusionLandscapeShell.applyFragmentRoot(it, FusionUiMetrics.SidebarKind.Collections) }
+        view?.findViewById<RecyclerView>(R.id.collectionsRecycler)?.let { list ->
+            applyCollectionListLayout(list)
+            if (HomeUiPrefs.useTvFusionUi(requireContext())) {
+                list.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            }
+        }
+        if (::adapter.isInitialized) adapter.notifyDataSetChanged()
+    }
+
+    private fun applyCollectionListLayout(list: RecyclerView) {
+        val ctx = requireContext()
+        val fusion = HomeUiPrefs.useTvFusionUi(ctx)
+        val tagGrid = fusion && tabMode == 1
+        if (tagGrid) {
+            val span = FusionUiMetrics.collectionTagGridSpan(ctx)
+            if (list.layoutManager !is GridLayoutManager ||
+                (list.layoutManager as GridLayoutManager).spanCount != span
+            ) {
+                list.layoutManager = GridLayoutManager(ctx, span)
+            }
+        } else if (list.layoutManager !is LinearLayoutManager) {
+            list.layoutManager = LinearLayoutManager(ctx)
         }
     }
 

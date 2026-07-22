@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -288,7 +288,7 @@ class VideoDetailActivity : AppCompatActivity() {
     private fun switchTo(path: String) {
         intent.putExtra(EXTRA_PATH, path)
         bind(path)
-        findViewById<NestedScrollView>(R.id.detailScroll)?.scrollTo(0, 0)
+        findViewById<ScrollView>(R.id.detailScroll)?.scrollTo(0, 0)
     }
 
     private fun play(item: MediaItem) {

@@ -29,16 +29,11 @@ object HomeUiPrefs {
         return ui && !telephony
     }
 
-    fun gridSpanCount(ctx: Context): Int {
-        val fusion = useTvFusionUi(ctx)
-        val wide = ctx.resources.configuration.smallestScreenWidthDp >= 600
-        return when {
-            fusion && wide -> 4
-            fusion -> 3
-            wide -> 4
-            else -> 2
-        }
-    }
+    fun gridSpanCount(ctx: Context): Int =
+        FusionUiMetrics.gridSpanCount(ctx, FusionUiMetrics.SidebarKind.Home)
 
-    fun coverHeightRatio(fusion: Boolean): Float = if (fusion) 0.75f else 120f / 180f
+    fun collectionTagGridSpan(ctx: Context): Int =
+        FusionUiMetrics.collectionTagGridSpan(ctx)
+
+    fun coverHeightRatio(ctx: Context): Float = FusionUiMetrics.coverHeightRatio(ctx)
 }

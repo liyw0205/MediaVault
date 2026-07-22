@@ -5,131 +5,156 @@
     android:layout_height="match_parent"
     android:background="@color/mv_bg">
 
-    <ScrollView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:baselineAligned="false"
+        android:orientation="horizontal"
+        android:padding="10dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp"
-            android:paddingBottom="24dp">
+        <ScrollView
+            android:id="@+id/scrapeFusionScroll"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="10dp"
+            android:layout_weight="1.35"
+            android:background="@color/mv_surface"
+            android:fillViewport="true"
+            android:padding="10dp">
 
-            <com.google.android.material.card.MaterialCardView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/mv_surface"
-                app:cardCornerRadius="12dp">
+                android:orientation="vertical"
+                android:paddingBottom="10dp">
 
-                <LinearLayout
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/scrape_roots"
-                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rootsRecycler"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:nestedScrollingEnabled="false" />
-
-                    <TextView
-                        android:id="@+id/rootsEmptyHint"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/scrape_roots_empty"
-                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint"
-                        android:visibility="gone" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="@color/mv_surface"
-                app:cardCornerRadius="12dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/scrape_title"
-                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+                    app:cardBackgroundColor="@color/mv_bg"
+                    app:cardCornerRadius="8dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:orientation="horizontal">
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/scrape_roots"
+                            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rootsRecycler"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:nestedScrollingEnabled="false" />
+
+                        <TextView
+                            android:id="@+id/rootsEmptyHint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/scrape_roots_empty"
+                            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    app:cardBackgroundColor="@color/mv_bg"
+                    app:cardCornerRadius="8dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/scrape_title"
+                            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Section" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/scanIncrementalBtn"
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginEnd="6dp"
-                            android:layout_weight="1"
+                            android:layout_marginTop="10dp"
                             android:backgroundTint="@color/mv_green"
+                            android:focusable="true"
+                            android:focusableInTouchMode="true"
+                            android:minHeight="48dp"
                             android:text="@string/scan_incremental"
                             android:textColor="@color/mv_green_on"
-                            android:textSize="14sp" />
+                            android:textSize="15sp" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/scanRebuildBtn"
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                            android:layout_marginTop="8dp"
                             android:backgroundTint="@color/mv_amber"
+                            android:focusable="true"
+                            android:focusableInTouchMode="true"
+                            android:minHeight="48dp"
                             android:text="@string/scan_rebuild"
                             android:textColor="@color/mv_amber_on"
-                            android:textSize="14sp" />
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:id="@+id/scanIdleHint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:ellipsize="end"
+                            android:maxLines="4"
+                            android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/weakTmdbListBtn"
+                            style="@style/Widget.MediaVault.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:focusable="true"
+                            android:focusableInTouchMode="true"
+                            android:text="@string/weak_tmdb_list_btn"
+                            android:textColor="@color/mv_amber"
+                            android:visibility="gone" />
                     </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+        </ScrollView>
 
-                    <TextView
-                        android:id="@+id/scanIdleHint"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:ellipsize="end"
-                        android:maxLines="3"
-                        android:textAppearance="@style/TextAppearance.MediaVault.Settings.Hint" />
+        <FrameLayout
+            android:id="@+id/scrapeLandSettingsColumn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/weakTmdbListBtn"
-                        style="@style/Widget.MediaVault.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="@string/weak_tmdb_list_btn"
-                        android:textColor="@color/mv_amber"
-                        android:visibility="gone" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
-    </ScrollView>
+            <include
+                android:id="@+id/scrapeLandSettingsPanel"
+                layout="@layout/drawer_scrape_panel"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
+    </LinearLayout>
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/scrapeProgressCollapsed"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="12dp"
-        android:minWidth="128dp"
+        android:layout_margin="16dp"
+        android:minWidth="140dp"
         android:visibility="gone"
         app:cardBackgroundColor="@color/mv_surface"
         app:cardCornerRadius="20dp"
@@ -149,10 +174,10 @@
 
             <com.google.android.material.progressindicator.CircularProgressIndicator
                 android:id="@+id/scanProgressMini"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:indeterminate="true"
-                app:indicatorSize="24dp"
+                app:indicatorSize="28dp"
                 app:trackThickness="3dp" />
 
             <TextView
@@ -161,11 +186,11 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:ellipsize="end"
+                android:maxWidth="88dp"
                 android:maxLines="1"
-                android:maxWidth="72dp"
                 android:text="@string/scrape_progress_collapsed_label"
                 android:textColor="@color/mv_text"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/expandScrapeOverlayBtn"
@@ -176,7 +201,7 @@
                 android:minHeight="0dp"
                 android:paddingHorizontal="8dp"
                 android:text="@string/scrape_progress_expand"
-                android:textSize="12sp" />
+                android:textSize="13sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -185,8 +210,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:layout_margin="12dp"
-        android:minHeight="132dp"
+        android:layout_margin="16dp"
+        android:minHeight="140dp"
         android:visibility="gone"
         app:cardBackgroundColor="@color/mv_surface"
         app:cardCornerRadius="12dp"
@@ -198,7 +223,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="14dp">
+            android:padding="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -221,7 +246,7 @@
                     android:minWidth="0dp"
                     android:minHeight="0dp"
                     android:text="@string/scrape_progress_collapse"
-                    android:textSize="12sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <TextView
@@ -232,34 +257,34 @@
                 android:ellipsize="middle"
                 android:maxLines="1"
                 android:textColor="@color/mv_text_secondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:visibility="gone" />
 
             <TextView
                 android:id="@+id/scanStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="4dp"
                 android:ellipsize="end"
-                android:maxLines="1"
+                android:maxLines="2"
                 android:textAppearance="@style/TextAppearance.MediaVault.Settings.Body" />
 
             <TextView
                 android:id="@+id/scanQueueLine"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="4dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="@color/mv_text_secondary"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:visibility="gone" />
 
             <com.google.android.material.progressindicator.LinearProgressIndicator
                 android:id="@+id/scanProgress"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="10dp"
                 android:indeterminate="true" />
 
             <com.google.android.material.button.MaterialButton
@@ -267,7 +292,10 @@
                 style="@style/Widget.MediaVault.Button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="10dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:minHeight="48dp"
                 android:text="@string/scrape_stop" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

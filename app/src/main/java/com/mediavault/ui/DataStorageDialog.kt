@@ -63,7 +63,7 @@ object DataStorageDialog {
             .setTitle(R.string.data_title)
             .setView(root)
             .setNegativeButton(android.R.string.cancel, null)
-        val dialog = MvDialog.showStyled(builder)
+        val dialog = MvDialog.showStyled(builder, inputRoot = root)
         root.findViewById<View>(R.id.dataClearCovers).setOnClickListener {
             confirm(activity, activity.getString(R.string.confirm_clear_covers)) {
                 val n = repository.clearCovers()
@@ -107,10 +107,11 @@ object DataStorageDialog {
     }
 
     private fun confirm(activity: AppCompatActivity, message: String, onOk: () -> Unit) {
-        MvDialog.builder(activity)
-            .setMessage(message)
-            .setPositiveButton(android.R.string.ok) { _, _ -> onOk() }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        MvDialog.show(
+            MvDialog.builder(activity)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok) { _, _ -> onOk() }
+                .setNegativeButton(android.R.string.cancel, null),
+        )
     }
 }

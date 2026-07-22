@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -27,14 +26,15 @@ import kotlinx.coroutines.withContext
  */
 class ScrapeDirectoriesPanelController(
     private val activity: AppCompatActivity,
-    private val panelRoot: View,
+    private var panelRoot: View,
     private val onRootsChanged: () -> Unit,
+    private val pickLocalTree: () -> Unit,
 ) {
     private val store = MediaStore(activity)
     private val remotes = mutableListOf<RemoteConfig>()
 
-    private val pickTree = activity.registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri == null) return@registerForActivityResult
+    fun onLocalTreePicked(uri: Uri?) {
+        if (uri == null) return
         activity.contentResolver.takePersistableUriPermission(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
@@ -50,7 +50,7 @@ class ScrapeDirectoriesPanelController(
         remotes.addAll(store.readRemotesList())
 
         panelRoot.findViewById<MaterialButton>(R.id.drawerPickLocalRootBtn).setOnClickListener {
-            pickTree.launch(null)
+            pickLocalTree()
         }
         panelRoot.findViewById<MaterialButton>(R.id.drawerAddWebDavBtn).setOnClickListener {
             RemoteFormDialog.show(activity, "webdav", null) { cfg -> upsertRemote(cfg) }
@@ -73,6 +73,12 @@ class ScrapeDirectoriesPanelController(
         remotes.addAll(store.readRemotesList())
         refreshLocalList()
         refreshRemoteList()
+    }
+
+    /** 横竖屏重载主壳后，侧栏 View 已换新，需重绑列表与按钮。 */
+    fun rebindPanelRoot(newSection: View) {
+        panelRoot = newSection
+        bind()
     }
 
     private fun notifyRootsChanged() {
@@ -100,15 +106,16 @@ class ScrapeDirectoriesPanelController(
                 val label = Uri.parse(uri).lastPathSegment ?: uri.takeLast(48)
                 h.label.text = label
                 h.delete.setOnClickListener {
-                    MvDialog.builder(activity)
+                    MvDialog.show(
+                        MvDialog.builder(activity)
                         .setMessage(R.string.delete_local_root_confirm)
                         .setPositiveButton(android.R.string.ok) { _, _ ->
                             store.removeLocalRootUri(uri)
                             refreshLocalList()
                             notifyRootsChanged()
                         }
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show()
+                        .setNegativeButton(android.R.string.cancel, null),
+                    )
                 }
             }
         }
@@ -131,14 +138,15 @@ class ScrapeDirectoriesPanelController(
                     RemoteFormDialog.show(activity, r.type, r) { cfg -> upsertRemote(cfg) }
                 }
                 h.delete.setOnClickListener {
-                    MvDialog.builder(activity)
-                        .setMessage(R.string.delete_remote_confirm)
-                        .setPositiveButton(android.R.string.ok) { _, _ ->
-                            remotes.removeAll { it.id == r.id }
-                            refreshRemoteList()
-                        }
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show()
+                    MvDialog.show(
+                        MvDialog.builder(activity)
+                            .setMessage(R.string.delete_remote_confirm)
+                            .setPositiveButton(android.R.string.ok) { _, _ ->
+                                remotes.removeAll { it.id == r.id }
+                                refreshRemoteList()
+                            }
+                            .setNegativeButton(android.R.string.cancel, null),
+                    )
                 }
             }
         }
@@ -168,10 +176,11 @@ class ScrapeDirectoriesPanelController(
             val name = r.name.ifBlank { r.host }
             "$name ($t)"
         }.toTypedArray()
-        MvDialog.builder(activity)
-            .setTitle(R.string.test_remote_pick_title)
-            .setItems(labels) { _, which -> testRemoteAt(which) }
-            .show()
+        MvDialog.show(
+            MvDialog.builder(activity)
+                .setTitle(R.string.test_remote_pick_title)
+                .setItems(labels) { _, which -> testRemoteAt(which) },
+        )
     }
 
     private fun testRemoteAt(index: Int) {
