@@ -39,6 +39,7 @@ import com.mediavault.data.PlaybackProgressStore
 import com.mediavault.data.SubtitlePrefs
 import com.mediavault.data.SubtitleTrackRanker
 import com.mediavault.playback.PlaylistBuilder
+import com.mediavault.playback.SafeSubtitleParserFactory
 import com.mediavault.remote.RemoteDataSourceFactory
 import com.mediavault.remote.RemoteErrorMessages
 import com.mediavault.remote.RemotePath
@@ -51,6 +52,7 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import com.mediavault.util.ScreenshotSaver
 import java.io.File
 
+@OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private var playlist: List<PlaylistBuilder.Episode> = emptyList()
@@ -73,6 +75,8 @@ class PlayerActivity : AppCompatActivity() {
     )
     private var subSelection: SubSelection = SubSelection.Auto
     private var autoResolved = false
+    /** 字幕轨导致崩溃后自动关字幕重试一次 */
+    private var textTrackFallbackTried = false
 
     private lateinit var chromeController: PlayerChromeController
 
@@ -136,8 +140,9 @@ class PlayerActivity : AppCompatActivity() {
 
         val remoteFactory = RemoteDataSourceFactory(this, store)
         val defaultDs = DefaultDataSource.Factory(this, remoteFactory)
-        // MKV 内嵌 ASS/SSA 在默认 textTrackTranscoding 下会进 SsaParser 并
-        // IllegalStateException 直接 Source error（见 logcat STAP-036）。关闭转码后仍可出轨，由渲染侧处理/忽略坏字幕。
+        // MKV 内嵌 ASS 可能让默认 SsaParser 抛异常；用 SafeSubtitleParserFactory 吞掉坏样本。
+        // 仍保持 extraction 阶段转码为 media3-cues，避免 TextRenderer 报
+        // "Legacy decoding is disabled, can't handle text/x-ssa"。
         val mediaSourceFactory = buildMediaSourceFactory(defaultDs)
 
         player = ExoPlayer.Builder(this)
@@ -173,6 +178,7 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onPlayerError(error: PlaybackException) {
                     val cause = error.cause ?: error
+                    if (maybeRecoverFromSubtitleError(exo, cause)) return
                     showPlaybackErrorDialog(cause)
                 }
             })
@@ -283,6 +289,7 @@ class PlayerActivity : AppCompatActivity() {
         currentMediaPath = mediaPath
         updateResultPath()
         autoResolved = false
+        textTrackFallbackTried = false
         remoteDurationHintShown = false
         val builder = ExoMediaItem.Builder().setUri(uri)
         if (externalSubtitles.isNotEmpty()) {
@@ -306,6 +313,49 @@ class PlayerActivity : AppCompatActivity() {
         exo.playWhenReady = true
         findViewById<TextView>(R.id.playerTitleOverlay)?.text = title
         updateSessionInfo()
+    }
+
+    /** 字幕相关错误：关字幕轨并重新 prepare，尽量保住音视频。 */
+    private fun maybeRecoverFromSubtitleError(exo: ExoPlayer, cause: Throwable): Boolean {
+        if (textTrackFallbackTried) return false
+        if (!isSubtitleRelatedError(cause)) return false
+        textTrackFallbackTried = true
+        subSelection = SubSelection.Off
+        autoResolved = true
+        disableTextTracks(exo)
+        val pos = exo.currentPosition.coerceAtLeast(0L)
+        try {
+            exo.prepare()
+            if (pos > 0) exo.seekTo(pos)
+            exo.playWhenReady = true
+            Toast.makeText(this, R.string.player_subtitle_disabled_retry, Toast.LENGTH_SHORT).show()
+            return true
+        } catch (_: Exception) {
+            return false
+        }
+    }
+
+    private fun isSubtitleRelatedError(cause: Throwable): Boolean {
+        var t: Throwable? = cause
+        while (t != null) {
+            val msg = (t.message ?: "").lowercase()
+            val name = t.javaClass.name
+            if (
+                msg.contains("ssa") ||
+                msg.contains("ass") ||
+                msg.contains("subtitle") ||
+                msg.contains("text/x-ssa") ||
+                msg.contains("media3-cues") ||
+                msg.contains("legacy decoding") ||
+                name.contains("SsaParser") ||
+                name.contains("TextRenderer") ||
+                name.contains("Subtitle")
+            ) {
+                return true
+            }
+            t = t.cause
+        }
+        return false
     }
 
     private fun guessSubMime(uri: Uri): String {
@@ -1045,10 +1095,13 @@ class PlayerActivity : AppCompatActivity() {
     private fun buildMediaSourceFactory(
         defaultDs: DefaultDataSource.Factory,
     ): DefaultMediaSourceFactory {
+        // 保持默认 text track transcoding=true（输出 media3-cues），
+        // 仅替换解析工厂为可吞异常的安全实现。
         val extractors = DefaultExtractorsFactory()
-            .setTextTrackTranscodingEnabled(false)
+            .setSubtitleParserFactory(SafeSubtitleParserFactory)
         return DefaultMediaSourceFactory(this, extractors)
             .setDataSourceFactory(defaultDs)
+            .setSubtitleParserFactory(SafeSubtitleParserFactory)
     }
 
     private fun resolveStartUri(startPath: String, store: com.mediavault.data.MediaStore): Uri {

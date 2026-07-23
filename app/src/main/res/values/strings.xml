@@ -80,6 +80,7 @@
     <string name="player_error_title">播放失败</string>
     <string name="player_error_detail_fmt">来源：%1$s\n原因：%2$s\n建议：%3$s</string>
     <string name="player_error_retry">重试播放</string>
+    <string name="player_subtitle_disabled_retry">内嵌字幕异常，已关闭字幕继续播放</string>
     <string name="player_error_back">返回上一页</string>
     <string name="player_error_close">关闭提示</string>
     <string name="player_error_unknown">播放器无法打开该媒体</string>
