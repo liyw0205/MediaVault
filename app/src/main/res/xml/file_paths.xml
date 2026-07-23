@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 本机绝对路径（/storage/emulated/0/...）供外部播放器读取 -->
+    <external-path name="external" path="." />
+    <root-path name="root" path="." />
+</paths>

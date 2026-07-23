@@ -49,6 +49,14 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/watch_queue_add" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenExternal"
+                style="@style/Widget.MediaVault.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/open_external" />
+
             <LinearLayout
                 android:id="@+id/nextUpSection"
                 android:layout_width="match_parent"

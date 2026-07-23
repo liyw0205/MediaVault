@@ -26,6 +26,7 @@ import com.mediavault.data.LibrarySourceContext
 import com.mediavault.data.ScrapeEvidence
 import com.mediavault.data.TmdbMatchHeuristics
 import com.mediavault.data.WatchQueueStore
+import com.mediavault.playback.ExternalOpen
 import com.mediavault.playback.PlaylistBuilder
 import com.mediavault.remote.RemotePath
 import kotlinx.coroutines.launch
@@ -142,6 +143,9 @@ class VideoDetailActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.btnPlay).setOnClickListener { play(item) }
         bindQueueButton(item)
+        findViewById<MaterialButton>(R.id.btnOpenExternal).setOnClickListener {
+            ExternalOpen.open(this, item)
+        }
         coverView.setOnClickListener { play(item) }
 
         bindNextUp(item, sameCollection)

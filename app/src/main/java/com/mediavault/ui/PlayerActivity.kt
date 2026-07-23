@@ -43,8 +43,11 @@ import com.mediavault.remote.RemoteDataSourceFactory
 import com.mediavault.remote.RemoteErrorMessages
 import com.mediavault.remote.RemotePath
 import com.mediavault.remote.RemotePlayUri
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
 import com.mediavault.util.ScreenshotSaver
 import java.io.File
 
@@ -133,7 +136,9 @@ class PlayerActivity : AppCompatActivity() {
 
         val remoteFactory = RemoteDataSourceFactory(this, store)
         val defaultDs = DefaultDataSource.Factory(this, remoteFactory)
-        val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(defaultDs)
+        // MKV 内嵌 ASS/SSA 在默认 textTrackTranscoding 下会进 SsaParser 并
+        // IllegalStateException 直接 Source error（见 logcat STAP-036）。关闭转码后仍可出轨，由渲染侧处理/忽略坏字幕。
+        val mediaSourceFactory = buildMediaSourceFactory(defaultDs)
 
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -1034,6 +1039,16 @@ class PlayerActivity : AppCompatActivity() {
             loadEpisode(it, uri, title, currentMediaPath)
             it.seekTo(pos)
         }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun buildMediaSourceFactory(
+        defaultDs: DefaultDataSource.Factory,
+    ): DefaultMediaSourceFactory {
+        val extractors = DefaultExtractorsFactory()
+            .setTextTrackTranscodingEnabled(false)
+        return DefaultMediaSourceFactory(this, extractors)
+            .setDataSourceFactory(defaultDs)
     }
 
     private fun resolveStartUri(startPath: String, store: com.mediavault.data.MediaStore): Uri {
