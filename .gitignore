@@ -17,4 +17,7 @@ local.properties
 *.aab
 
 # OS
-.DS_Storelogcat*.log
+.DS_Store
+
+# local debug captures
+logcat*.log
