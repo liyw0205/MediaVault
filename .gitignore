@@ -17,4 +17,4 @@ local.properties
 *.aab
 
 # OS
-.DS_Store
+.DS_Storelogcat*.log
