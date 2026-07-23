@@ -53,29 +53,47 @@ object RemoteCoverHelper {
         val parent = norm.substringBeforeLast('/', "")
         val videoName = norm.substringAfterLast('/')
         val base = videoName.substringBeforeLast('.')
-        val bases = listOf(base, videoName, "$base-poster", "$base-cover", "$base-thumb", "$base-thumbnail")
+        // 远程 sidecar：poster/cover 优先于其它图名
+        val bases = listOf(
+            "$base-poster",
+            "$base.poster",
+            "poster",
+            "$base-cover",
+            "$base.cover",
+            "cover",
+            base,
+            videoName,
+            "$base-thumb",
+            "$base-thumbnail",
+            "$base-fanart",
+            "fanart",
+        )
         val listPath = parent.ifBlank { "" }
         val entries = runCatching { client.list(listPath) }.getOrElse { emptyList() }
-        for (e in entries) {
-            if (e.directory) continue
-            val name = e.name.ifBlank { e.path.substringAfterLast('/') }
-            val ext = name.substringAfterLast('.', "").lowercase()
-            if (ext !in IMG_EXT) continue
-            val stem = name.substringBeforeLast('.')
-            if (bases.none { it.equals(stem, ignoreCase = true) }) continue
-            if (e.size > MAX_SIDECAR_BYTES) continue
-            val relImg = joinPath(parent, name)
-            val key = "remote-image|${config.id}|$relVideoPath|$relImg|${e.size}"
-            val dest = coverFile(store.coversDir, key, if (ext == "jpeg") "jpg" else ext)
-            if (!dest.isFile || dest.length() == 0L) {
-                runCatching {
-                    client.openRead(relImg).use { input ->
-                        dest.outputStream().use { out -> input.copyTo(out) }
+        // 远程 list 无序；按 bases 优先级选第一张匹配图
+        for (want in bases) {
+            for (e in entries) {
+                if (e.directory) continue
+                val name = e.name.ifBlank { e.path.substringAfterLast('/') }
+                val ext = name.substringAfterLast('.', "").lowercase()
+                if (ext !in IMG_EXT) continue
+                val stem = name.substringBeforeLast('.')
+                if (!stem.equals(want, ignoreCase = true)) continue
+                if (e.size > 0L && e.size < CoverFileCache.MIN_VALID_BYTES) continue
+                if (e.size > MAX_SIDECAR_BYTES) continue
+                val relImg = joinPath(parent, name)
+                val key = "remote-image|${config.id}|$relVideoPath|$relImg|${e.size}"
+                val dest = coverFile(store.coversDir, key, if (ext == "jpeg") "jpg" else ext)
+                if (!CoverFileCache.keepIfValid(dest)) {
+                    val ok = CoverFileCache.atomicWrite(dest) { tmp ->
+                        client.openRead(relImg).use { input ->
+                            tmp.outputStream().use { out -> input.copyTo(out) }
+                        }
                     }
-                }.getOrNull() ?: continue
-                if (!dest.isFile || dest.length() == 0L) continue
+                    if (!ok) continue
+                }
+                return dest.absolutePath
             }
-            return dest.absolutePath
         }
         return null
     }
@@ -89,17 +107,19 @@ object RemoteCoverHelper {
     ): String? {
         val key = "remote-frame|${config.id}|$relVideoPath|$FRAME_HEAD_BYTES"
         val dest = coverFile(store.coversDir, key, "jpg")
-        if (dest.isFile && dest.length() > 0) return dest.absolutePath
+        if (CoverFileCache.keepIfValid(dest)) return dest.absolutePath
         val ext = relVideoPath.substringAfterLast('.', "mp4").lowercase()
         val tmp = File.createTempFile("mv-remote-frame-", ".$ext", context.cacheDir)
         try {
             if (!downloadHead(client, relVideoPath, tmp, FRAME_HEAD_BYTES)) return null
             val bmp = extractFrame(tmp) ?: return null
-            FileOutputStream(dest).use { out ->
-                bmp.compress(Bitmap.CompressFormat.JPEG, 88, out)
+            val ok = CoverFileCache.atomicWrite(dest) { outFile ->
+                FileOutputStream(outFile).use { out ->
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 88, out)
+                }
             }
             bmp.recycle()
-            return if (dest.isFile) dest.absolutePath else null
+            return if (ok) dest.absolutePath else null
         } finally {
             tmp.delete()
         }

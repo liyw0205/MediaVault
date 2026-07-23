@@ -38,8 +38,7 @@ object SidecarScanner {
         val children = dir.listFiles()
         val byName = indexByName(children)
         val xml = if (includeNfo) pickNfoXml(context, byName, parent, dir.name ?: "", videoName) else null
-        val coverUri = if (includeCover) pickCoverUri(byName, videoName) else null
-        val coverLocal = coverUri?.let { cacheCoverFromUri(context, it, videoPath, coversDir) }
+        val coverPick = if (includeCover) cacheFirstCover(context, byName, videoName, videoPath, coversDir) else null
         val subs = if (includeSubtitles) {
             pickSubtitles(byName, videoName, context)
         } else emptyList()
@@ -47,7 +46,7 @@ object SidecarScanner {
             val ext = name.substringAfterLast('.', "").lowercase()
             ext !in VIDEO_EXT
         }
-        return SidecarBundle(subs, coverUri?.toString(), coverLocal, xml, siblings)
+        return SidecarBundle(subs, coverPick?.first, coverPick?.second, xml, siblings)
     }
 
     private data class IndexedChild(val file: DocumentFile, val name: String, val ext: String)
@@ -58,6 +57,8 @@ object SidecarScanner {
             if (!c.isFile) continue
             val name = c.name ?: continue
             val ext = name.substringAfterLast('.', "").lowercase()
+            // 大小写不敏感索引，避免 Poster.PNG 等漏匹配
+            map.putIfAbsent(name.lowercase(), IndexedChild(c, name, ext))
             map.putIfAbsent(name, IndexedChild(c, name, ext))
         }
         return map
@@ -83,7 +84,7 @@ object SidecarScanner {
             candidates += "$folder.NFO"
         }
         for (name in candidates) {
-            val ic = byName[name] ?: continue
+            val ic = byName[name] ?: byName[name.lowercase()] ?: continue
             val xml = context.contentResolver.openInputStream(ic.file.uri)?.bufferedReader()?.readText()
             if (!xml.isNullOrBlank()) return xml
         }
@@ -98,38 +99,74 @@ object SidecarScanner {
         return null
     }
 
-    private fun pickCoverUri(byName: Map<String, IndexedChild>, videoName: String): Uri? {
+    /**
+     * 候选封面名优先级：同名/poster/cover 优先于 fanart；再按同 base 前缀图。
+     * 返回按优先级排列的 DocumentFile URI 列表。
+     */
+    private fun orderedCoverCandidates(byName: Map<String, IndexedChild>, videoName: String): List<IndexedChild> {
         val base = videoName.substringBeforeLast('.')
-        val ordered = mutableListOf<String>()
+        val orderedNames = mutableListOf<String>()
+        // 1) 视频同名图
         for (ext in IMG_EXT) {
-            ordered += "$videoName.$ext"
-            ordered += "$base.$ext"
+            orderedNames += "$base.$ext"
+            orderedNames += "$videoName.$ext"
         }
+        // 2) poster / cover / thumb（列表封面优先）
         for (ext in IMG_EXT) {
-            ordered += "fanart.$ext"
-            ordered += "$base-fanart.$ext"
-            ordered += "$base.fanart.$ext"
+            orderedNames += "poster.$ext"
+            orderedNames += "$base-poster.$ext"
+            orderedNames += "$base.poster.$ext"
+            orderedNames += "cover.$ext"
+            orderedNames += "$base-cover.$ext"
+            orderedNames += "$base.cover.$ext"
+            orderedNames += "folder.$ext"
+            orderedNames += "thumb.$ext"
+            orderedNames += "$base-thumb.$ext"
+            orderedNames += "$base-thumbnail.$ext"
+            orderedNames += "$base.thumb.$ext"
         }
+        // 3) fanart 作后备
         for (ext in IMG_EXT) {
-            ordered += "poster.$ext"
-            ordered += "$base-poster.$ext"
-            ordered += "$base.poster.$ext"
+            orderedNames += "fanart.$ext"
+            orderedNames += "$base-fanart.$ext"
+            orderedNames += "$base.fanart.$ext"
+            orderedNames += "$base-fanart1.$ext"
+            orderedNames += "$base-backdrop.$ext"
         }
-        for (ext in IMG_EXT) {
-            ordered += "folder.$ext"
-            ordered += "cover.$ext"
-            ordered += "$base-cover.$ext"
-            ordered += "$base-thumb.$ext"
-            ordered += "$base-thumbnail.$ext"
-            ordered += "thumb.$ext"
+        val seen = linkedSetOf<String>()
+        val out = mutableListOf<IndexedChild>()
+        fun addName(name: String) {
+            val ic = byName[name] ?: byName[name.lowercase()] ?: return
+            val key = ic.file.uri.toString()
+            if (key in seen) return
+            if (ic.ext !in IMG_EXT) return
+            seen += key
+            out += ic
         }
-        for ((name, ic) in byName) {
+        for (n in orderedNames) addName(n)
+        // 4) 同目录、文件名以视频 base 开头的其它图（如 -fanart1）
+        val baseLower = base.lowercase()
+        for ((_, ic) in byName) {
             if (ic.ext !in IMG_EXT) continue
-            if (name !in ordered) ordered += name
+            if (!ic.name.lowercase().startsWith(baseLower)) continue
+            val key = ic.file.uri.toString()
+            if (key in seen) continue
+            seen += key
+            out += ic
         }
-        for (name in ordered) {
-            val ic = byName[name] ?: continue
-            return ic.file.uri
+        return out
+    }
+
+    private fun cacheFirstCover(
+        context: Context,
+        byName: Map<String, IndexedChild>,
+        videoName: String,
+        videoPath: String,
+        coversDir: File,
+    ): Pair<String, String>? {
+        for (ic in orderedCoverCandidates(byName, videoName)) {
+            val local = cacheCoverFromUri(context, ic.file.uri, videoPath, coversDir) ?: continue
+            return ic.file.uri.toString() to local
         }
         return null
     }
@@ -137,29 +174,45 @@ object SidecarScanner {
     private fun pickSubtitles(byName: Map<String, IndexedChild>, videoName: String, context: Context): List<String> {
         val base = videoName.substringBeforeLast('.')
         val out = mutableListOf<String>()
-        for ((name, ic) in byName) {
+        val seen = mutableSetOf<String>()
+        for ((_, ic) in byName) {
             if (ic.ext !in SUB_EXT) continue
-            if (name.startsWith(base, ignoreCase = true) || name.equals("$base.${ic.ext}", ignoreCase = true)) {
-                out.add(ic.file.uri.toString())
+            if (ic.name.startsWith(base, ignoreCase = true) ||
+                ic.name.equals("$base.${ic.ext}", ignoreCase = true)
+            ) {
+                val u = ic.file.uri.toString()
+                if (seen.add(u)) out.add(u)
             }
         }
         return SubtitlePrefs.sortSubtitlePaths(context, out)
     }
 
     fun cacheCoverFromUri(context: Context, coverUri: Uri, videoPath: String, coversDir: File): String? {
-        val ext = coverUri.lastPathSegment?.substringAfterLast('.', "jpg")?.lowercase() ?: "jpg"
+        val ext = guessImageExt(coverUri)
         val safeExt = if (ext in IMG_EXT) if (ext == "jpeg") "jpg" else ext else "jpg"
         val id = sha1("$videoPath|cover")
         val dest = File(coversDir, "$id.$safeExt")
-        if (dest.isFile && dest.length() > 0) return dest.absolutePath
-        return try {
-            context.contentResolver.openInputStream(coverUri)?.use { input ->
-                dest.outputStream().use { out -> input.copyTo(out) }
+        // 有效缓存直接复用；极小/非图片缓存强制重拉
+        if (CoverFileCache.keepIfValid(dest)) return dest.absolutePath
+        // 同 key 其它扩展的坏/旧文件清掉，避免库里指到旧 .jpg 而新写了 .png
+        coversDir.listFiles()?.forEach { f ->
+            if (f.isFile && f.name.startsWith("$id.") && f.name != dest.name) {
+                if (!CoverFileCache.isValidCoverFile(f)) runCatching { f.delete() }
             }
-            if (dest.isFile) dest.absolutePath else null
-        } catch (_: Exception) {
-            null
         }
+        val ok = CoverFileCache.atomicWrite(dest) { tmp ->
+            context.contentResolver.openInputStream(coverUri)?.use { input ->
+                tmp.outputStream().use { out -> input.copyTo(out) }
+            } ?: error("open cover stream failed")
+        }
+        return if (ok) dest.absolutePath else null
+    }
+
+    private fun guessImageExt(coverUri: Uri): String {
+        val seg = coverUri.lastPathSegment?.substringAfterLast('/') ?: return "jpg"
+        // SAF document id 可能是 primary:path/to/file-poster.png
+        val name = seg.substringAfterLast(':').substringAfterLast('/')
+        return name.substringAfterLast('.', "jpg").lowercase()
     }
 
     fun seasonEpisodeFromName(name: String): Pair<String, String> {

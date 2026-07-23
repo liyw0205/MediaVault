@@ -91,15 +91,15 @@ object OnlineMetadataEnricher {
         o.put("tmdb_match_title", match.title)
         if (match.year.isNotBlank()) o.put("tmdb_match_year", match.year)
 
-        if (existingCoverLocal.isNullOrBlank()) {
+        if (existingCoverLocal.isNullOrBlank() || !CoverFileCache.isValidCoverFile(File(existingCoverLocal))) {
             val artUrl = match.episodeStillUrl?.takeIf { it.isNotBlank() } ?: match.posterUrl
             if (!artUrl.isNullOrBlank()) {
                 val dest = File(store.coversDir, "tmdb_${sha1(path)}.jpg")
-                val wasMissing = !dest.isFile || dest.length() < 512
+                val wasMissing = !CoverFileCache.isValidCoverFile(dest)
                 if (wasMissing) {
                     TmdbClient.downloadPoster(artUrl, dest)
                 }
-                if (dest.isFile && dest.length() >= 512) {
+                if (CoverFileCache.isValidCoverFile(dest)) {
                     o.put("cover_local", dest.absolutePath)
                     o.put("cover_source", "tmdb")
                     if (wasMissing) {
@@ -172,11 +172,11 @@ object OnlineMetadataEnricher {
         if (!artUrl.isNullOrBlank()) {
             val dest = File(store.coversDir, "tmdb_${sha1(path)}.jpg")
             TmdbClient.downloadPoster(artUrl, dest)
-            if (dest.isFile && dest.length() >= 512) {
+            if (CoverFileCache.isValidCoverFile(dest)) {
                 o.put("cover_local", dest.absolutePath)
                 o.put("cover_source", "tmdb")
             }
-        } else if (!existingCoverLocal.isNullOrBlank()) {
+        } else if (!existingCoverLocal.isNullOrBlank() && CoverFileCache.isValidCoverFile(File(existingCoverLocal))) {
             o.put("cover_local", existingCoverLocal)
         }
         return o

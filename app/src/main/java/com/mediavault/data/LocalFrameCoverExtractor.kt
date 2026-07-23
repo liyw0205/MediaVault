@@ -22,14 +22,16 @@ object LocalFrameCoverExtractor {
     ): String? = frameGate.withPermit {
         val key = "local-frame|$videoPath"
         val dest = coverFile(coversDir, key, "jpg")
-        if (dest.isFile && dest.length() > 0L) return@withPermit dest.absolutePath
+        if (CoverFileCache.keepIfValid(dest)) return@withPermit dest.absolutePath
         val bmp = extractFrameBitmap(context, videoUri) ?: return@withPermit null
         return@withPermit try {
-            FileOutputStream(dest).use { out ->
-                bmp.compress(Bitmap.CompressFormat.JPEG, 88, out)
+            val ok = CoverFileCache.atomicWrite(dest) { tmp ->
+                FileOutputStream(tmp).use { out ->
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 88, out)
+                }
             }
             bmp.recycle()
-            if (dest.isFile && dest.length() > 0L) dest.absolutePath else null
+            if (ok) dest.absolutePath else null
         } catch (_: Exception) {
             bmp.recycle()
             null
