@@ -176,16 +176,21 @@ object LibraryUi {
         progressPaths: Set<String>,
         seed: Long,
         limit: Int,
+        recentlyShownPaths: Collection<String> = emptyList(),
     ): RecommendationResult {
         if (items.isEmpty()) return RecommendationResult(emptyList(), "", emptyMap())
         val byPath = items.associateBy { it.path }
-        val historyItems = historyPaths.mapNotNull { byPath[it] }.take(12)
+        val historyItems = historyPaths.mapNotNull { byPath[it] }.take(20)
         val historySet = historyPaths.toHashSet()
+        val cooldown = recentlyShownPaths.toHashSet()
+        val rnd = Random(seed)
         val candidates = linkedMapOf<String, RecommendationCandidate>()
 
         fun offer(item: MediaItem, reason: String, baseScore: Int) {
             if (item.path.isBlank()) return
-            val score = baseScore + stableJitter(seed, item.path)
+            // 已推过的批次强降权；库耗尽时仍可作为兜底入选
+            val cooled = if (item.path in cooldown) COOLDOWN_PENALTY else 0
+            val score = baseScore + stableJitter(seed, item.path) - cooled
             val cur = candidates[item.path]
             if (cur == null || score > cur.score) {
                 candidates[item.path] = RecommendationCandidate(item, reason, score)
@@ -196,13 +201,22 @@ object LibraryUi {
             .map { PlaylistBuilder.collectionKey(it) }
             .filter { it.isNotBlank() }
             .distinct()
-            .take(4)
+            .take(6)
         collections.forEachIndexed { ci, key ->
-            PlaylistBuilder.sortEpisodes(items.filter { PlaylistBuilder.collectionKey(it) == key })
-                .filterNot { it.path in historySet || it.path in progressPaths }
-                .forEachIndexed { i, item ->
-                    offer(item, RECOMMEND_REASON_COLLECTION, 150 - ci * 8 - i.coerceAtMost(30))
-                }
+            val episodes = PlaylistBuilder.sortEpisodes(
+                items.filter { PlaylistBuilder.collectionKey(it) == key },
+            ).filterNot { it.path in historySet || it.path in progressPaths }
+            // 合集内用 seed 扰动顺序，避免总是推同一前几集
+            val ordered = if (episodes.size <= 1) {
+                episodes
+            } else {
+                val head = episodes.take(2)
+                val rest = episodes.drop(2).shuffled(Random(seed xor key.hashCode().toLong()))
+                head + rest
+            }
+            ordered.forEachIndexed { i, item ->
+                offer(item, RECOMMEND_REASON_COLLECTION, 150 - ci * 8 - i.coerceAtMost(30))
+            }
         }
 
         val tagAnchors = historyItems
@@ -210,12 +224,18 @@ object LibraryUi {
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .distinct()
-            .take(10)
+            .take(16)
         if (tagAnchors.isNotEmpty()) {
-            for (item in items) {
-                if (item.path in historySet || item.path in progressPaths) continue
-                val matches = (item.tags + item.genres).count { it in tagAnchors }
-                if (matches > 0) offer(item, RECOMMEND_REASON_TYPE, 120 + matches * 5)
+            val typeHits = items.asSequence()
+                .filter { it.path !in historySet && it.path !in progressPaths }
+                .mapNotNull { item ->
+                    val matches = (item.tags + item.genres).count { it in tagAnchors }
+                    if (matches > 0) item to matches else null
+                }
+                .toList()
+                .shuffled(rnd)
+            for ((item, matches) in typeHits) {
+                offer(item, RECOMMEND_REASON_TYPE, 120 + matches * 5)
             }
         }
 
@@ -223,26 +243,44 @@ object LibraryUi {
             compareByDescending<MediaItem> { it.modified }
                 .thenBy { it.displayTitle().lowercase() },
         )
-        sortedRecent
-            .filter { it.coverLocalPath() != null && it.path !in historySet && it.path !in progressPaths }
-            .take(limit * 2)
-            .forEachIndexed { i, item -> offer(item, RECOMMEND_REASON_COVER, 95 - i.coerceAtMost(40)) }
+        val notWatched = { item: MediaItem ->
+            item.path !in historySet && item.path !in progressPaths
+        }
 
-        sortedRecent
-            .filter { it.path !in historySet && it.path !in progressPaths }
-            .take(limit * 3)
-            .forEachIndexed { i, item -> offer(item, RECOMMEND_REASON_UNWATCHED, 75 - i.coerceAtMost(40)) }
+        // 封面：最近头部 + 全库随机抽样，避免永远只推 modified 最前的那几张
+        val withCover = items.filter { it.coverLocalPath() != null && notWatched(it) }
+        mixRecentAndRandom(withCover, sortedRecent.filter { it.coverLocalPath() != null && notWatched(it) }, limit, rnd)
+            .forEachIndexed { i, item ->
+                offer(item, RECOMMEND_REASON_COVER, 95 - i.coerceAtMost(50))
+            }
 
-        sortedRecent
-            .take(limit * 3)
-            .forEachIndexed { i, item -> offer(item, RECOMMEND_REASON_RECENT, 45 - i.coerceAtMost(40)) }
+        val unwatched = items.filter(notWatched)
+        mixRecentAndRandom(unwatched, sortedRecent.filter(notWatched), limit, rnd)
+            .forEachIndexed { i, item ->
+                offer(item, RECOMMEND_REASON_UNWATCHED, 75 - i.coerceAtMost(50))
+            }
 
-        val picked = candidates.values
-            .sortedWith(
-                compareByDescending<RecommendationCandidate> { it.score }
-                    .thenBy { it.item.displayTitle().lowercase() },
-            )
-            .take(limit)
+        mixRecentAndRandom(items, sortedRecent, limit, rnd)
+            .forEachIndexed { i, item ->
+                offer(item, RECOMMEND_REASON_RECENT, 45 - i.coerceAtMost(50))
+            }
+
+        // 无观看锚点时仍保证全库有机会：补一轮纯随机低分候选
+        if (historyItems.isEmpty() && items.size > limit) {
+            items.shuffled(rnd).take(limit * 4).forEachIndexed { i, item ->
+                offer(item, RECOMMEND_REASON_UNWATCHED, 55 - i.coerceAtMost(40))
+            }
+        }
+
+        val ranked = candidates.values.sortedWith(
+            compareByDescending<RecommendationCandidate> { it.score }
+                .thenBy { stableJitter(seed xor 0x5bd1e995L, it.item.path) }
+                .thenBy { it.item.displayTitle().lowercase() },
+        )
+        // 优先用未出现在冷却环的条目；不足再回填已推过的
+        val fresh = ranked.filter { it.item.path !in cooldown }
+        val cooled = ranked.filter { it.item.path in cooldown }
+        val picked = (fresh + cooled).take(limit)
         val counts = picked.groupingBy { it.reason }.eachCount()
         val summary = recommendationReasonCounts(counts)
             .joinToString(" · ") { "${it.label} ${it.count}" }
@@ -290,8 +328,30 @@ object LibraryUi {
         val score: Int,
     )
 
+    /** 与最高规则分同量级，保证「未推过」优先于「刚推过但高分」 */
+    private const val COOLDOWN_PENALTY = 280
+
+    /**
+     * 最近入库头部 + 全池随机抽样混合，扩大候选面。
+     * [recentOrdered] 已按 modified 降序；[pool] 为规则过滤后的全集。
+     */
+    private fun mixRecentAndRandom(
+        pool: List<MediaItem>,
+        recentOrdered: List<MediaItem>,
+        limit: Int,
+        rnd: Random,
+    ): List<MediaItem> {
+        if (pool.isEmpty()) return emptyList()
+        val recentTake = (limit * 3).coerceAtLeast(1)
+        val randomTake = (limit * 8).coerceAtLeast(1)
+        val recent = recentOrdered.take(recentTake)
+        val random = pool.shuffled(rnd).take(randomTake)
+        return (recent + random).distinctBy { it.path }
+    }
+
+    /** 抖动加宽到 0..40，同档规则内换一批更易换序 */
     private fun stableJitter(seed: Long, key: String): Int =
-        abs((seed xor key.hashCode().toLong()).toInt() % 17)
+        abs((seed xor key.hashCode().toLong()).toInt() % 41)
 
     fun historyItems(all: List<MediaItem>, paths: List<String>): List<MediaItem> {
         val map = all.associateBy { it.path }

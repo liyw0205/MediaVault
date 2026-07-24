@@ -6,8 +6,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * 推荐列表持久化：切换底栏、库增量更新都不重随机。
- * 仅工具栏「重读」或主页「刷新推荐」会清空并重建。
+ * 推荐列表持久化：切换底栏、库增量更新都不重抽。
+ * 仅工具栏「重读」或主页「刷新推荐」会清空当前列表并重建。
+ * 另持久化最近多批已推 path，换一批时优先避开，减少重复。
  */
 object HomeRecommendState {
     private const val PREFS = "home_recommend"
@@ -17,9 +18,14 @@ object HomeRecommendState {
     private const val KEY_SUMMARY = "summary"
     private const val KEY_READY = "ready"
     private const val KEY_AUTO_SEEDED = "auto_seeded"
+    private const val KEY_SHOWN = "shown_paths"
+
+    /** 约 5 批 × 20 条，换一批时优先避开 */
+    private const val SHOWN_HISTORY_LIMIT = 100
 
     private var paths: List<String> = emptyList()
     private var reasons: Map<String, String> = emptyMap()
+    private var shownPaths: List<String> = emptyList()
     private var seed: Long = 0L
     private var summary: String = ""
     private var ready: Boolean = false
@@ -34,10 +40,8 @@ object HomeRecommendState {
         autoSeeded = p.getBoolean(KEY_AUTO_SEEDED, false)
         seed = p.getLong(KEY_SEED, 0L)
         summary = p.getString(KEY_SUMMARY, "").orEmpty()
-        val arr = p.getString(KEY_PATHS, null)?.let { JSONArray(it) }
-        paths = if (arr != null) {
-            (0 until arr.length()).mapNotNull { i -> arr.optString(i).takeIf { it.isNotBlank() } }
-        } else emptyList()
+        paths = readPathList(p.getString(KEY_PATHS, null))
+        shownPaths = readPathList(p.getString(KEY_SHOWN, null))
         val reasonObj = p.getString(KEY_REASONS, null)?.let { JSONObject(it) }
         reasons = if (reasonObj != null) {
             reasonObj.keys().asSequence()
@@ -97,6 +101,7 @@ object HomeRecommendState {
 
     /**
      * 从当前库按可解释规则挑选 20 条并写入磁盘（仅由「重读」「刷新推荐」调用）。
+     * 会参考 recently shown 冷却环，并在写入后把本批 path 并入冷却历史。
      */
     fun rebuildAndPersist(
         ctx: Context,
@@ -104,6 +109,7 @@ object HomeRecommendState {
         historyPaths: List<String>,
         progressPaths: Set<String>,
     ): List<MediaItem> {
+        ensureLoaded(ctx)
         seed = System.currentTimeMillis()
         val result = LibraryUi.explainableRecommendations(
             items = filtered,
@@ -111,11 +117,13 @@ object HomeRecommendState {
             progressPaths = progressPaths,
             seed = seed,
             limit = RECOMMEND_COUNT,
+            recentlyShownPaths = shownPaths,
         )
         paths = result.items.map { it.path }
         reasons = result.reasons
         summary = result.summary
         ready = true
+        shownPaths = mergeShownRing(shownPaths, paths)
         persist(ctx)
         return result.items
     }
@@ -125,6 +133,10 @@ object HomeRecommendState {
         return summary
     }
 
+    /**
+     * 清空当前推荐列表（保留已推冷却环，换一批才能继续去重）。
+     * 工具栏「重读」与手动刷新都走这里。
+     */
     fun clearPersist(ctx: Context) {
         ready = false
         seed = 0L
@@ -141,22 +153,44 @@ object HomeRecommendState {
             .apply()
     }
 
-    /** 手动刷新推荐：清空列表，保留 auto_seeded，避免立刻再自动种子 */
-
+    /** 手动刷新推荐：清空当前列表，保留 auto_seeded 与 shown 冷却 */
     fun clearForManualRefresh(ctx: Context) = clearPersist(ctx)
 
     private fun persist(ctx: Context) {
         val arr = JSONArray()
         paths.forEach { arr.put(it) }
+        val shownArr = JSONArray()
+        shownPaths.forEach { shownArr.put(it) }
         val reasonObj = JSONObject()
         reasons.forEach { (path, reason) -> reasonObj.put(path, reason) }
         ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_PATHS, arr.toString())
             .putString(KEY_REASONS, reasonObj.toString())
+            .putString(KEY_SHOWN, shownArr.toString())
             .putLong(KEY_SEED, seed)
             .putString(KEY_SUMMARY, summary)
             .putBoolean(KEY_READY, ready)
             .apply()
+    }
+
+    private fun readPathList(raw: String?): List<String> {
+        val arr = raw?.let { JSONArray(it) } ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i -> arr.optString(i).takeIf { it.isNotBlank() } }
+    }
+
+    /** 旧批在前、新批在后；同 path 移到末尾；超限从头部丢弃（先冷却完的先释放）。 */
+    private fun mergeShownRing(previous: List<String>, batch: List<String>): List<String> {
+        val ring = previous.toMutableList()
+        for (path in batch) {
+            if (path.isBlank()) continue
+            ring.remove(path)
+            ring.add(path)
+        }
+        return if (ring.size <= SHOWN_HISTORY_LIMIT) {
+            ring
+        } else {
+            ring.subList(ring.size - SHOWN_HISTORY_LIMIT, ring.size).toList()
+        }
     }
 
     const val RECOMMEND_COUNT = 20
